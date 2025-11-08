@@ -137,8 +137,11 @@ $pageTitle = 'Création des Comptes de Test';
                             throw new Exception("Impossible de se connecter à la base de données. Vérifiez votre configuration .env");
                         }
 
-                        // Lire le fichier SQL
-                        $sqlFile = __DIR__ . '/../sql/create-test-accounts.sql';
+                        // Utiliser le fichier SQL simplifié s'il existe, sinon l'original
+                        $sqlFile = __DIR__ . '/../sql/create-test-accounts-simple.sql';
+                        if (!file_exists($sqlFile)) {
+                            $sqlFile = __DIR__ . '/../sql/create-test-accounts.sql';
+                        }
 
                         if (!file_exists($sqlFile)) {
                             throw new Exception("Le fichier SQL n'existe pas : $sqlFile");
@@ -162,6 +165,9 @@ $pageTitle = 'Création des Comptes de Test';
                         $executed = 0;
                         $debug_mode = true; // Activer le mode debug
                         $debug_info = [];
+
+                        // Démarrer une transaction PDO
+                        $db->beginTransaction();
 
                         foreach ($queries as $query) {
                             $query = trim($query);
@@ -209,6 +215,25 @@ $pageTitle = 'Création des Comptes de Test';
                                     $errors[] = "Requête #$executed : " . $errorMsg . "<br><small>Requête: " . htmlspecialchars($query_preview) . "</small>";
                                 }
                             }
+                        }
+
+                        // Valider la transaction si pas d'erreurs critiques
+                        if (count($errors) === 0) {
+                            $db->commit();
+                            $debug_info[] = [
+                                'num' => ++$executed,
+                                'status' => 'success',
+                                'query' => 'COMMIT TRANSACTION',
+                                'affected_rows' => 0
+                            ];
+                        } else {
+                            $db->rollBack();
+                            $debug_info[] = [
+                                'num' => ++$executed,
+                                'status' => 'error',
+                                'query' => 'ROLLBACK TRANSACTION',
+                                'error' => 'Transaction annulée à cause d\'erreurs'
+                            ];
                         }
 
                         // Afficher le mode debug
@@ -345,6 +370,11 @@ $pageTitle = 'Création des Comptes de Test';
                         }
 
                     } catch (Exception $e) {
+                        // Annuler la transaction en cas d'erreur
+                        if ($db && $db->inTransaction()) {
+                            $db->rollBack();
+                        }
+
                         echo '<div class="alert alert-danger">
                             <i class="fas fa-times-circle me-2"></i>
                             <strong>Erreur !</strong> ' . htmlspecialchars($e->getMessage()) . '

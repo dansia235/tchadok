@@ -74,6 +74,9 @@ $RECYCLE.BIN/
 backup/
 backups/
 
+# Exception : Autoriser les scripts SQL dans le dossier sql/
+!sql/*.sql
+
 # Fichiers de session
 storage/sessions/
 sessions/
