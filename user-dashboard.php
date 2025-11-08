@@ -1,6 +1,7 @@
 <?php
 /**
- * Dashboard Utilisateur - Tchadok Platform
+ * Dashboard Utilisateur - Tchadok Platform v2.0
+ * Design moderne et innovant
  */
 
 require_once 'includes/functions.php';
@@ -12,386 +13,298 @@ if (!isLoggedIn()) {
     exit();
 }
 
-$pageTitle = 'Mon Tableau de Bord';
+$pageTitle = 'Tableau de Bord';
 $pageDescription = 'Gérez votre compte et vos préférences musicales';
 
-// Données simulées de l'utilisateur
-$userStats = [
-    'total_plays' => rand(100, 5000),
-    'listening_hours' => rand(10, 500),
-    'favorite_tracks' => rand(20, 200),
-    'playlists_created' => rand(2, 20),
-    'artists_following' => rand(5, 50),
-    'subscription_type' => rand(0, 1) ? 'premium' : 'free',
-    'member_since' => date('Y-m-d', strtotime('-' . rand(30, 365) . ' days'))
-];
+// Récupérer les données utilisateur
+$user = getCurrentUser();
+
+// Récupérer les statistiques réelles depuis la BD
+try {
+    $dbInstance = TchadokDatabase::getInstance();
+    $db = $dbInstance->getConnection();
+
+    $userId = $_SESSION['user_id'];
+
+    // Stats de base (simulées pour le moment)
+    $userStats = [
+        'total_plays' => 0,
+        'listening_hours' => 0,
+        'favorite_tracks' => 0,
+        'playlists_created' => 0,
+        'subscription_type' => $user['premium_status'] ? 'premium' : 'free',
+        'member_since' => $user['created_at'] ?? date('Y-m-d')
+    ];
+
+} catch (Exception $e) {
+    $userStats = [
+        'total_plays' => 0,
+        'listening_hours' => 0,
+        'favorite_tracks' => 0,
+        'playlists_created' => 0,
+        'subscription_type' => 'free',
+        'member_since' => date('Y-m-d')
+    ];
+}
 
 include 'includes/header.php';
 ?>
 
-<div class="user-dashboard">
-    <!-- Header Section -->
-    <section class="dashboard-header py-4" style="background: linear-gradient(135deg, #0066CC 0%, #FFD700 100%);">
-        <div class="container">
-            <div class="row align-items-center text-white">
+<div class="dashboard-container">
+    <!-- Hero Header avec Gradient Tchadok -->
+    <section class="dashboard-hero">
+        <div class="hero-gradient"></div>
+        <div class="container position-relative">
+            <div class="row align-items-center py-5">
                 <div class="col-lg-8">
-                    <div class="d-flex align-items-center mb-3">
-                        <img src="<?php echo SITE_URL; ?>/assets/images/default-avatar.png" 
-                             alt="Avatar" class="rounded-circle me-3" style="width: 80px; height: 80px;">
-                        <div>
-                            <h1 class="h2 mb-1">
-                                Bonjour, <?php echo htmlspecialchars($_SESSION['first_name'] ?? 'Utilisateur'); ?> !
+                    <div class="welcome-section">
+                        <div class="user-avatar-wrapper">
+                            <div class="avatar-circle">
+                                <span class="avatar-initial">
+                                    <?php echo strtoupper(substr($user['first_name'], 0, 1) . substr($user['last_name'], 0, 1)); ?>
+                                </span>
+                            </div>
+                            <?php if ($userStats['subscription_type'] === 'premium'): ?>
+                            <div class="premium-badge">
+                                <i class="fas fa-crown"></i>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                        <div class="welcome-text">
+                            <h1 class="display-5 text-white mb-2 animate-fade-in">
+                                Bienvenue, <?php echo htmlspecialchars($user['first_name']); ?> !
                             </h1>
-                            <p class="mb-0 opacity-75">
-                                <?php if ($userStats['subscription_type'] === 'premium'): ?>
-                                    <i class="fas fa-crown text-warning me-1"></i> Membre Premium
-                                <?php else: ?>
-                                    <i class="fas fa-user me-1"></i> Membre Gratuit
-                                <?php endif; ?>
-                                • Membre depuis <?php echo date('F Y', strtotime($userStats['member_since'])); ?>
+                            <p class="text-white-50 mb-0">
+                                <i class="fas fa-calendar me-2"></i>
+                                Membre depuis <?php echo date('F Y', strtotime($userStats['member_since'])); ?>
                             </p>
                         </div>
                     </div>
                 </div>
-                <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+                <div class="col-lg-4 text-lg-end mt-4 mt-lg-0">
                     <?php if ($userStats['subscription_type'] !== 'premium'): ?>
-                    <a href="<?php echo SITE_URL; ?>/premium.php" class="btn btn-warning btn-lg">
-                        <i class="fas fa-crown me-2"></i> Passer à Premium
+                    <a href="<?php echo SITE_URL; ?>/premium.php" class="btn btn-premium btn-lg">
+                        <i class="fas fa-crown me-2"></i>
+                        Passer à Premium
                     </a>
                     <?php else: ?>
-                    <a href="<?php echo SITE_URL; ?>/account-settings.php" class="btn btn-light btn-lg">
-                        <i class="fas fa-cog me-2"></i> Paramètres
-                    </a>
+                    <div class="premium-status-card">
+                        <i class="fas fa-crown text-warning fs-3 mb-2"></i>
+                        <div class="text-white">Membre Premium</div>
+                        <small class="text-white-50">Profitez de tous les avantages</small>
+                    </div>
                     <?php endif; ?>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Quick Stats -->
-    <section class="py-4">
+    <!-- Statistiques Rapides -->
+    <section class="stats-section">
         <div class="container">
-            <div class="row g-3">
-                <div class="col-6 col-md-3">
-                    <div class="stat-card text-center">
-                        <div class="stat-value text-primary">
-                            <?php echo formatNumber($userStats['total_plays']); ?>
-                        </div>
+            <div class="stats-grid">
+                <div class="stat-card stat-primary">
+                    <div class="stat-icon">
+                        <i class="fas fa-play-circle"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value" data-count="<?php echo $userStats['total_plays']; ?>">0</div>
                         <div class="stat-label">Écoutes</div>
                     </div>
-                </div>
-                <div class="col-6 col-md-3">
-                    <div class="stat-card text-center">
-                        <div class="stat-value text-success">
-                            <?php echo $userStats['listening_hours']; ?>h
-                        </div>
-                        <div class="stat-label">Temps d'écoute</div>
+                    <div class="stat-trend">
+                        <i class="fas fa-arrow-up"></i> +12%
                     </div>
                 </div>
-                <div class="col-6 col-md-3">
-                    <div class="stat-card text-center">
-                        <div class="stat-value text-warning">
-                            <?php echo $userStats['favorite_tracks']; ?>
-                        </div>
+
+                <div class="stat-card stat-success">
+                    <div class="stat-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value" data-count="<?php echo $userStats['listening_hours']; ?>">0</div>
+                        <div class="stat-label">Heures d'écoute</div>
+                    </div>
+                    <div class="stat-trend">
+                        <i class="fas fa-arrow-up"></i> +8%
+                    </div>
+                </div>
+
+                <div class="stat-card stat-warning">
+                    <div class="stat-icon">
+                        <i class="fas fa-heart"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value" data-count="<?php echo $userStats['favorite_tracks']; ?>">0</div>
                         <div class="stat-label">Favoris</div>
                     </div>
+                    <div class="stat-trend">
+                        <i class="fas fa-arrow-up"></i> +24%
+                    </div>
                 </div>
-                <div class="col-6 col-md-3">
-                    <div class="stat-card text-center">
-                        <div class="stat-value text-info">
-                            <?php echo $userStats['playlists_created']; ?>
-                        </div>
+
+                <div class="stat-card stat-info">
+                    <div class="stat-icon">
+                        <i class="fas fa-list-music"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value" data-count="<?php echo $userStats['playlists_created']; ?>">0</div>
                         <div class="stat-label">Playlists</div>
                     </div>
+                    <div class="stat-trend">
+                        <i class="fas fa-minus"></i> 0%
+                    </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Main Content -->
-    <section class="py-4">
+    <!-- Contenu Principal -->
+    <section class="dashboard-content py-5">
         <div class="container">
-            <div class="row">
-                <!-- Left Column -->
+            <div class="row g-4">
+                <!-- Colonne Principale -->
                 <div class="col-lg-8">
-                    <!-- Recently Played -->
+                    <!-- Activité Récente -->
                     <div class="content-card mb-4">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">
-                                <i class="fas fa-history me-2"></i>
-                                Écoutés récemment
-                            </h5>
-                            <a href="<?php echo SITE_URL; ?>/history.php" class="btn btn-sm btn-link">
-                                Voir tout <i class="fas fa-arrow-right ms-1"></i>
-                            </a>
-                        </div>
-                        <div class="card-body">
-                            <div class="recent-tracks">
-                                <?php for ($i = 1; $i <= 5; $i++): ?>
-                                <div class="track-item">
-                                    <img src="<?php echo SITE_URL; ?>/assets/images/default-cover.jpg" 
-                                         alt="Cover" class="track-cover">
-                                    <div class="track-info">
-                                        <div class="track-title">Titre Récent <?php echo $i; ?></div>
-                                        <div class="track-artist">Artiste <?php echo rand(1, 20); ?></div>
-                                    </div>
-                                    <div class="track-actions">
-                                        <button class="btn btn-sm btn-link" onclick="playTrack(<?php echo $i; ?>)">
-                                            <i class="fas fa-play"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-link">
-                                            <i class="fas fa-heart"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-link">
-                                            <i class="fas fa-ellipsis-h"></i>
-                                        </button>
-                                    </div>
+                        <div class="card-header-custom">
+                            <div class="d-flex align-items-center">
+                                <div class="header-icon bg-primary">
+                                    <i class="fas fa-history"></i>
                                 </div>
-                                <?php endfor; ?>
+                                <div>
+                                    <h5 class="mb-0">Écoutés récemment</h5>
+                                    <small class="text-muted">Vos dernières découvertes</small>
+                                </div>
+                            </div>
+                            <a href="#" class="btn btn-link">Voir tout <i class="fas fa-arrow-right ms-1"></i></a>
+                        </div>
+                        <div class="card-body-custom">
+                            <div class="empty-state">
+                                <i class="fas fa-music fa-3x text-muted mb-3"></i>
+                                <h6 class="text-muted">Aucune écoute récente</h6>
+                                <p class="text-muted">Commencez à découvrir la musique tchadienne !</p>
+                                <a href="<?php echo SITE_URL; ?>/decouvrir.php" class="btn btn-primary">
+                                    <i class="fas fa-compass me-2"></i>Découvrir
+                                </a>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Your Playlists -->
-                    <div class="content-card mb-4">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">
-                                <i class="fas fa-list me-2"></i>
-                                Vos playlists
-                            </h5>
-                            <a href="<?php echo SITE_URL; ?>/playlists.php" class="btn btn-sm btn-primary">
-                                <i class="fas fa-plus me-1"></i> Créer
-                            </a>
-                        </div>
-                        <div class="card-body">
-                            <div class="row g-3">
-                                <?php for ($i = 1; $i <= 4; $i++): ?>
-                                <div class="col-6 col-md-3">
-                                    <div class="playlist-card">
-                                        <div class="playlist-cover">
-                                            <img src="<?php echo SITE_URL; ?>/assets/images/default-playlist.jpg" 
-                                                 alt="Playlist">
-                                            <div class="playlist-overlay">
-                                                <button class="btn btn-primary btn-sm rounded-circle">
-                                                    <i class="fas fa-play"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div class="playlist-name">Ma Playlist <?php echo $i; ?></div>
-                                        <div class="playlist-count"><?php echo rand(10, 50); ?> titres</div>
-                                    </div>
-                                </div>
-                                <?php endfor; ?>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Recommendations -->
+                    <!-- Vos Playlists -->
                     <div class="content-card">
-                        <div class="card-header">
-                            <h5 class="mb-0">
-                                <i class="fas fa-magic me-2"></i>
-                                Recommandé pour vous
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="recommendation-tabs">
-                                <ul class="nav nav-pills mb-3" role="tablist">
-                                    <li class="nav-item" role="presentation">
-                                        <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tracks-tab">
-                                            Titres
-                                        </button>
-                                    </li>
-                                    <li class="nav-item" role="presentation">
-                                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#artists-tab">
-                                            Artistes
-                                        </button>
-                                    </li>
-                                    <li class="nav-item" role="presentation">
-                                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#albums-tab">
-                                            Albums
-                                        </button>
-                                    </li>
-                                </ul>
-                                <div class="tab-content">
-                                    <div class="tab-pane fade show active" id="tracks-tab">
-                                        <div class="row g-3">
-                                            <?php for ($i = 1; $i <= 6; $i++): ?>
-                                            <div class="col-md-6">
-                                                <div class="recommendation-item">
-                                                    <img src="<?php echo SITE_URL; ?>/assets/images/default-cover.jpg" 
-                                                         alt="Cover">
-                                                    <div class="recommendation-info">
-                                                        <div class="title">Découverte <?php echo $i; ?></div>
-                                                        <div class="artist">Artiste Reco <?php echo $i; ?></div>
-                                                        <div class="match">
-                                                            <i class="fas fa-star text-warning"></i>
-                                                            <?php echo rand(80, 98); ?>% match
-                                                        </div>
-                                                    </div>
-                                                    <button class="btn btn-sm btn-primary">
-                                                        <i class="fas fa-play"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            <?php endfor; ?>
-                                        </div>
-                                    </div>
-                                    <div class="tab-pane fade" id="artists-tab">
-                                        <div class="row g-3">
-                                            <?php for ($i = 1; $i <= 4; $i++): ?>
-                                            <div class="col-6 col-md-3 text-center">
-                                                <img src="<?php echo SITE_URL; ?>/assets/images/default-avatar.png" 
-                                                     alt="Artist" class="rounded-circle mb-2" style="width: 100px;">
-                                                <h6>Artiste <?php echo $i; ?></h6>
-                                                <button class="btn btn-sm btn-outline-primary">Suivre</button>
-                                            </div>
-                                            <?php endfor; ?>
-                                        </div>
-                                    </div>
-                                    <div class="tab-pane fade" id="albums-tab">
-                                        <div class="row g-3">
-                                            <?php for ($i = 1; $i <= 4; $i++): ?>
-                                            <div class="col-6 col-md-3">
-                                                <div class="album-card">
-                                                    <img src="<?php echo SITE_URL; ?>/assets/images/default-cover.jpg" 
-                                                         alt="Album" class="w-100 rounded mb-2">
-                                                    <h6 class="mb-1">Album <?php echo $i; ?></h6>
-                                                    <small class="text-muted">Artiste <?php echo $i; ?></small>
-                                                </div>
-                                            </div>
-                                            <?php endfor; ?>
-                                        </div>
-                                    </div>
+                        <div class="card-header-custom">
+                            <div class="d-flex align-items-center">
+                                <div class="header-icon bg-success">
+                                    <i class="fas fa-folder-music"></i>
                                 </div>
+                                <div>
+                                    <h5 class="mb-0">Vos playlists</h5>
+                                    <small class="text-muted">Organisez votre musique</small>
+                                </div>
+                            </div>
+                            <button class="btn btn-sm btn-success">
+                                <i class="fas fa-plus me-2"></i>Créer
+                            </button>
+                        </div>
+                        <div class="card-body-custom">
+                            <div class="empty-state">
+                                <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
+                                <h6 class="text-muted">Aucune playlist</h6>
+                                <p class="text-muted">Créez votre première playlist personnalisée</p>
+                                <button class="btn btn-success">
+                                    <i class="fas fa-plus me-2"></i>Créer ma première playlist
+                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Right Column -->
+                <!-- Colonne Latérale -->
                 <div class="col-lg-4">
-                    <!-- Profile Completion -->
-                    <?php 
-                    $profileCompletion = rand(60, 90);
-                    ?>
+                    <!-- Profil -->
                     <div class="content-card mb-4">
-                        <div class="card-header">
-                            <h5 class="mb-0">
-                                <i class="fas fa-user-circle me-2"></i>
-                                Profil
-                            </h5>
+                        <div class="card-header-custom">
+                            <div class="d-flex align-items-center">
+                                <div class="header-icon bg-warning">
+                                    <i class="fas fa-user-circle"></i>
+                                </div>
+                                <div>
+                                    <h5 class="mb-0">Profil</h5>
+                                </div>
+                            </div>
                         </div>
-                        <div class="card-body">
-                            <div class="profile-completion mb-3">
+                        <div class="card-body-custom">
+                            <div class="profile-completion">
                                 <div class="d-flex justify-content-between mb-2">
-                                    <span>Complété à</span>
-                                    <span class="fw-bold"><?php echo $profileCompletion; ?>%</span>
+                                    <span>Profil complété</span>
+                                    <span class="fw-bold text-primary">85%</span>
                                 </div>
-                                <div class="progress" style="height: 8px;">
-                                    <div class="progress-bar" role="progressbar" 
-                                         style="width: <?php echo $profileCompletion; ?>%"></div>
+                                <div class="progress-custom">
+                                    <div class="progress-fill" style="width: 85%"></div>
                                 </div>
                             </div>
-                            <div class="profile-actions">
-                                <a href="<?php echo SITE_URL; ?>/profile-edit.php" class="btn btn-sm btn-outline-primary d-block mb-2">
-                                    <i class="fas fa-edit me-2"></i> Modifier le profil
+                            <div class="profile-details mt-4">
+                                <div class="detail-item">
+                                    <i class="fas fa-envelope text-primary"></i>
+                                    <span><?php echo htmlspecialchars($user['email']); ?></span>
+                                </div>
+                                <div class="detail-item">
+                                    <i class="fas fa-phone text-success"></i>
+                                    <span><?php echo htmlspecialchars($user['phone'] ?? 'Non renseigné'); ?></span>
+                                </div>
+                                <div class="detail-item">
+                                    <i class="fas fa-map-marker-alt text-danger"></i>
+                                    <span><?php echo htmlspecialchars($user['city'] ?? 'Tchad'); ?></span>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <a href="#" class="btn btn-outline-primary btn-sm w-100 mb-2">
+                                    <i class="fas fa-edit me-2"></i>Modifier le profil
                                 </a>
-                                <a href="<?php echo SITE_URL; ?>/preferences.php" class="btn btn-sm btn-outline-secondary d-block">
-                                    <i class="fas fa-sliders-h me-2"></i> Préférences
+                                <a href="#" class="btn btn-outline-secondary btn-sm w-100">
+                                    <i class="fas fa-cog me-2"></i>Paramètres
                                 </a>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Activity Feed -->
-                    <div class="content-card mb-4">
-                        <div class="card-header">
-                            <h5 class="mb-0">
-                                <i class="fas fa-stream me-2"></i>
-                                Activité récente
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="activity-feed">
-                                <?php 
-                                $activities = [
-                                    ['icon' => 'fa-heart', 'text' => 'Vous avez aimé "Sahara Beat"', 'time' => 'Il y a 2h'],
-                                    ['icon' => 'fa-list', 'text' => 'Nouvelle playlist créée', 'time' => 'Il y a 5h'],
-                                    ['icon' => 'fa-user-plus', 'text' => 'Vous suivez Khalil MC', 'time' => 'Hier'],
-                                    ['icon' => 'fa-music', 'text' => '50 titres écoutés cette semaine', 'time' => 'Il y a 2 jours'],
-                                    ['icon' => 'fa-trophy', 'text' => 'Badge "Mélomane" débloqué', 'time' => 'Il y a 3 jours']
-                                ];
-                                foreach ($activities as $activity):
-                                ?>
-                                <div class="activity-item">
-                                    <i class="fas <?php echo $activity['icon']; ?> activity-icon"></i>
-                                    <div class="activity-content">
-                                        <p><?php echo $activity['text']; ?></p>
-                                        <small class="text-muted"><?php echo $activity['time']; ?></small>
-                                    </div>
-                                </div>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Listening Stats -->
-                    <div class="content-card mb-4">
-                        <div class="card-header">
-                            <h5 class="mb-0">
-                                <i class="fas fa-chart-pie me-2"></i>
-                                Vos genres préférés
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <canvas id="genreChart" height="200"></canvas>
-                            <div class="genre-legend mt-3">
-                                <?php 
-                                $genres = [
-                                    ['name' => 'Afrobeat', 'percent' => 35, 'color' => '#FF6B6B'],
-                                    ['name' => 'Hip-Hop', 'percent' => 25, 'color' => '#4ECDC4'],
-                                    ['name' => 'R&B', 'percent' => 20, 'color' => '#45B7D1'],
-                                    ['name' => 'Gospel', 'percent' => 12, 'color' => '#F7DC6F'],
-                                    ['name' => 'Autres', 'percent' => 8, 'color' => '#95A5A6']
-                                ];
-                                foreach ($genres as $genre):
-                                ?>
-                                <div class="genre-item d-flex align-items-center mb-2">
-                                    <div class="genre-color" style="background: <?php echo $genre['color']; ?>"></div>
-                                    <span class="flex-grow-1"><?php echo $genre['name']; ?></span>
-                                    <span class="fw-bold"><?php echo $genre['percent']; ?>%</span>
-                                </div>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Quick Links -->
+                    <!-- Liens Rapides -->
                     <div class="content-card">
-                        <div class="card-header">
-                            <h5 class="mb-0">
-                                <i class="fas fa-link me-2"></i>
-                                Liens rapides
-                            </h5>
+                        <div class="card-header-custom">
+                            <div class="d-flex align-items-center">
+                                <div class="header-icon bg-info">
+                                    <i class="fas fa-bolt"></i>
+                                </div>
+                                <div>
+                                    <h5 class="mb-0">Accès rapide</h5>
+                                </div>
+                            </div>
                         </div>
-                        <div class="card-body">
-                            <div class="quick-links">
-                                <a href="<?php echo SITE_URL; ?>/discover.php" class="quick-link">
-                                    <i class="fas fa-compass"></i>
+                        <div class="card-body-custom">
+                            <div class="quick-links-grid">
+                                <a href="<?php echo SITE_URL; ?>/decouvrir.php" class="quick-link-item">
+                                    <div class="quick-link-icon bg-primary">
+                                        <i class="fas fa-compass"></i>
+                                    </div>
                                     <span>Découvrir</span>
                                 </a>
-                                <a href="<?php echo SITE_URL; ?>/trending.php" class="quick-link">
-                                    <i class="fas fa-fire"></i>
-                                    <span>Tendances</span>
+                                <a href="<?php echo SITE_URL; ?>/artists.php" class="quick-link-item">
+                                    <div class="quick-link-icon bg-success">
+                                        <i class="fas fa-microphone-alt"></i>
+                                    </div>
+                                    <span>Artistes</span>
                                 </a>
-                                <a href="<?php echo SITE_URL; ?>/new-releases.php" class="quick-link">
-                                    <i class="fas fa-sparkles"></i>
-                                    <span>Nouveautés</span>
-                                </a>
-                                <a href="<?php echo SITE_URL; ?>/radio.php" class="quick-link">
-                                    <i class="fas fa-broadcast-tower"></i>
+                                <a href="<?php echo SITE_URL; ?>/radio-live.php" class="quick-link-item">
+                                    <div class="quick-link-icon bg-danger">
+                                        <i class="fas fa-broadcast-tower"></i>
+                                    </div>
                                     <span>Radio</span>
+                                </a>
+                                <a href="<?php echo SITE_URL; ?>/premium.php" class="quick-link-item">
+                                    <div class="quick-link-icon bg-warning">
+                                        <i class="fas fa-crown"></i>
+                                    </div>
+                                    <span>Premium</span>
                                 </a>
                             </div>
                         </div>
@@ -400,422 +313,468 @@ include 'includes/header.php';
             </div>
         </div>
     </section>
-
-    <!-- Subscription Banner (for free users) -->
-    <?php if ($userStats['subscription_type'] !== 'premium'): ?>
-    <section class="py-5">
-        <div class="container">
-            <div class="premium-banner text-center text-white p-5 rounded">
-                <h2 class="mb-3">
-                    <i class="fas fa-crown text-warning me-2"></i>
-                    Passez à Tchadok Premium
-                </h2>
-                <p class="lead mb-4">
-                    Profitez d'une expérience sans publicité, téléchargements illimités, 
-                    et qualité audio supérieure.
-                </p>
-                <div class="d-flex gap-3 justify-content-center">
-                    <a href="<?php echo SITE_URL; ?>/premium.php" class="btn btn-warning btn-lg">
-                        Découvrir Premium
-                    </a>
-                    <button class="btn btn-outline-light btn-lg">
-                        Essai gratuit 30 jours
-                    </button>
-                </div>
-            </div>
-        </div>
-    </section>
-    <?php endif; ?>
 </div>
 
 <style>
-.user-dashboard {
-    background: #f8f9fa;
-    min-height: calc(100vh - 200px);
+/* Couleurs principales Tchadok */
+:root {
+    --bleu-tchadien: #0066CC;
+    --jaune-solaire: #FFD700;
+    --rouge-terre: #CC3333;
+    --vert-savane: #228B22;
+    --gris-harmattan: #2C3E50;
+    --blanc-coton: #FFFFFF;
 }
 
-.stat-card {
-    background: white;
-    border-radius: 15px;
-    padding: 1.5rem;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.08);
-    transition: transform 0.3s ease;
+.dashboard-container {
+    background: #f5f7fa;
+    min-height: 100vh;
+    padding-bottom: 3rem;
 }
 
-.stat-card:hover {
-    transform: translateY(-5px);
-}
-
-.stat-value {
-    font-size: 2rem;
-    font-weight: bold;
-    margin-bottom: 0.5rem;
-}
-
-.stat-label {
-    color: #6c757d;
-    font-size: 0.9rem;
-}
-
-.content-card {
-    background: white;
-    border-radius: 15px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.08);
-    overflow: hidden;
-}
-
-.content-card .card-header {
-    background: white;
-    border-bottom: 1px solid #f0f0f0;
-    padding: 1.25rem;
-}
-
-.content-card .card-body {
-    padding: 1.5rem;
-}
-
-.track-item {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.75rem 0;
-    border-bottom: 1px solid #f0f0f0;
-}
-
-.track-item:last-child {
-    border-bottom: none;
-}
-
-.track-cover {
-    width: 50px;
-    height: 50px;
-    border-radius: 8px;
-    object-fit: cover;
-}
-
-.track-info {
-    flex: 1;
-}
-
-.track-title {
-    font-weight: 600;
-    margin-bottom: 0.25rem;
-}
-
-.track-artist {
-    color: #6c757d;
-    font-size: 0.9rem;
-}
-
-.track-actions {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.playlist-card {
-    cursor: pointer;
-    transition: transform 0.3s ease;
-}
-
-.playlist-card:hover {
-    transform: scale(1.05);
-}
-
-.playlist-cover {
+/* Hero Section */
+.dashboard-hero {
     position: relative;
-    border-radius: 10px;
     overflow: hidden;
-    margin-bottom: 0.5rem;
+    margin-bottom: -60px;
 }
 
-.playlist-cover img {
-    width: 100%;
-    aspect-ratio: 1;
-    object-fit: cover;
-}
-
-.playlist-overlay {
+.hero-gradient {
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0,0,0,0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.playlist-card:hover .playlist-overlay {
+    background: linear-gradient(135deg, var(--bleu-tchadien) 0%, #1a75d2 50%, var(--jaune-solaire) 100%);
     opacity: 1;
 }
 
-.playlist-name {
-    font-weight: 600;
-    font-size: 0.9rem;
-    margin-bottom: 0.25rem;
+.hero-gradient::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320"><path fill="rgba(255,255,255,0.05)" d="M0,96L48,112C96,128,192,160,288,160C384,160,480,128,576,122.7C672,117,768,139,864,133.3C960,128,1056,96,1152,90.7C1248,85,1344,107,1392,117.3L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>');
+    background-size: cover;
+    animation: waveMove 15s ease-in-out infinite;
 }
 
-.playlist-count {
-    color: #6c757d;
-    font-size: 0.8rem;
+@keyframes waveMove {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(-50px); }
 }
 
-.recommendation-item {
+.welcome-section {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    padding: 0.75rem;
-    background: #f8f9fa;
-    border-radius: 10px;
-    transition: background 0.3s ease;
+    gap: 2rem;
 }
 
-.recommendation-item:hover {
-    background: #e9ecef;
+.user-avatar-wrapper {
+    position: relative;
 }
 
-.recommendation-item img {
-    width: 60px;
-    height: 60px;
-    border-radius: 8px;
-    object-fit: cover;
-}
-
-.recommendation-info {
-    flex: 1;
-}
-
-.recommendation-info .title {
-    font-weight: 600;
-    margin-bottom: 0.25rem;
-}
-
-.recommendation-info .artist {
-    color: #6c757d;
-    font-size: 0.9rem;
-    margin-bottom: 0.25rem;
-}
-
-.recommendation-info .match {
-    font-size: 0.8rem;
-    color: #28a745;
-}
-
-.activity-feed {
-    max-height: 400px;
-    overflow-y: auto;
-}
-
-.activity-item {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-}
-
-.activity-icon {
-    width: 35px;
-    height: 35px;
-    background: #f8f9fa;
+.avatar-circle {
+    width: 90px;
+    height: 90px;
+    background: linear-gradient(135deg, var(--jaune-solaire), var(--rouge-terre));
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #6c757d;
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+
+.avatar-initial {
+    font-size: 2rem;
+    font-weight: 700;
+    color: white;
+}
+
+.premium-badge {
+    position: absolute;
+    bottom: -5px;
+    right: -5px;
+    width: 35px;
+    height: 35px;
+    background: var(--jaune-solaire);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.premium-badge i {
+    color: var(--bleu-tchadien);
+    font-size: 1.1rem;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+.btn-premium {
+    background: linear-gradient(135deg, var(--jaune-solaire), #FFC700);
+    color: var(--bleu-tchadien);
+    border: none;
+    font-weight: 700;
+    padding: 1rem 2rem;
+    border-radius: 50px;
+    box-shadow: 0 8px 25px rgba(255, 215, 0, 0.4);
+    transition: all 0.3s ease;
+}
+
+.btn-premium:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 35px rgba(255, 215, 0, 0.6);
+    color: var(--bleu-tchadien);
+}
+
+.premium-status-card {
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    padding: 1.5rem;
+    border-radius: 20px;
+    text-align: center;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Stats Grid */
+.stats-section {
+    margin-top: -30px;
+    margin-bottom: 2rem;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+}
+
+.stat-card {
+    background: white;
+    padding: 2rem;
+    border-radius: 20px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    opacity: 0.1;
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+.stat-card.stat-primary::before {
+    background: var(--bleu-tchadien);
+}
+
+.stat-card.stat-success::before {
+    background: var(--vert-savane);
+}
+
+.stat-card.stat-warning::before {
+    background: var(--jaune-solaire);
+}
+
+.stat-card.stat-info::before {
+    background: var(--rouge-terre);
+}
+
+.stat-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
     flex-shrink: 0;
 }
 
-.activity-content p {
+.stat-card.stat-primary .stat-icon {
+    background: linear-gradient(135deg, var(--bleu-tchadien), #0052a3);
+    color: white;
+}
+
+.stat-card.stat-success .stat-icon {
+    background: linear-gradient(135deg, var(--vert-savane), #1a6b1a);
+    color: white;
+}
+
+.stat-card.stat-warning .stat-icon {
+    background: linear-gradient(135deg, var(--jaune-solaire), #ddb800);
+    color: var(--bleu-tchadien);
+}
+
+.stat-card.stat-info .stat-icon {
+    background: linear-gradient(135deg, var(--rouge-terre), #a32929);
+    color: white;
+}
+
+.stat-content {
+    flex: 1;
+}
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1;
     margin-bottom: 0.25rem;
+}
+
+.stat-card.stat-primary .stat-value {
+    color: var(--bleu-tchadien);
+}
+
+.stat-card.stat-success .stat-value {
+    color: var(--vert-savane);
+}
+
+.stat-card.stat-warning .stat-value {
+    color: #d4a500;
+}
+
+.stat-card.stat-info .stat-value {
+    color: var(--rouge-terre);
+}
+
+.stat-label {
+    color: #6c757d;
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
+.stat-trend {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--vert-savane);
+}
+
+/* Content Cards */
+.content-card {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.content-card:hover {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+}
+
+.card-header-custom {
+    padding: 1.5rem;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header-icon {
+    width: 45px;
+    height: 45px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    color: white;
+    font-size: 1.2rem;
+}
+
+.card-body-custom {
+    padding: 1.5rem;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+}
+
+/* Profile Section */
+.progress-custom {
+    height: 8px;
+    background: #f0f0f0;
+    border-radius: 50px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--bleu-tchadien), var(--jaune-solaire));
+    border-radius: 50px;
+    transition: width 1s ease;
+}
+
+.profile-details {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.detail-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: #f8f9fa;
+    border-radius: 10px;
+}
+
+.detail-item i {
+    font-size: 1.1rem;
+}
+
+.detail-item span {
     font-size: 0.9rem;
+    color: #495057;
 }
 
-.genre-color {
-    width: 20px;
-    height: 20px;
-    border-radius: 4px;
-    margin-right: 0.75rem;
-}
-
-.quick-links {
+/* Quick Links */
+.quick-links-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 1rem;
 }
 
-.quick-link {
+.quick-link-item {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 1rem;
+    padding: 1.25rem;
     background: #f8f9fa;
-    border-radius: 10px;
+    border-radius: 15px;
     text-decoration: none;
     color: #333;
     transition: all 0.3s ease;
 }
 
-.quick-link:hover {
+.quick-link-item:hover {
     background: #e9ecef;
-    transform: translateY(-2px);
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
 }
 
-.quick-link i {
-    font-size: 1.5rem;
-    margin-bottom: 0.5rem;
-    color: #007bff;
+.quick-link-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.75rem;
+    color: white;
+    font-size: 1.3rem;
 }
 
-.premium-banner {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    position: relative;
-    overflow: hidden;
+.quick-link-item span {
+    font-weight: 600;
+    font-size: 0.9rem;
 }
 
-.premium-banner::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-    animation: pulse 3s ease-in-out infinite;
+/* Animations */
+.animate-fade-in {
+    animation: fadeIn 0.8s ease-out;
 }
 
-@keyframes pulse {
-    0%, 100% { transform: scale(0.8); opacity: 0.5; }
-    50% { transform: scale(1.2); opacity: 0.8; }
-}
-
-.nav-pills .nav-link {
-    color: #666;
-    border-radius: 20px;
-    padding: 0.5rem 1rem;
-}
-
-.nav-pills .nav-link.active {
-    background: #007bff;
-}
-
-@media (max-width: 768px) {
-    .stat-value {
-        font-size: 1.5rem;
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
     }
-    
-    .quick-links {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive */
+@media (max-width: 991px) {
+    .stats-grid {
         grid-template-columns: repeat(2, 1fr);
     }
-    
-    .recommendation-item {
+
+    .stat-value {
+        font-size: 2rem;
+    }
+
+    .welcome-section {
         flex-direction: column;
         text-align: center;
     }
 }
+
+@media (max-width: 576px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .quick-links-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
 </style>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <script>
-// Genre Chart
-const genreCtx = document.getElementById('genreChart').getContext('2d');
-const genreChart = new Chart(genreCtx, {
-    type: 'doughnut',
-    data: {
-        labels: ['Afrobeat', 'Hip-Hop', 'R&B', 'Gospel', 'Autres'],
-        datasets: [{
-            data: [35, 25, 20, 12, 8],
-            backgroundColor: [
-                '#FF6B6B',
-                '#4ECDC4',
-                '#45B7D1',
-                '#F7DC6F',
-                '#95A5A6'
-            ],
-            borderWidth: 0
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: {
-                display: false
+// Animation des compteurs
+document.addEventListener('DOMContentLoaded', function() {
+    const counters = document.querySelectorAll('.stat-value[data-count]');
+
+    counters.forEach(counter => {
+        const target = parseInt(counter.getAttribute('data-count'));
+        const duration = 2000;
+        const step = target / (duration / 16);
+        let current = 0;
+
+        const updateCounter = () => {
+            current += step;
+            if (current < target) {
+                counter.textContent = Math.floor(current).toLocaleString();
+                requestAnimationFrame(updateCounter);
+            } else {
+                counter.textContent = target.toLocaleString();
             }
-        }
-    }
-});
+        };
 
-// Play track function
-function playTrack(trackId) {
-    console.log('Playing track:', trackId);
-    
-    // Notification
-    const notification = document.createElement('div');
-    notification.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 10px;">
-            <i class="fas fa-play-circle" style="font-size: 20px;"></i>
-            <div>
-                <div><strong>Lecture en cours</strong></div>
-                <small>Titre Récent ${trackId}</small>
-            </div>
-        </div>
-    `;
-    notification.style.cssText = `
-        position: fixed; 
-        top: 20px; 
-        right: 20px; 
-        background: #28a745; 
-        color: white; 
-        padding: 15px 20px; 
-        border-radius: 8px; 
-        z-index: 10000;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    `;
-    document.body.appendChild(notification);
-    setTimeout(() => notification.remove(), 3000);
-}
+        // Observer pour démarrer l'animation quand visible
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+                updateCounter();
+                observer.disconnect();
+            }
+        });
 
-// Smooth scroll for recommendations
-document.querySelectorAll('.nav-link[data-bs-toggle="pill"]').forEach(link => {
-    link.addEventListener('shown.bs.tab', function() {
-        const target = document.querySelector(this.getAttribute('data-bs-target'));
-        if (target) {
-            target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
+        observer.observe(counter);
     });
 });
-
-// Activity feed auto-refresh simulation
-setInterval(() => {
-    const feed = document.querySelector('.activity-feed');
-    if (feed && Math.random() > 0.8) {
-        const newActivity = document.createElement('div');
-        newActivity.className = 'activity-item';
-        newActivity.innerHTML = `
-            <i class="fas fa-music activity-icon"></i>
-            <div class="activity-content">
-                <p>Nouvelle activité</p>
-                <small class="text-muted">À l'instant</small>
-            </div>
-        `;
-        newActivity.style.opacity = '0';
-        feed.insertBefore(newActivity, feed.firstChild);
-        
-        // Animate entrance
-        setTimeout(() => {
-            newActivity.style.transition = 'opacity 0.5s ease';
-            newActivity.style.opacity = '1';
-        }, 100);
-        
-        // Remove old activities if too many
-        const activities = feed.querySelectorAll('.activity-item');
-        if (activities.length > 10) {
-            activities[activities.length - 1].remove();
-        }
-    }
-}, 30000); // Check every 30 seconds
 </script>
 
 <?php include 'includes/footer.php'; ?>
