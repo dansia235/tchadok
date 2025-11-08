@@ -109,7 +109,7 @@ include 'includes/header.php';
                                                    id="first_name"
                                                    name="first_name"
                                                    value="<?php echo htmlspecialchars($_POST['first_name'] ?? ''); ?>"
-                                                   placeholder="Jean"
+                                                   placeholder="Dan"
                                                    required>
                                             <span class="input-icon"><i class="fas fa-check-circle"></i></span>
                                         </div>
@@ -130,7 +130,7 @@ include 'includes/header.php';
                                                    id="last_name"
                                                    name="last_name"
                                                    value="<?php echo htmlspecialchars($_POST['last_name'] ?? ''); ?>"
-                                                   placeholder="Dupont"
+                                                   placeholder="Sia"
                                                    required>
                                             <span class="input-icon"><i class="fas fa-check-circle"></i></span>
                                         </div>
