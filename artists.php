@@ -339,6 +339,7 @@ h1, h2, h3, h4, h5, h6 {
 .hero-content h1 {
     font-size: 4rem;
     font-weight: 900;
+    color: white;
     margin-bottom: 1.5rem;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
     animation: fadeInUp 1s ease;
