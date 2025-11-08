@@ -8,9 +8,16 @@
 // Configuration générale du site
 define('SITE_NAME', 'Tchadok');
 define('SITE_TAGLINE', 'La musique tchadienne à portée de clic');
+
+// SITE_URL : Utiliser .env si disponible, sinon valeur par défaut
 if (!defined('SITE_URL')) {
-    define('SITE_URL', 'http://localhost/tchadok');
+    if (function_exists('env')) {
+        define('SITE_URL', env('SITE_URL', env('APP_URL', 'http://localhost/tchadok')));
+    } else {
+        define('SITE_URL', 'http://localhost/tchadok');
+    }
 }
+
 define('SITE_EMAIL', 'info@tchadok.td');
 define('SITE_PHONE', '+235 XX XX XX XX');
 
@@ -61,7 +68,11 @@ define('DEFAULT_COMMISSION_RATE', 15.0); // 15%
 
 // Durée de session (en secondes)
 if (!defined('SESSION_LIFETIME')) {
-    define('SESSION_LIFETIME', 7 * 24 * 60 * 60); // 7 jours
+    if (function_exists('env')) {
+        define('SESSION_LIFETIME', (int)env('SESSION_LIFETIME', 7 * 24 * 60 * 60));
+    } else {
+        define('SESSION_LIFETIME', 7 * 24 * 60 * 60); // 7 jours
+    }
 }
 
 // Configuration email
@@ -154,7 +165,11 @@ define('APP_BUILD', '2024.001');
 // Configuration de cache
 define('CACHE_ENABLED', true);
 if (!defined('CACHE_LIFETIME')) {
-    define('CACHE_LIFETIME', 3600); // 1 heure
+    if (function_exists('env')) {
+        define('CACHE_LIFETIME', (int)env('CACHE_LIFETIME', 3600));
+    } else {
+        define('CACHE_LIFETIME', 3600); // 1 heure
+    }
 }
 
 // Fuseau horaire
