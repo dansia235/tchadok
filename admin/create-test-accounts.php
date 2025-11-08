@@ -7,11 +7,15 @@
  * Il supprime et recrée tous les comptes de test.
  */
 
+// Charger la configuration de l'environnement
+require_once __DIR__ . '/../config/env.php';
+
 // Sécurité : Ne fonctionne qu'en mode développement
-if (!defined('DEVELOPMENT_MODE') || DEVELOPMENT_MODE !== true) {
-    if (!isset($_ENV['APP_ENV']) || $_ENV['APP_ENV'] !== 'development') {
-        die('❌ ERREUR : Ce script ne peut être exécuté qu\'en mode développement !');
-    }
+if (!EnvLoader::isDevelopment() && env('ENABLE_TEST_ACCOUNTS', 'false') !== 'true') {
+    die('❌ ERREUR : Ce script ne peut être exécuté qu\'en mode développement !<br><br>
+         Pour activer ce script, assurez-vous que dans votre fichier .env :<br>
+         - APP_ENV=development<br>
+         - ENABLE_TEST_ACCOUNTS=true');
 }
 
 require_once __DIR__ . '/../includes/database.php';
