@@ -176,7 +176,7 @@ include 'includes/header.php';
                                     <small class="text-muted">Vos dernières découvertes</small>
                                 </div>
                             </div>
-                            <a href="#" class="btn btn-link">Voir tout <i class="fas fa-arrow-right ms-1"></i></a>
+                            <a href="<?php echo SITE_URL; ?>/history.php" class="btn btn-link">Voir tout <i class="fas fa-arrow-right ms-1"></i></a>
                         </div>
                         <div class="card-body-custom">
                             <div class="empty-state">
@@ -195,7 +195,7 @@ include 'includes/header.php';
                         <div class="card-header-custom">
                             <div class="d-flex align-items-center">
                                 <div class="header-icon bg-success">
-                                    <i class="fas fa-folder-music"></i>
+                                    <i class="fas fa-list-music"></i>
                                 </div>
                                 <div>
                                     <h5 class="mb-0">Vos playlists</h5>
@@ -337,6 +337,7 @@ include 'includes/header.php';
     position: relative;
     overflow: hidden;
     margin-bottom: -60px;
+    padding-top: 100px; /* Espace pour le header fixe */
 }
 
 .hero-gradient {
