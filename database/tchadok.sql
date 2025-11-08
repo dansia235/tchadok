@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jun 29, 2025 at 09:04 PM
+-- Generation Time: Nov 08, 2025 at 12:47 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -105,6 +105,13 @@ CREATE TABLE `artists` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `artists`
+--
+
+INSERT INTO `artists` (`id`, `user_id`, `stage_name`, `real_name`, `bio`, `website`, `facebook`, `instagram`, `twitter`, `youtube`, `spotify`, `birth_date`, `birth_place`, `genres`, `profile_image`, `cover_image`, `verified`, `featured`, `total_streams`, `total_sales`, `total_earnings`, `commission_rate`, `is_active`, `created_at`, `updated_at`) VALUES
+(176, 1, 'Abakar Sultan', 'Abakar Sultan', 'Artiste Traditionnel originaire du Tchad, passionné par la fusion des rythmes traditionnels et modernes.', 'https://abakarsultan.td', '@abakarsultan', '@abakarsultan', '@abakarsultan', 'abakarsultan', 'abakarsultan', NULL, 'Kelo', 'Traditionnel', NULL, NULL, 0, 0, 4173541, 0.00, 0.00, 15.00, 1, '2025-06-29 20:02:05', '2025-06-29 20:02:05');
 
 -- --------------------------------------------------------
 
@@ -794,7 +801,7 @@ ALTER TABLE `albums`
 -- AUTO_INCREMENT for table `artists`
 --
 ALTER TABLE `artists`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=177;
 
 --
 -- AUTO_INCREMENT for table `blog_comments`
@@ -830,7 +837,7 @@ ALTER TABLE `follows`
 -- AUTO_INCREMENT for table `genres`
 --
 ALTER TABLE `genres`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=61;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=50;
 
 --
 -- AUTO_INCREMENT for table `notifications`
@@ -896,7 +903,7 @@ ALTER TABLE `transactions`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- Constraints for dumped tables
