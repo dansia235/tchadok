@@ -338,6 +338,7 @@ include 'includes/header.php';
     overflow: hidden;
     margin-bottom: -60px;
     padding-top: 100px; /* Espace pour le header fixe */
+    padding-bottom: 80px; /* Espace pour les cartes de stats */
 }
 
 .hero-gradient {
