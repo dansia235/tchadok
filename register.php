@@ -21,10 +21,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $firstName = sanitizeInput($_POST['first_name'] ?? '');
     $lastName = sanitizeInput($_POST['last_name'] ?? '');
     $email = sanitizeInput($_POST['email'] ?? '');
+    $username = sanitizeInput($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
     $confirmPassword = $_POST['confirm_password'] ?? '';
     $userType = sanitizeInput($_POST['user_type'] ?? USER_TYPE_FAN);
     $terms = isset($_POST['terms']);
+    $stageName = sanitizeInput($_POST['stage_name'] ?? '');
 
     // Validation
     if (empty($firstName) || empty($lastName) || empty($email) || empty($password)) {
@@ -38,7 +40,91 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (!$terms) {
         $error = 'Vous devez accepter les conditions d\'utilisation.';
     } else {
-        $success = 'Inscription simulée réussie ! Utilisez login.php pour vous connecter avec demo@tchadok.td / demo123';
+        // Créer le compte
+        try {
+            $dbInstance = TchadokDatabase::getInstance();
+            $db = $dbInstance->getConnection();
+
+            if (!$db) {
+                throw new Exception('Erreur de connexion à la base de données.');
+            }
+
+            // Générer un username si non fourni
+            if (empty($username)) {
+                $username = strtolower($firstName . '_' . substr($lastName, 0, 1) . rand(100, 999));
+            }
+
+            // Vérifier si l'email ou username existe déjà
+            $stmt = $db->prepare("SELECT id FROM users WHERE email = ? OR username = ?");
+            $stmt->execute([$email, $username]);
+
+            if ($stmt->fetch()) {
+                $error = 'Cet email ou nom d\'utilisateur est déjà utilisé.';
+            } else {
+                // Hasher le mot de passe
+                $passwordHash = hashPassword($password);
+
+                // Démarrer une transaction
+                $db->beginTransaction();
+
+                // Insérer l'utilisateur avec les DEUX colonnes password
+                $stmt = $db->prepare("
+                    INSERT INTO users (
+                        username, email, password, password_hash,
+                        first_name, last_name, country,
+                        email_verified, is_active, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                ");
+
+                $stmt->execute([
+                    $username,
+                    $email,
+                    $passwordHash,  // Colonne password
+                    $passwordHash,  // Colonne password_hash
+                    $firstName,
+                    $lastName,
+                    'Tchad',
+                    0,  // email_verified
+                    1   // is_active
+                ]);
+
+                $userId = $db->lastInsertId();
+
+                // Si c'est un artiste, créer le profil artiste
+                if ($userType === USER_TYPE_ARTIST) {
+                    $artistStageName = !empty($stageName) ? $stageName : "$firstName $lastName";
+
+                    $stmt = $db->prepare("
+                        INSERT INTO artists (
+                            user_id, stage_name, real_name,
+                            is_active, created_at
+                        ) VALUES (?, ?, ?, 1, NOW())
+                    ");
+
+                    $stmt->execute([
+                        $userId,
+                        $artistStageName,
+                        "$firstName $lastName"
+                    ]);
+                }
+
+                // Valider la transaction
+                $db->commit();
+
+                // Succès !
+                $success = '✅ Inscription réussie ! Vous pouvez maintenant vous connecter avec votre email : <strong>' . htmlspecialchars($email) . '</strong>';
+
+                // Vider les champs du formulaire
+                $_POST = [];
+            }
+
+        } catch (Exception $e) {
+            // Annuler la transaction en cas d'erreur
+            if ($db && $db->inTransaction()) {
+                $db->rollBack();
+            }
+            $error = 'Erreur lors de l\'inscription : ' . $e->getMessage();
+        }
     }
 }
 
@@ -159,6 +245,22 @@ include 'includes/header.php';
                                     Veuillez entrer une adresse email valide.
                                 </div>
                             </div>
+
+                            <div class="form-group mb-4">
+                                <label for="username" class="form-label">
+                                    <i class="fas fa-at me-2"></i>Nom d'utilisateur
+                                </label>
+                                <div class="input-wrapper">
+                                    <input type="text"
+                                           class="form-control-register"
+                                           id="username"
+                                           name="username"
+                                           value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>"
+                                           placeholder="john_doe (optionnel, généré automatiquement)">
+                                    <span class="input-icon"><i class="fas fa-check-circle"></i></span>
+                                </div>
+                                <small class="text-muted">Laissez vide pour générer automatiquement</small>
+                            </div>
                         </div>
 
                         <!-- Sécurité -->
@@ -271,6 +373,23 @@ include 'includes/header.php';
                                         </div>
                                     </label>
                                 </div>
+                            </div>
+
+                            <!-- Champ nom de scène pour les artistes (caché par défaut) -->
+                            <div class="form-group mb-4 mt-4" id="stagename_field" style="display: none;">
+                                <label for="stage_name" class="form-label">
+                                    <i class="fas fa-microphone-alt me-2"></i>Nom de scène
+                                </label>
+                                <div class="input-wrapper">
+                                    <input type="text"
+                                           class="form-control-register"
+                                           id="stage_name"
+                                           name="stage_name"
+                                           value="<?php echo htmlspecialchars($_POST['stage_name'] ?? ''); ?>"
+                                           placeholder="Votre nom d'artiste">
+                                    <span class="input-icon"><i class="fas fa-check-circle"></i></span>
+                                </div>
+                                <small class="text-muted">Le nom sous lequel vous serez connu sur la plateforme</small>
                             </div>
                         </div>
 
@@ -910,6 +1029,32 @@ function togglePassword(fieldId, iconId) {
         toggleIcon.className = 'fas fa-eye';
     }
 }
+
+// Toggle stage name field for artists
+document.addEventListener("DOMContentLoaded", function() {
+    const artistRadio = document.getElementById("artist");
+    const fanRadio = document.getElementById("fan");
+    const stagenameField = document.getElementById("stagename_field");
+
+    function toggleStagenameField() {
+        if (artistRadio && artistRadio.checked) {
+            stagenameField.style.display = "block";
+        } else {
+            stagenameField.style.display = "none";
+        }
+    }
+
+    // Initial check
+    toggleStagenameField();
+
+    // Listen for changes
+    if (artistRadio) {
+        artistRadio.addEventListener("change", toggleStagenameField);
+    }
+    if (fanRadio) {
+        fanRadio.addEventListener("change", toggleStagenameField);
+    }
+});
 
 // Password Strength Indicator
 document.getElementById('password').addEventListener('input', function() {
