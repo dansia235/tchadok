@@ -144,16 +144,13 @@ if (!function_exists('env')) {
 }
 
 // Définir des constantes utiles si pas déjà définies
+// Note: SITE_URL, SESSION_LIFETIME et CACHE_LIFETIME sont gérés par constants.php
 if (!defined('APP_ENV')) {
     define('APP_ENV', env('APP_ENV', 'production'));
 }
 
 if (!defined('APP_DEBUG')) {
     define('APP_DEBUG', env('APP_DEBUG', 'false') === 'true');
-}
-
-if (!defined('SITE_URL')) {
-    define('SITE_URL', env('SITE_URL', env('APP_URL', 'http://localhost')));
 }
 
 // Configuration du reporting d'erreurs selon l'environnement
