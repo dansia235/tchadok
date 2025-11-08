@@ -5,8 +5,9 @@
  * @version 1.0
  */
 
-require_once 'config/database.php';
-require_once 'config/constants.php';
+require_once __DIR__ . '/../config/env.php';
+require_once __DIR__ . '/../config/constants.php';
+require_once __DIR__ . '/database.php';
 
 /**
  * Démarre une session sécurisée
@@ -93,13 +94,18 @@ function isAdmin() {
  * Obtient l'utilisateur actuel
  */
 function getCurrentUser() {
-    global $db;
     if (!isLoggedIn()) return null;
-    
-    return $db->fetchOne(
-        "SELECT * FROM users WHERE id = ?", 
-        [$_SESSION['user_id']]
-    );
+
+    try {
+        $dbInstance = TchadokDatabase::getInstance();
+        $db = $dbInstance->getConnection();
+
+        $stmt = $db->prepare("SELECT * FROM users WHERE id = ?");
+        $stmt->execute([$_SESSION['user_id']]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        return null;
+    }
 }
 
 /**
