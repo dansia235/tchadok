@@ -25,20 +25,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($email) || empty($password)) {
         $error = 'Veuillez remplir tous les champs.';
     } else {
-        // Simulation de connexion pour les comptes de démo
-        if ($email === 'demo@tchadok.td' && $password === 'demo123') {
-            // Connexion réussie pour le compte démo
-            $_SESSION['user_id'] = 1;
-            $_SESSION['user_type'] = USER_TYPE_FAN;
-            $_SESSION['first_name'] = 'Utilisateur';
-            $_SESSION['last_name'] = 'Démo';
-            $_SESSION['email'] = $email;
-            $_SESSION['premium_status'] = false;
+        // Utiliser le système d'authentification réel
+        if ($auth) {
+            $result = $auth->login($email, $password, $remember);
 
-            setFlashMessage(FLASH_SUCCESS, 'Connexion réussie ! Bienvenue sur Tchadok');
-            redirect(SITE_URL . '/');
+            if ($result['success']) {
+                // Connexion réussie
+                setFlashMessage(FLASH_SUCCESS, 'Connexion réussie ! Bienvenue sur Tchadok');
+                redirect(SITE_URL . '/');
+            } else {
+                $error = $result['error'] ?? 'Email ou mot de passe incorrect.';
+            }
         } else {
-            $error = 'Email ou mot de passe incorrect. Utilisez demo@tchadok.td / demo123 pour tester.';
+            $error = 'Erreur de connexion à la base de données. Veuillez réessayer.';
         }
     }
 }
