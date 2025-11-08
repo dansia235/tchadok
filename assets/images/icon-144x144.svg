@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 144 144" width="144" height="144">
+  <defs>
+    <linearGradient id="grad144" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0066CC;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FFD700;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="72" cy="72" r="72" fill="url(#grad144)"/>
+  
+  <!-- Musical note -->
+  <g fill="white">
+    <!-- Note stem -->
+    <rect x="60" y="36" width="4" height="40" rx="1"/>
+    <!-- Note head -->
+    <ellipse cx="54" cy="72" rx="8" ry="6"/>
+    <!-- Flag -->
+    <path d="M 64 36 Q 84 32 84 48 Q 84 56 64 52 Z"/>
+  </g>
+  
+  <!-- Accent circles -->
+  <circle cx="99" cy="50" r="4" fill="white" opacity="0.8"/>
+  <circle cx="45" cy="99" r="3" fill="white" opacity="0.6"/>
+</svg>

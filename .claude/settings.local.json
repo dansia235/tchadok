@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(mv:*)",
+      "Bash(php:*)",
+      "Bash(rm:*)",
+      "Bash(ls:*)",
+      "Bash(rg:*)",
+      "Bash(mkdir:*)",
+      "Bash(mysql:*)"
+    ],
+    "deny": []
+  }
+}

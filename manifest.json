@@ -1,0 +1,90 @@
+{
+    "name": "Tchadok - Musique Tchadienne",
+    "short_name": "Tchadok",
+    "description": "La plateforme musicale de référence du Tchad",
+    "start_url": "/",
+    "display": "standalone",
+    "orientation": "portrait-primary",
+    "theme_color": "#0066CC",
+    "background_color": "#FFFFFF",
+    "lang": "fr",
+    "scope": "/",
+    "categories": ["music", "entertainment"],
+    "icons": [
+        {
+            "src": "assets/images/icon-72x72.svg",
+            "sizes": "72x72",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "assets/images/icon-96x96.svg",
+            "sizes": "96x96",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "assets/images/icon-128x128.svg",
+            "sizes": "128x128",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "assets/images/icon-144x144.svg",
+            "sizes": "144x144",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "assets/images/icon-152x152.svg",
+            "sizes": "152x152",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "assets/images/icon-192x192.svg",
+            "sizes": "192x192",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "assets/images/icon-384x384.svg",
+            "sizes": "384x384",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "assets/images/icon-512x512.svg",
+            "sizes": "512x512",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Découvrir",
+            "short_name": "Découvrir",
+            "description": "Découvrir de nouveaux artistes",
+            "url": "/discover.php",
+            "icons": [{ "src": "assets/images/icon-192x192.svg", "sizes": "192x192" }]
+        },
+        {
+            "name": "Mes Playlists",
+            "short_name": "Playlists",
+            "description": "Mes playlists musicales",
+            "url": "/pages/user/playlists.php",
+            "icons": [{ "src": "assets/images/icon-192x192.svg", "sizes": "192x192" }]
+        },
+        {
+            "name": "Actualités",
+            "short_name": "Blog",
+            "description": "Actualités musicales tchadiennes",
+            "url": "/blog.php",
+            "icons": [{ "src": "assets/images/icon-192x192.svg", "sizes": "192x192" }]
+        }
+    ],
+    "related_applications": [],
+    "prefer_related_applications": false,
+    "dir": "ltr",
+    "display_override": ["window-controls-overlay", "standalone", "minimal-ui", "browser"]
+}
