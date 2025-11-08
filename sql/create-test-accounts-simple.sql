@@ -43,32 +43,32 @@ OR username IN ('admin_test', 'fan_test1', 'fan_test2', 'fan_test3', 'artist_tes
 -- ================================================================
 
 -- COMPTE 1: ADMINISTRATEUR
-INSERT INTO users (username, email, password_hash, first_name, last_name, phone, country, city, gender, premium_status, email_verified, is_active, created_at)
-VALUES ('admin_test', 'admin@test.tchadok.td', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administrateur', 'Tchadok', '+235 62 00 00 00', 'Tchad', 'N''Djamena', 'M', 1, 1, 1, NOW());
+INSERT INTO users (username, email, password, password_hash, first_name, last_name, phone, country, city, gender, premium_status, email_verified, is_active, created_at)
+VALUES ('admin_test', 'admin@test.tchadok.td', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administrateur', 'Tchadok', '+235 62 00 00 00', 'Tchad', 'N''Djamena', 'M', 1, 1, 1, NOW());
 
 -- COMPTE 2: FAN PREMIUM
-INSERT INTO users (username, email, password_hash, first_name, last_name, phone, country, city, date_of_birth, gender, premium_status, premium_expires_at, wallet_balance, loyalty_points, email_verified, is_active, created_at)
-VALUES ('fan_test1', 'fan1@test.tchadok.td', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Amina', 'Hassan', '+235 62 11 11 11', 'Tchad', 'N''Djamena', '1995-03-15', 'F', 1, DATE_ADD(NOW(), INTERVAL 1 YEAR), 5000.00, 850, 1, 1, NOW());
+INSERT INTO users (username, email, password, password_hash, first_name, last_name, phone, country, city, date_of_birth, gender, premium_status, premium_expires_at, wallet_balance, loyalty_points, email_verified, is_active, created_at)
+VALUES ('fan_test1', 'fan1@test.tchadok.td', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Amina', 'Hassan', '+235 62 11 11 11', 'Tchad', 'N''Djamena', '1995-03-15', 'F', 1, DATE_ADD(NOW(), INTERVAL 1 YEAR), 5000.00, 850, 1, 1, NOW());
 
 -- COMPTE 3: FAN STANDARD
-INSERT INTO users (username, email, password_hash, first_name, last_name, phone, country, city, date_of_birth, gender, premium_status, wallet_balance, loyalty_points, email_verified, is_active, created_at)
-VALUES ('fan_test2', 'fan2@test.tchadok.td', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Mahamat', 'Idriss', '+235 62 22 22 22', 'Tchad', 'Abéché', '1998-07-22', 'M', 0, 2500.00, 320, 1, 1, NOW());
+INSERT INTO users (username, email, password, password_hash, first_name, last_name, phone, country, city, date_of_birth, gender, premium_status, wallet_balance, loyalty_points, email_verified, is_active, created_at)
+VALUES ('fan_test2', 'fan2@test.tchadok.td', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Mahamat', 'Idriss', '+235 62 22 22 22', 'Tchad', 'Abéché', '1998-07-22', 'M', 0, 2500.00, 320, 1, 1, NOW());
 
 -- COMPTE 4: FAN ÉTUDIANT
-INSERT INTO users (username, email, password_hash, first_name, last_name, phone, country, city, date_of_birth, gender, premium_status, premium_expires_at, wallet_balance, loyalty_points, email_verified, is_active, created_at)
-VALUES ('fan_test3', 'fan3@test.tchadok.td', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Fatima', 'Oumar', '+235 62 33 33 33', 'Tchad', 'Moundou', '2002-11-08', 'F', 1, DATE_ADD(NOW(), INTERVAL 6 MONTH), 1200.00, 150, 1, 1, NOW());
+INSERT INTO users (username, email, password, password_hash, first_name, last_name, phone, country, city, date_of_birth, gender, premium_status, premium_expires_at, wallet_balance, loyalty_points, email_verified, is_active, created_at)
+VALUES ('fan_test3', 'fan3@test.tchadok.td', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Fatima', 'Oumar', '+235 62 33 33 33', 'Tchad', 'Moundou', '2002-11-08', 'F', 1, DATE_ADD(NOW(), INTERVAL 6 MONTH), 1200.00, 150, 1, 1, NOW());
 
 -- COMPTE 5: ARTISTE VÉRIFIÉ
-INSERT INTO users (username, email, password_hash, first_name, last_name, phone, country, city, date_of_birth, gender, premium_status, wallet_balance, email_verified, is_active, created_at)
-VALUES ('artist_test1', 'artist1@test.tchadok.td', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Abdoulaye', 'Ngaradoumbé', '+235 62 44 44 44', 'Tchad', 'N''Djamena', '1990-05-18', 'M', 1, 25000.00, 1, 1, NOW());
+INSERT INTO users (username, email, password, password_hash, first_name, last_name, phone, country, city, date_of_birth, gender, premium_status, wallet_balance, email_verified, is_active, created_at)
+VALUES ('artist_test1', 'artist1@test.tchadok.td', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Abdoulaye', 'Ngaradoumbé', '+235 62 44 44 44', 'Tchad', 'N''Djamena', '1990-05-18', 'M', 1, 25000.00, 1, 1, NOW());
 
 -- COMPTE 6: ARTISTE ÉMERGENTE
-INSERT INTO users (username, email, password_hash, first_name, last_name, phone, country, city, date_of_birth, gender, premium_status, wallet_balance, email_verified, is_active, created_at)
-VALUES ('artist_test2', 'artist2@test.tchadok.td', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Sarah', 'Djimadoum', '+235 62 55 55 55', 'Tchad', 'Sarh', '1996-09-25', 'F', 1, 8500.00, 1, 1, NOW());
+INSERT INTO users (username, email, password, password_hash, first_name, last_name, phone, country, city, date_of_birth, gender, premium_status, wallet_balance, email_verified, is_active, created_at)
+VALUES ('artist_test2', 'artist2@test.tchadok.td', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Sarah', 'Djimadoum', '+235 62 55 55 55', 'Tchad', 'Sarh', '1996-09-25', 'F', 1, 8500.00, 1, 1, NOW());
 
 -- COMPTE 7: ARTISTE DÉBUTANT
-INSERT INTO users (username, email, password_hash, first_name, last_name, phone, country, city, date_of_birth, gender, premium_status, wallet_balance, email_verified, is_active, created_at)
-VALUES ('artist_test3', 'artist3@test.tchadok.td', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Ibrahim', 'Ahmat', '+235 62 66 66 66', 'Tchad', 'Abéché', '2000-12-03', 'M', 0, 1200.00, 1, 1, NOW());
+INSERT INTO users (username, email, password, password_hash, first_name, last_name, phone, country, city, date_of_birth, gender, premium_status, wallet_balance, email_verified, is_active, created_at)
+VALUES ('artist_test3', 'artist3@test.tchadok.td', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Ibrahim', 'Ahmat', '+235 62 66 66 66', 'Tchad', 'Abéché', '2000-12-03', 'M', 0, 1200.00, 1, 1, NOW());
 
 -- ================================================================
 -- ÉTAPE 3: AJOUT DES PROFILS SPÉCIALISÉS
