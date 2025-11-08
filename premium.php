@@ -1241,12 +1241,10 @@ function subscribePremium(plan) {
         setTimeout(() => notification.remove(), 400);
     }, 4500);
 
-    // Simuler la redirection vers le paiement
+    // Redirection vers la page de paiement
     setTimeout(() => {
-        if (confirm(`Confirmer la souscription au plan ${planNames[plan]} ?\n\nVous serez redirigé vers une page de paiement sécurisée.`)) {
-            alert('Redirection vers la page de paiement...\n(Fonctionnalité en cours de développement)');
-        }
-    }, 1500);
+        window.location.href = '<?php echo SITE_URL; ?>/premium-payment.php?plan=' + plan;
+    }, 2000);
 }
 </script>
 
