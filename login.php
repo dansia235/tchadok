@@ -227,30 +227,6 @@ include 'includes/header.php';
                         </div>
                     </div>
                 </div>
-
-                <!-- Connexion rapide pour test -->
-                <div class="demo-card mt-4">
-                    <div class="demo-body text-center">
-                        <div class="demo-badge">
-                            <i class="fas fa-flask me-2"></i>
-                            Mode Démo
-                        </div>
-                        <h6 class="mb-3">Testez la plateforme rapidement</h6>
-                        <div class="demo-info">
-                            <div class="demo-credential">
-                                <strong>Email:</strong>
-                                <code>demo@tchadok.td</code>
-                            </div>
-                            <div class="demo-credential">
-                                <strong>Mot de passe:</strong>
-                                <code>demo123</code>
-                            </div>
-                        </div>
-                        <button class="btn btn-secondary-custom btn-sm mt-3" onclick="fillDemo()">
-                            <i class="fas fa-magic me-2"></i>Remplir automatiquement
-                        </button>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -695,101 +671,6 @@ include 'includes/header.php';
     width: 100%;
 }
 
-/* Demo Card */
-.demo-card {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.9));
-    backdrop-filter: blur(10px);
-    border-radius: 20px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    position: relative;
-    z-index: 2;
-    overflow: hidden;
-}
-
-.demo-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: linear-gradient(to right, var(--bleu-tchadien), var(--jaune-solaire));
-}
-
-.demo-body {
-    padding: 2rem;
-}
-
-.demo-badge {
-    display: inline-flex;
-    align-items: center;
-    background: linear-gradient(135deg, var(--jaune-solaire), #e6c200);
-    color: var(--gris-harmattan);
-    padding: 0.5rem 1rem;
-    border-radius: 20px;
-    font-weight: 700;
-    font-size: 0.9rem;
-    margin-bottom: 1rem;
-    animation: pulse 2s infinite;
-}
-
-.demo-body h6 {
-    color: var(--gris-harmattan);
-    font-weight: 700;
-    font-size: 1.2rem;
-    margin-bottom: 1.5rem;
-}
-
-.demo-info {
-    background: linear-gradient(135deg, rgba(0, 102, 204, 0.1), rgba(255, 215, 0, 0.1));
-    border: 2px solid rgba(0, 102, 204, 0.2);
-    border-radius: 15px;
-    padding: 1.5rem;
-    margin: 1rem 0;
-}
-
-.demo-credential {
-    margin-bottom: 0.75rem;
-    font-size: 0.95rem;
-}
-
-.demo-credential:last-child {
-    margin-bottom: 0;
-}
-
-.demo-credential strong {
-    color: var(--gris-harmattan);
-    font-weight: 600;
-}
-
-.demo-credential code {
-    background: rgba(0, 102, 204, 0.1);
-    padding: 0.25rem 0.75rem;
-    border-radius: 6px;
-    color: var(--bleu-tchadien);
-    font-weight: 600;
-    font-size: 0.9rem;
-    margin-left: 0.5rem;
-}
-
-.btn-secondary-custom {
-    background: transparent;
-    border: 2px solid var(--jaune-solaire);
-    color: var(--gris-harmattan);
-    font-weight: 600;
-    padding: 0.625rem 1.5rem;
-    border-radius: 12px;
-    transition: all 0.3s ease;
-}
-
-.btn-secondary-custom:hover {
-    background: var(--jaune-solaire);
-    color: var(--gris-harmattan);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
-}
-
 /* Alerts */
 .alert-modern {
     border-radius: 12px;
@@ -880,10 +761,6 @@ include 'includes/header.php';
     .floating-music-notes {
         font-size: 1.5rem;
     }
-
-    .demo-body {
-        padding: 1.5rem;
-    }
 }
 </style>
 
@@ -899,20 +776,6 @@ function togglePassword() {
         passwordField.type = 'password';
         toggleIcon.className = 'fas fa-eye';
     }
-}
-
-function fillDemo() {
-    document.getElementById('email').value = 'demo@tchadok.td';
-    document.getElementById('password').value = 'demo123';
-
-    // Add visual feedback
-    const emailField = document.getElementById('email');
-    const passwordField = document.getElementById('password');
-
-    emailField.classList.add('was-validated');
-    passwordField.classList.add('was-validated');
-
-    showNotification('✅ Identifiants de démo remplis automatiquement');
 }
 
 function showNotification(message) {
