@@ -1,0 +1,247 @@
+# ================================================================
+# .htaccess pour environnement PRODUCTION - Tchadok Platform
+# ================================================================
+# Configuration Apache optimisée pour la production
+# RENOMMER en .htaccess lors du déploiement
+# ================================================================
+
+# Activer le moteur de réécriture
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Définir la base de réécriture (racine du domaine)
+    RewriteBase /
+
+    # Forcer HTTPS en production
+    RewriteCond %{HTTPS} off
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # Rediriger www vers non-www (ou inverse selon préférence)
+    RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
+    RewriteRule ^(.*)$ https://%1/$1 [R=301,L]
+
+    # Empêcher l'accès direct aux fichiers sensibles
+    RewriteRule ^\.env$ - [F,L]
+    RewriteRule ^\.env\.production$ - [F,L]
+    RewriteRule ^composer\.(json|lock)$ - [F,L]
+    RewriteRule ^package(-lock)?\.json$ - [F,L]
+    RewriteRule ^README\.md$ - [F,L]
+
+    # Bloquer l'accès aux dossiers sensibles
+    RewriteRule ^(includes|config|sql|database|vendor|node_modules)/ - [F,L]
+
+    # Rediriger les requêtes sans extension vers PHP
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME}\.php -f
+    RewriteRule ^(.*)$ $1.php [L,QSA]
+</IfModule>
+
+# Protection maximale des fichiers sensibles
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+<FilesMatch "\.(env|htaccess|htpasswd|ini|log|sh|sql|md|txt|bak|config|dist|git|gitignore|yml|yaml)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Autoriser l'accès aux fichiers .well-known (certifications SSL)
+<IfModule mod_rewrite.c>
+    RewriteRule ^\.well-known/ - [L]
+</IfModule>
+
+# Configuration PHP pour la production
+<IfModule mod_php7.c>
+    # Masquer les erreurs en production
+    php_flag display_errors Off
+    php_flag display_startup_errors Off
+    php_value error_reporting 0
+    php_flag log_errors On
+    php_value error_log /var/log/php_errors.log
+
+    # Taille maximale des uploads
+    php_value upload_max_filesize 50M
+    php_value post_max_size 52M
+    php_value memory_limit 512M
+    php_value max_execution_time 300
+    php_value max_input_time 300
+
+    # Sessions sécurisées
+    php_value session.gc_maxlifetime 7200
+    php_flag session.cookie_httponly On
+    php_flag session.cookie_secure On
+    php_value session.cookie_samesite Strict
+
+    # Timezone
+    php_value date.timezone "Africa/Ndjamena"
+
+    # Désactiver les fonctions dangereuses
+    php_value disable_functions "exec,passthru,shell_exec,system,proc_open,popen,curl_exec,curl_multi_exec,parse_ini_file,show_source"
+</IfModule>
+
+# Configuration pour PHP 8
+<IfModule mod_php.c>
+    php_flag display_errors Off
+    php_flag display_startup_errors Off
+    php_value error_reporting 0
+    php_flag log_errors On
+    php_value error_log /var/log/php_errors.log
+    php_value upload_max_filesize 50M
+    php_value post_max_size 52M
+    php_value memory_limit 512M
+    php_value max_execution_time 300
+    php_value max_input_time 300
+    php_value session.gc_maxlifetime 7200
+    php_flag session.cookie_httponly On
+    php_flag session.cookie_secure On
+    php_value session.cookie_samesite Strict
+    php_value date.timezone "Africa/Ndjamena"
+</IfModule>
+
+# Compression GZIP pour optimiser les performances
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript
+    AddOutputFilterByType DEFLATE application/javascript application/json application/xml
+    AddOutputFilterByType DEFLATE image/svg+xml
+
+    # Compression niveau 6 (bon compromis CPU/taille)
+    DeflateCompressionLevel 6
+</IfModule>
+
+# Cache agressif des fichiers statiques en production
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresDefault "access plus 1 month"
+
+    # Images
+    ExpiresByType image/jpg "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
+    ExpiresByType image/webp "access plus 1 year"
+    ExpiresByType image/x-icon "access plus 1 year"
+
+    # CSS et JavaScript
+    ExpiresByType text/css "access plus 1 year"
+    ExpiresByType text/javascript "access plus 1 year"
+    ExpiresByType application/javascript "access plus 1 year"
+
+    # Fonts
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType font/woff "access plus 1 year"
+    ExpiresByType font/ttf "access plus 1 year"
+    ExpiresByType application/font-woff2 "access plus 1 year"
+
+    # Médias
+    ExpiresByType audio/mpeg "access plus 1 year"
+    ExpiresByType audio/mp4 "access plus 1 year"
+    ExpiresByType video/mp4 "access plus 1 year"
+
+    # Documents
+    ExpiresByType application/pdf "access plus 1 month"
+
+    # HTML et JSON - cache court
+    ExpiresByType text/html "access plus 0 seconds"
+    ExpiresByType application/json "access plus 0 seconds"
+</IfModule>
+
+# Headers de sécurité stricts pour la production
+<IfModule mod_headers.c>
+    # CORS - Restreint au domaine
+    Header set Access-Control-Allow-Origin "https://tchadok.td"
+    Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+    Header set Access-Control-Allow-Credentials "true"
+
+    # Protection contre le clickjacking
+    Header always set X-Frame-Options "SAMEORIGIN"
+
+    # Protection XSS
+    Header set X-XSS-Protection "1; mode=block"
+
+    # Empêcher le sniffing MIME
+    Header set X-Content-Type-Options "nosniff"
+
+    # Politique de référent stricte
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+
+    # Content Security Policy (à adapter selon vos besoins)
+    Header set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https:; connect-src 'self'; media-src 'self';"
+
+    # HSTS - Force HTTPS pendant 1 an
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+
+    # Permissions Policy
+    Header set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+
+    # Désactiver le cache pour les fichiers sensibles
+    <FilesMatch "\.(php|html)$">
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+        Header set Pragma "no-cache"
+        Header set Expires 0
+    </FilesMatch>
+
+    # ETag pour versionning
+    Header unset ETag
+    FileETag None
+</IfModule>
+
+# Pages d'erreur personnalisées
+ErrorDocument 404 /404.php
+ErrorDocument 403 /403.php
+ErrorDocument 500 /500.php
+
+# Options du répertoire - Sécurité maximale
+Options -Indexes
+Options -MultiViews
+Options +FollowSymLinks
+
+# Encodage par défaut
+AddDefaultCharset UTF-8
+
+# Types MIME
+<IfModule mod_mime.c>
+    AddType audio/mpeg mp3
+    AddType audio/mp4 m4a
+    AddType audio/ogg ogg
+    AddType audio/wav wav
+    AddType video/mp4 mp4
+    AddType application/json json
+    AddType application/font-woff2 woff2
+    AddType font/woff2 woff2
+    AddType image/svg+xml svg svgz
+    AddType image/webp webp
+</IfModule>
+
+# Protection contre les hotlinking
+<IfModule mod_rewrite.c>
+    RewriteCond %{HTTP_REFERER} !^$
+    RewriteCond %{HTTP_REFERER} !^https://(www\.)?tchadok\.td [NC]
+    RewriteRule \.(jpg|jpeg|png|gif|mp3|mp4|wav|pdf)$ - [F,NC]
+</IfModule>
+
+# Limite de taille des requêtes
+LimitRequestBody 52428800
+
+# Protection contre les attaques par force brute
+<IfModule mod_security2.c>
+    SecFilterEngine On
+    SecFilterCheckURLEncoding On
+</IfModule>
+
+# Bloquer les user agents malveillants
+<IfModule mod_rewrite.c>
+    RewriteCond %{HTTP_USER_AGENT} ^$ [OR]
+    RewriteCond %{HTTP_USER_AGENT} ^(-|curl|wget|libwww-perl|python|nikto|scan|java|winhttp|HTTrack|clshttp|archiver|loader|email|harvest|extract|grab|miner) [NC,OR]
+    RewriteCond %{HTTP_USER_AGENT} (libwww-perl|wget|python|nikto|curl|scan|java|winhttp|clshttp|loader) [NC,OR]
+    RewriteCond %{HTTP_USER_AGENT} (<|>|'|%0A|%0D|%27|%3C|%3E|%00) [NC,OR]
+    RewriteCond %{HTTP_USER_AGENT} (;|<|>|'|"|\)|\(|%0A|%0D|%22|%27|%28|%3C|%3E|%00).*(libwww-perl|wget|python|nikto|curl|scan|java|winhttp|HTTrack|clshttp|archiver|loader|email|harvest|extract|grab|miner) [NC]
+    RewriteRule .* - [F,L]
+</IfModule>
+
+# Désactiver la signature du serveur
+ServerSignature Off
