@@ -120,6 +120,14 @@ $pageTitle = 'Création des Comptes de Test';
                     </div>';
 
                     try {
+                        // Obtenir la connexion à la base de données
+                        $dbInstance = TchadokDatabase::getInstance();
+                        $db = $dbInstance->getConnection();
+
+                        if (!$db) {
+                            throw new Exception("Impossible de se connecter à la base de données. Vérifiez votre configuration .env");
+                        }
+
                         // Lire le fichier SQL
                         $sqlFile = __DIR__ . '/../sql/create-test-accounts.sql';
 

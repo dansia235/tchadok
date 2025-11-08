@@ -8,7 +8,9 @@
 // Configuration générale du site
 define('SITE_NAME', 'Tchadok');
 define('SITE_TAGLINE', 'La musique tchadienne à portée de clic');
-define('SITE_URL', 'http://localhost/tchadok');
+if (!defined('SITE_URL')) {
+    define('SITE_URL', 'http://localhost/tchadok');
+}
 define('SITE_EMAIL', 'info@tchadok.td');
 define('SITE_PHONE', '+235 XX XX XX XX');
 
@@ -58,7 +60,9 @@ define('PAYMENT_WALLET', 'wallet');
 define('DEFAULT_COMMISSION_RATE', 15.0); // 15%
 
 // Durée de session (en secondes)
-define('SESSION_LIFETIME', 7 * 24 * 60 * 60); // 7 jours
+if (!defined('SESSION_LIFETIME')) {
+    define('SESSION_LIFETIME', 7 * 24 * 60 * 60); // 7 jours
+}
 
 // Configuration email
 define('SMTP_HOST', 'smtp.gmail.com');
@@ -149,7 +153,9 @@ define('APP_BUILD', '2024.001');
 
 // Configuration de cache
 define('CACHE_ENABLED', true);
-define('CACHE_LIFETIME', 3600); // 1 heure
+if (!defined('CACHE_LIFETIME')) {
+    define('CACHE_LIFETIME', 3600); // 1 heure
+}
 
 // Fuseau horaire
 date_default_timezone_set('Africa/Ndjamena');
