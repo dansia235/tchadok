@@ -61,6 +61,10 @@ include 'includes/header.php';
                         <img src="<?php echo SITE_URL; ?>/assets/images/logo.svg"
                              alt="Tchadok Premium"
                              class="premium-logo-image">
+                        <div class="premium-tagline">
+                            <span class="tagline-text">La musique tchadienne</span>
+                            <span class="tagline-highlight">à portée de clic</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -176,7 +180,7 @@ include 'includes/header.php';
                             <h4 class="pricing-plan-name">Premium Mensuel</h4>
                             <div class="price-display">
                                 <span class="price-currency">FCFA</span>
-                                <span class="price-amount">2,500</span>
+                                <span class="price-amount">1,500</span>
                                 <span class="price-period">/mois</span>
                             </div>
                         </div>
@@ -227,11 +231,11 @@ include 'includes/header.php';
                             <h4 class="pricing-plan-name">Premium Annuel</h4>
                             <div class="price-display">
                                 <span class="price-currency">FCFA</span>
-                                <span class="price-amount">25,000</span>
+                                <span class="price-amount">10,000</span>
                                 <span class="price-period">/an</span>
                             </div>
                             <div class="savings-badge">
-                                <s>30,000 FCFA</s> - Économisez 5,000 FCFA !
+                                <s>18,000 FCFA</s> - Économisez 8,000 FCFA !
                             </div>
                         </div>
                         <div class="pricing-body">
@@ -277,7 +281,7 @@ include 'includes/header.php';
                             <h4 class="pricing-plan-name">Premium Étudiant</h4>
                             <div class="price-display">
                                 <span class="price-currency">FCFA</span>
-                                <span class="price-amount">1,500</span>
+                                <span class="price-amount">1,000</span>
                                 <span class="price-period">/mois</span>
                             </div>
                             <div class="student-note">
@@ -701,6 +705,43 @@ include 'includes/header.php';
     animation: logoFloat 3s ease-in-out infinite;
 }
 
+.premium-tagline {
+    margin-top: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    animation: fadeInUp 1s ease 0.8s backwards;
+}
+
+.tagline-text {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: white;
+    text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.3);
+    letter-spacing: 0.5px;
+}
+
+.tagline-highlight {
+    font-size: 2rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--jaune-solaire), #FFA500);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+    filter: drop-shadow(0 2px 8px rgba(255, 215, 0, 0.4));
+    animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0%, 100% {
+        filter: drop-shadow(0 2px 8px rgba(255, 215, 0, 0.4));
+    }
+    50% {
+        filter: drop-shadow(0 4px 16px rgba(255, 215, 0, 0.6));
+    }
+}
+
 .min-vh-75 {
     min-height: 75vh;
 }
@@ -816,21 +857,31 @@ include 'includes/header.php';
 
 .recommended-badge {
     position: absolute;
-    top: -15px;
+    top: 0;
     left: 50%;
     transform: translateX(-50%);
     background: linear-gradient(135deg, var(--jaune-solaire), #FFA500);
     color: #1a1a1a;
-    padding: 8px 25px;
+    padding: 10px 30px;
     border-radius: 50px;
     font-weight: 700;
-    font-size: 0.9rem;
-    box-shadow: 0 5px 15px rgba(255, 215, 0, 0.4);
+    font-size: 1rem;
+    box-shadow: 0 8px 25px rgba(255, 215, 0, 0.5);
     z-index: 10;
+    animation: badgePulse 2s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+    0%, 100% {
+        transform: translateX(-50%) scale(1);
+    }
+    50% {
+        transform: translateX(-50%) scale(1.05);
+    }
 }
 
 .pricing-header {
-    padding: 40px 30px 30px;
+    padding: 50px 30px 30px;
     text-align: center;
 }
 
@@ -1134,9 +1185,9 @@ function subscribePremium(plan) {
     console.log('Subscribe to plan:', plan);
 
     const planNames = {
-        'monthly': 'Premium Mensuel (2,500 FCFA/mois)',
-        'yearly': 'Premium Annuel (25,000 FCFA/an)',
-        'student': 'Premium Étudiant (1,500 FCFA/mois)'
+        'monthly': 'Premium Mensuel (1,500 FCFA/mois)',
+        'yearly': 'Premium Annuel (10,000 FCFA/an)',
+        'student': 'Premium Étudiant (1,000 FCFA/mois)'
     };
 
     const notification = document.createElement('div');
