@@ -111,6 +111,15 @@ $pageTitle = 'Création des Comptes de Test';
             </div>
             <div class="card-body p-4">
 
+                <!-- Test de connexion -->
+                <div class="mb-4">
+                    <button type="button" class="btn btn-outline-info btn-sm" onclick="testConnection()">
+                        <i class="fas fa-plug me-2"></i>
+                        Tester la connexion à la base de données
+                    </button>
+                    <div id="connection-result" class="mt-3" style="display: none;"></div>
+                </div>
+
                 <?php
                 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['execute'])) {
                     // Exécuter le script SQL
@@ -151,6 +160,8 @@ $pageTitle = 'Création des Comptes de Test';
                         $success = 0;
                         $errors = [];
                         $executed = 0;
+                        $debug_mode = true; // Activer le mode debug
+                        $debug_info = [];
 
                         foreach ($queries as $query) {
                             $query = trim($query);
@@ -162,21 +173,80 @@ $pageTitle = 'Création des Comptes de Test';
                             }
 
                             $executed++;
+                            $query_preview = substr($query, 0, 100) . (strlen($query) > 100 ? '...' : '');
 
                             try {
                                 $stmt = $db->prepare($query);
                                 $stmt->execute();
                                 $success++;
+
+                                if ($debug_mode) {
+                                    $debug_info[] = [
+                                        'num' => $executed,
+                                        'status' => 'success',
+                                        'query' => $query_preview,
+                                        'affected_rows' => $stmt->rowCount()
+                                    ];
+                                }
                             } catch (PDOException $e) {
-                                // Ignorer certaines erreurs non critiques (comme les SELECT pour affichage)
                                 $errorMsg = $e->getMessage();
+
+                                // Enregistrer toutes les erreurs en mode debug
+                                if ($debug_mode) {
+                                    $debug_info[] = [
+                                        'num' => $executed,
+                                        'status' => 'error',
+                                        'query' => $query_preview,
+                                        'error' => $errorMsg
+                                    ];
+                                }
+
+                                // Ignorer certaines erreurs non critiques (comme les SELECT pour affichage)
                                 if (strpos($errorMsg, 'UNION') === false &&
                                     strpos($errorMsg, 'SELECT') === false &&
                                     strpos($errorMsg, 'RÉSUMÉ') === false &&
                                     strpos($errorMsg, 'INFORMATIONS') === false) {
-                                    $errors[] = "Requête #$executed : " . $errorMsg;
+                                    $errors[] = "Requête #$executed : " . $errorMsg . "<br><small>Requête: " . htmlspecialchars($query_preview) . "</small>";
                                 }
                             }
+                        }
+
+                        // Afficher le mode debug
+                        if ($debug_mode && !empty($debug_info)) {
+                            echo '<div class="alert alert-secondary">
+                                <h6><i class="fas fa-bug me-2"></i>Mode Debug</h6>
+                                <details>
+                                    <summary style="cursor: pointer;">Voir les détails d\'exécution (' . count($debug_info) . ' requêtes)</summary>
+                                    <table class="table table-sm mt-2">
+                                        <thead>
+                                            <tr>
+                                                <th>#</th>
+                                                <th>Statut</th>
+                                                <th>Requête</th>
+                                                <th>Détails</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>';
+
+                            foreach ($debug_info as $info) {
+                                $statusBadge = $info['status'] === 'success'
+                                    ? '<span class="badge bg-success">OK</span>'
+                                    : '<span class="badge bg-danger">ERREUR</span>';
+                                $details = $info['status'] === 'success'
+                                    ? $info['affected_rows'] . ' lignes affectées'
+                                    : '<small>' . htmlspecialchars($info['error']) . '</small>';
+
+                                echo '<tr>
+                                    <td>' . $info['num'] . '</td>
+                                    <td>' . $statusBadge . '</td>
+                                    <td><small>' . htmlspecialchars($info['query']) . '</small></td>
+                                    <td>' . $details . '</td>
+                                </tr>';
+                            }
+
+                            echo '</tbody></table>
+                                </details>
+                            </div>';
                         }
 
                         if (empty($errors)) {
@@ -412,5 +482,93 @@ $pageTitle = 'Création des Comptes de Test';
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    function testConnection() {
+        const resultDiv = document.getElementById('connection-result');
+        resultDiv.style.display = 'block';
+        resultDiv.innerHTML = `
+            <div class="alert alert-info">
+                <i class="fas fa-spinner fa-spin me-2"></i>
+                Test de connexion en cours...
+            </div>
+        `;
+
+        fetch('test-db-connection.php')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    let html = `
+                        <div class="alert alert-success">
+                            <h5><i class="fas fa-check-circle me-2"></i>Connexion réussie !</h5>
+                            <p class="mb-0">${data.message}</p>
+                        </div>
+                        <div class="card mt-2">
+                            <div class="card-header bg-light">
+                                <strong>Détails de la connexion</strong>
+                            </div>
+                            <div class="card-body">
+                                <table class="table table-sm">
+                                    <tr>
+                                        <th>Base de données</th>
+                                        <td>${data.details.env.DB_DATABASE} @ ${data.details.env.DB_HOST}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Utilisateur</th>
+                                        <td>${data.details.env.DB_USERNAME}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Connexion PDO</th>
+                                        <td><span class="badge bg-success">${data.details.connection}</span></td>
+                                    </tr>
+                                    <tr>
+                                        <th>Test requête</th>
+                                        <td><span class="badge bg-success">${data.details.query_test}</span></td>
+                                    </tr>
+                                </table>
+                                <h6 class="mt-3">Tables</h6>
+                                <ul class="list-unstyled">
+                    `;
+                    for (const [table, status] of Object.entries(data.details.tables)) {
+                        const badgeClass = status === 'EXISTS' ? 'bg-success' : 'bg-danger';
+                        html += `<li><span class="badge ${badgeClass}">${status}</span> ${table}</li>`;
+                    }
+                    html += `
+                                </ul>
+                                <h6 class="mt-3">Statistiques</h6>
+                                <ul class="list-unstyled">
+                                    <li><strong>Total utilisateurs:</strong> ${data.details.users_count}</li>
+                                    <li><strong>Comptes de test:</strong> ${data.details.test_accounts_count}</li>
+                                </ul>
+                                <details class="mt-3">
+                                    <summary class="text-muted" style="cursor: pointer;">Colonnes de la table users</summary>
+                                    <pre class="mt-2">${data.details.users_columns.join('\n')}</pre>
+                                </details>
+                            </div>
+                        </div>
+                    `;
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <h5><i class="fas fa-times-circle me-2"></i>Erreur de connexion</h5>
+                            <p class="mb-2"><strong>Message:</strong> ${data.message}</p>
+                            <details>
+                                <summary class="text-muted" style="cursor: pointer;">Voir les détails</summary>
+                                <pre class="mt-2">${JSON.stringify(data.details, null, 2)}</pre>
+                            </details>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        <h5><i class="fas fa-times-circle me-2"></i>Erreur</h5>
+                        <p class="mb-0">${error.message}</p>
+                    </div>
+                `;
+            });
+    }
+    </script>
 </body>
 </html>
