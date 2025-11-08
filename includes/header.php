@@ -41,6 +41,9 @@
     <link href="<?php echo SITE_URL; ?>/assets/css/main.css" rel="stylesheet">
     
     <!-- Progressive Web App -->
+    
+    <!-- jQuery - Chargé avant les scripts qui l'utilisent -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link rel="manifest" href="<?php echo SITE_URL; ?>/manifest.json">
     <meta name="theme-color" content="#0066CC">
     
