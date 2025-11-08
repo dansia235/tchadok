@@ -144,7 +144,7 @@ include 'includes/header.php';
 
                 <div class="stat-card stat-info">
                     <div class="stat-icon">
-                        <i class="fas fa-list-music"></i>
+                        <i class="fas fa-stream"></i>
                     </div>
                     <div class="stat-content">
                         <div class="stat-value" data-count="<?php echo $userStats['playlists_created']; ?>">0</div>
@@ -202,18 +202,18 @@ include 'includes/header.php';
                                     <small class="text-muted">Organisez votre musique</small>
                                 </div>
                             </div>
-                            <button class="btn btn-sm btn-success">
+                            <a href="<?php echo SITE_URL; ?>/create-playlist.php" class="btn btn-sm btn-success">
                                 <i class="fas fa-plus me-2"></i>Créer
-                            </button>
+                            </a>
                         </div>
                         <div class="card-body-custom">
                             <div class="empty-state">
                                 <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
                                 <h6 class="text-muted">Aucune playlist</h6>
                                 <p class="text-muted">Créez votre première playlist personnalisée</p>
-                                <button class="btn btn-success">
+                                <a href="<?php echo SITE_URL; ?>/create-playlist.php" class="btn btn-success">
                                     <i class="fas fa-plus me-2"></i>Créer ma première playlist
-                                </button>
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -258,10 +258,10 @@ include 'includes/header.php';
                                 </div>
                             </div>
                             <div class="mt-4">
-                                <a href="#" class="btn btn-outline-primary btn-sm w-100 mb-2">
+                                <a href="<?php echo SITE_URL; ?>/edit-profile.php" class="btn btn-outline-primary btn-sm w-100 mb-2">
                                     <i class="fas fa-edit me-2"></i>Modifier le profil
                                 </a>
-                                <a href="#" class="btn btn-outline-secondary btn-sm w-100">
+                                <a href="<?php echo SITE_URL; ?>/settings.php" class="btn btn-outline-secondary btn-sm w-100">
                                     <i class="fas fa-cog me-2"></i>Paramètres
                                 </a>
                             </div>
