@@ -51,6 +51,7 @@ include 'includes/header.php';
     <div class="floating-music-notes" style="top: 75%; right: 8%; animation-delay: 3s;">♫</div>
     <div class="floating-music-notes" style="bottom: 18%; left: 12%; animation-delay: 1.5s;">♪</div>
     <div class="floating-music-notes" style="top: 35%; right: 25%; animation-delay: 4s;">♫</div>
+    <div class="floating-music-notes" style="bottom: 45%; right: 18%; animation-delay: 2.5s;">♪</div>
     
     <div class="container py-5">
         <div class="row justify-content-center">
@@ -292,7 +293,7 @@ document.getElementById('confirm_password').addEventListener('input', function()
 }
 
 .register-section {
-    background: linear-gradient(135deg, rgba(0, 102, 204, 0.8), rgba(255, 215, 0, 0.6)), 
+    background: linear-gradient(135deg, rgba(0, 102, 204, 0.9), rgba(255, 215, 0, 0.7)),
                 url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320"%3E%3Cpath fill="%230066CC" fill-opacity="0.1" d="M0,96L48,112C96,128,192,160,288,160C384,160,480,128,576,122.7C672,117,768,139,864,133.3C960,128,1056,96,1152,90.7C1248,85,1344,107,1392,117.3L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"%3E%3C/path%3E%3C/svg%3E');
     background-size: cover;
     background-position: center;
@@ -306,15 +307,15 @@ document.getElementById('confirm_password').addEventListener('input', function()
 
 .floating-music-notes {
     position: absolute;
-    font-size: 2rem;
-    color: rgba(255, 255, 255, 0.2);
-    animation: float 6s ease-in-out infinite;
+    font-size: 2.5rem;
+    color: rgba(255, 255, 255, 0.15);
+    animation: float 8s ease-in-out infinite;
     z-index: 1;
 }
 
 @keyframes float {
     0%, 100% { transform: translateY(0) rotate(0deg); }
-    50% { transform: translateY(-20px) rotate(10deg); }
+    50% { transform: translateY(-30px) rotate(15deg); }
 }
 
 .register-card {
@@ -355,7 +356,7 @@ document.getElementById('confirm_password').addEventListener('input', function()
     width: 80px;
     height: 80px;
     margin-bottom: 1rem;
-    animation: logoFloat 3s ease-in-out infinite;
+    animation: logoFloat 3s ease-in-out infinite, fadeInUp 1s ease;
 }
 
 @keyframes logoFloat {
@@ -367,13 +368,17 @@ document.getElementById('confirm_password').addEventListener('input', function()
     font-family: 'Montserrat', sans-serif;
     font-weight: 900;
     font-size: 2.5rem;
+    color: white;
     margin-bottom: 0.5rem;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+    animation: fadeInUp 1s ease;
 }
 
 .register-header p {
     font-size: 1.1rem;
+    color: white;
     opacity: 0.9;
+    animation: fadeInUp 1.2s ease;
 }
 
 .register-body {
@@ -622,6 +627,17 @@ document.getElementById('confirm_password').addEventListener('input', function()
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 </style>
 
