@@ -150,18 +150,31 @@ $pageTitle = 'Création des Comptes de Test';
 
                         $success = 0;
                         $errors = [];
+                        $executed = 0;
 
                         foreach ($queries as $query) {
-                            if (empty(trim($query))) continue;
+                            $query = trim($query);
+                            if (empty($query)) continue;
+
+                            // Ignorer les commandes SET et TRANSACTION au début
+                            if (preg_match('/^(SET|START TRANSACTION|COMMIT)/i', $query)) {
+                                continue;
+                            }
+
+                            $executed++;
 
                             try {
-                                $db->query($query);
+                                $stmt = $db->prepare($query);
+                                $stmt->execute();
                                 $success++;
-                            } catch (Exception $e) {
-                                // Ignorer certaines erreurs non critiques
-                                if (strpos($e->getMessage(), 'UNION') === false &&
-                                    strpos($e->getMessage(), 'SELECT') === false) {
-                                    $errors[] = $e->getMessage();
+                            } catch (PDOException $e) {
+                                // Ignorer certaines erreurs non critiques (comme les SELECT pour affichage)
+                                $errorMsg = $e->getMessage();
+                                if (strpos($errorMsg, 'UNION') === false &&
+                                    strpos($errorMsg, 'SELECT') === false &&
+                                    strpos($errorMsg, 'RÉSUMÉ') === false &&
+                                    strpos($errorMsg, 'INFORMATIONS') === false) {
+                                    $errors[] = "Requête #$executed : " . $errorMsg;
                                 }
                             }
                         }
@@ -170,11 +183,11 @@ $pageTitle = 'Création des Comptes de Test';
                             echo '<div class="alert alert-success">
                                 <i class="fas fa-check-circle me-2"></i>
                                 <strong>Succès !</strong> Les comptes de test ont été créés avec succès.
-                                <br><small>Requêtes exécutées : ' . $success . '</small>
+                                <br><small>Requêtes exécutées : ' . $success . ' / ' . $executed . '</small>
                             </div>';
 
                             // Afficher les comptes créés
-                            $result = $db->query("
+                            $stmt = $db->prepare("
                                 SELECT
                                     u.id,
                                     u.username,
@@ -188,15 +201,11 @@ $pageTitle = 'Création des Comptes de Test';
                                         WHEN adm.id IS NOT NULL THEN 'Admin'
                                         ELSE 'Fan'
                                     END as type_profil,
-                                    CASE
-                                        WHEN a.id IS NOT NULL THEN ar.stage_name
-                                        ELSE NULL
-                                    END as nom_artiste
+                                    a.stage_name as nom_artiste
                                 FROM users u
                                 LEFT JOIN artists a ON u.id = a.user_id
-                                LEFT JOIN artists ar ON a.id = ar.id
                                 LEFT JOIN admins adm ON u.id = adm.user_id
-                                WHERE u.email LIKE '%@test.tchadok.td'
+                                WHERE u.email LIKE :email
                                 ORDER BY
                                     CASE
                                         WHEN adm.id IS NOT NULL THEN 1
@@ -206,7 +215,10 @@ $pageTitle = 'Création des Comptes de Test';
                                     u.id
                             ");
 
-                            if ($result && $result->num_rows > 0) {
+                            $stmt->execute(['email' => '%@test.tchadok.td']);
+                            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                            if ($results && count($results) > 0) {
                                 echo '<div class="mt-4">
                                     <h5><i class="fas fa-list-check me-2"></i>Comptes créés :</h5>
                                     <div class="table-responsive">
@@ -223,7 +235,7 @@ $pageTitle = 'Création des Comptes de Test';
                                             </thead>
                                             <tbody>';
 
-                                while ($row = $result->fetch_assoc()) {
+                                foreach ($results as $row) {
                                     $badgeClass = 'badge-fan';
                                     if ($row['type_profil'] === 'Admin') $badgeClass = 'badge-admin';
                                     if ($row['type_profil'] === 'Artiste') $badgeClass = 'badge-artist';
@@ -234,7 +246,7 @@ $pageTitle = 'Création des Comptes de Test';
                                     }
 
                                     echo '<tr>
-                                        <td><span class="badge ' . $badgeClass . '">' . $row['type_profil'] . '</span></td>
+                                        <td><span class="badge ' . $badgeClass . '">' . htmlspecialchars($row['type_profil']) . '</span></td>
                                         <td><code>' . htmlspecialchars($row['username']) . '</code></td>
                                         <td><small>' . htmlspecialchars($row['email']) . '</small></td>
                                         <td>' . htmlspecialchars($displayName) . '</td>
@@ -244,6 +256,11 @@ $pageTitle = 'Création des Comptes de Test';
                                 }
 
                                 echo '</tbody></table></div></div>';
+                            } else {
+                                echo '<div class="alert alert-info mt-3">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Aucun compte de test trouvé. Ils ont peut-être été supprimés.
+                                </div>';
                             }
 
                         } else {
