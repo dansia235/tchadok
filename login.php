@@ -219,7 +219,7 @@ include 'includes/header.php';
                             <div class="login-footer text-center">
                                 <p class="mb-0">
                                     Pas encore de compte ?
-                                    <a href="<?php echo SITE_URL; ?>/register-new.php" class="login-link">
+                                    <a href="<?php echo SITE_URL; ?>/register.php" class="login-link">
                                         Créer un compte gratuitement
                                     </a>
                                 </p>
