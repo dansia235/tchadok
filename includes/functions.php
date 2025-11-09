@@ -80,14 +80,42 @@ function isLoggedIn() {
  * Vérifie si l'utilisateur est un artiste
  */
 function isArtist() {
-    return isset($_SESSION['user_type']) && $_SESSION['user_type'] === USER_TYPE_ARTIST;
+    return isLoggedIn() && isset($_SESSION['user_type']) && $_SESSION['user_type'] === USER_TYPE_ARTIST;
 }
 
 /**
  * Vérifie si l'utilisateur est un administrateur
  */
 function isAdmin() {
-    return isset($_SESSION['user_type']) && $_SESSION['user_type'] === USER_TYPE_ADMIN;
+    return isLoggedIn() && isset($_SESSION['user_type']) && $_SESSION['user_type'] === USER_TYPE_ADMIN;
+}
+
+/**
+ * Vérifie si l'utilisateur est un fan (utilisateur normal)
+ */
+function isFan() {
+    return isLoggedIn() && isset($_SESSION['user_type']) && $_SESSION['user_type'] === USER_TYPE_FAN;
+}
+
+/**
+ * Redirige vers le dashboard approprié selon le type d'utilisateur
+ */
+function redirectToDashboard() {
+    if (!isLoggedIn()) {
+        header('Location: ' . SITE_URL . '/login.php');
+        exit();
+    }
+
+    if (isAdmin()) {
+        header('Location: ' . SITE_URL . '/admin-dashboard.php');
+        exit();
+    } elseif (isArtist()) {
+        header('Location: ' . SITE_URL . '/artist-dashboard.php');
+        exit();
+    } else {
+        header('Location: ' . SITE_URL . '/user-dashboard.php');
+        exit();
+    }
 }
 
 /**
