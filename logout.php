@@ -5,10 +5,7 @@
 
 require_once 'includes/functions.php';
 
-// Démarrer la session si pas déjà fait
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+// La session est déjà démarrée par functions.php
 
 // Détruire toutes les variables de session
 $_SESSION = array();
@@ -25,7 +22,7 @@ if (ini_get("session.use_cookies")) {
 // Finalement, détruire la session
 session_destroy();
 
-// Message de confirmation et redirection
-setFlashMessage(FLASH_INFO, 'Vous avez été déconnecté avec succès. À bientôt sur Tchadok !');
-redirect(SITE_URL . '/');
+// Redirection vers la page d'accueil
+header('Location: ' . SITE_URL . '/index.php');
+exit();
 ?>
