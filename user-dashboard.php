@@ -13,6 +13,15 @@ if (!isLoggedIn()) {
     exit();
 }
 
+// Rediriger vers le dashboard approprié selon le type d'utilisateur
+if (isAdmin()) {
+    header('Location: ' . SITE_URL . '/admin-dashboard.php');
+    exit();
+} elseif (isArtist()) {
+    header('Location: ' . SITE_URL . '/artist-dashboard.php');
+    exit();
+}
+
 $pageTitle = 'Tableau de Bord';
 $pageDescription = 'Gérez votre compte et vos préférences musicales';
 
