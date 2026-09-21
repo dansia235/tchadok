@@ -1,229 +1,161 @@
 <?php
 /**
  * API Radio Metadata - Tchadok Platform
- * Fournit les métadonnées actuelles de la radio
+ * Metadonnees basees sur la base de donnees
  */
+
+require_once '../../includes/database.php';
+require_once '../../includes/radio-engine.php';
 
 header('Content-Type: application/json');
 header('Cache-Control: no-cache, no-store, must-revalidate');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET');
 
-// Connexion à la base de données
-try {
-    $pdo = new PDO("mysql:host=localhost;dbname=tchadok;charset=utf8mb4", 'dansia', 'dansia');
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (Exception $e) {
-    $pdo = null;
+$dbInstance = TchadokDatabase::getInstance();
+$db = $dbInstance->getConnection();
+
+if (!$db) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error' => ['message' => 'Connexion base indisponible']
+    ], JSON_UNESCAPED_UNICODE);
+    exit();
 }
 
-// Playlist radio simulée
-$radioPlaylist = [
-    [
-        'id' => 1,
-        'title' => 'Dounya',
-        'artist' => 'Mounira Mitchala',
-        'album' => 'Renaissance Africaine',
-        'duration' => 255,
-        'genre' => 'Soul/R&B',
-        'year' => 2024,
-        'cover' => '/assets/images/albums/mounira_dounya.jpg'
-    ],
-    [
-        'id' => 2,
-        'title' => 'N\'Djamena City',
-        'artist' => 'H2O Assoumane',
-        'album' => 'Révolution Urbaine',
-        'duration' => 198,
-        'genre' => 'Hip Hop',
-        'year' => 2024,
-        'cover' => '/assets/images/albums/h2o_ndjamena.jpg'
-    ],
-    [
-        'id' => 3,
-        'title' => 'Rythme Ancestral',
-        'artist' => 'Clément Masdongar',
-        'album' => 'Rythmes de N\'Djamena',
-        'duration' => 234,
-        'genre' => 'Afrobeat',
-        'year' => 2023,
-        'cover' => '/assets/images/albums/clement_rythmes.jpg'
-    ],
-    [
-        'id' => 4,
-        'title' => 'Espoir du Matin',
-        'artist' => 'Caleb Rimtobaye',
-        'album' => 'Lumière Divine',
-        'duration' => 287,
-        'genre' => 'Gospel',
-        'year' => 2024,
-        'cover' => '/assets/images/albums/caleb_lumiere.jpg'
-    ],
-    [
-        'id' => 5,
-        'title' => 'Chants d\'Antan',
-        'artist' => 'Maimouna Youssouf',
-        'album' => 'Héritage Ancestral',
-        'duration' => 312,
-        'genre' => 'Traditionnel',
-        'year' => 2023,
-        'cover' => '/assets/images/albums/maimouna_heritage.jpg'
-    ],
-    [
-        'id' => 6,
-        'title' => 'Jazz Sahélien',
-        'artist' => 'Abakar Sultan',
-        'album' => 'Jazz Sahélien',
-        'duration' => 276,
-        'genre' => 'Jazz Fusion',
-        'year' => 2024,
-        'cover' => '/assets/images/albums/abakar_jazz.jpg'
-    ]
-];
+$live = getRadioLiveInfo();
+$currentTrack = $live['current_track'] ?? null;
+$currentShow = $live['current_show'] ?? null;
+$engineStatus = radioFetchEngineStatus();
+$preferEngineStream = radioEnvBool('RADIO_ENGINE_PREFER_STREAM', true);
+$configuredPublicStream = radioGetPublicStreamUrl($live['stream_url'] ?? null);
+$useEngineListenUrl = radioEnvBool('RADIO_ENGINE_USE_STATUS_LISTENURL', false);
 
-// Émissions radio
-$radioShows = [
-    [
-        'id' => 1,
-        'title' => 'Réveil Musical',
-        'host' => 'Abakar Mahamat',
-        'description' => 'Commencez la journée avec les hits du moment',
-        'start_time' => '06:00',
-        'end_time' => '09:00',
-        'avatar' => '/assets/images/hosts/abakar_mahamat.jpg'
-    ],
-    [
-        'id' => 2,
-        'title' => 'Soirée Traditionnelle',
-        'host' => 'DJ Moussa',
-        'description' => 'Découvrez les sons authentiques du Tchad',
-        'start_time' => '19:00',
-        'end_time' => '21:00',
-        'avatar' => '/assets/images/hosts/dj_moussa.jpg'
-    ],
-    [
-        'id' => 3,
-        'title' => 'Urban Beats',
-        'host' => 'MC Kelem',
-        'description' => 'Le meilleur du rap et hip-hop tchadien',
-        'start_time' => '21:00',
-        'end_time' => '23:00',
-        'avatar' => '/assets/images/hosts/mc_kelem.jpg'
-    ],
-    [
-        'id' => 4,
-        'title' => 'Spécial Artistes',
-        'host' => 'Sarah Ndong',
-        'description' => 'Interviews exclusives et coulisses',
-        'start_time' => '14:00',
-        'end_time' => '16:00',
-        'avatar' => '/assets/images/hosts/sarah_ndong.jpg'
-    ]
-];
+if (!empty($engineStatus['success'])) {
+    $live['is_live'] = true;
+    $live['listeners_count'] = (int) ($engineStatus['listeners'] ?? $live['listeners_count']);
 
-// Calcule la track et l'émission actuelles
-$currentTime = time();
-$currentHour = date('H');
-$totalPlaylistDuration = array_sum(array_column($radioPlaylist, 'duration'));
-$currentPosition = $currentTime % $totalPlaylistDuration;
-
-// Trouve la track actuelle
-$elapsedTime = 0;
-$currentTrack = $radioPlaylist[0];
-$trackProgress = 0;
-$nextTrack = $radioPlaylist[1];
-
-foreach ($radioPlaylist as $index => $track) {
-    if ($currentPosition >= $elapsedTime && $currentPosition < $elapsedTime + $track['duration']) {
-        $currentTrack = $track;
-        $trackProgress = $currentPosition - $elapsedTime;
-        $nextTrack = $radioPlaylist[($index + 1) % count($radioPlaylist)];
-        break;
-    }
-    $elapsedTime += $track['duration'];
-}
-
-// Trouve l'émission actuelle
-$currentShow = null;
-foreach ($radioShows as $show) {
-    $startHour = (int)substr($show['start_time'], 0, 2);
-    $endHour = (int)substr($show['end_time'], 0, 2);
-    
-    if ($endHour < $startHour) { // Émission qui traverse minuit
-        if ($currentHour >= $startHour || $currentHour < $endHour) {
-            $currentShow = $show;
-            break;
-        }
+    // Par defaut, on privilegie l'URL publique configuree (env/DB) pour eviter
+    // les cas ou listenurl d'Icecast pointe vers un hostname interne/non resolu.
+    if ($useEngineListenUrl && !empty($engineStatus['stream_url']) && ($preferEngineStream || empty($configuredPublicStream))) {
+        $live['stream_url'] = $engineStatus['stream_url'];
     } else {
-        if ($currentHour >= $startHour && $currentHour < $endHour) {
-            $currentShow = $show;
-            break;
-        }
+        $live['stream_url'] = $configuredPublicStream;
+    }
+
+    if (!$currentTrack && !empty($engineStatus['now_playing'])) {
+        $currentTrack = [
+            'id' => null,
+            'title' => $engineStatus['now_playing']['title'] ?? 'Direct Radio',
+            'artist' => $engineStatus['now_playing']['artist'] ?? 'Tchadok Radio',
+            'duration' => 0,
+            'audio_file' => null,
+            'cover_image' => null
+        ];
     }
 }
 
-// Génère des statistiques en temps réel
-$listeners = rand(200, 350);
-$peakListeners = rand(400, 600);
-
-// Met à jour la base de données si disponible
-if ($pdo) {
-    try {
-        $stmt = $pdo->prepare("UPDATE radio_live SET current_track_id = ?, listeners_count = ?, updated_at = NOW()");
-        $stmt->execute([$currentTrack['id'], $listeners]);
-    } catch (Exception $e) {
-        // Continue sans DB
+if (empty($live['stream_url'])) {
+    if (!empty($engineStatus['stream_url']) && $useEngineListenUrl) {
+        $live['stream_url'] = $engineStatus['stream_url'];
+    } else {
+        $live['stream_url'] = radioGetPublicStreamUrl(null);
     }
 }
 
-// Prépare la réponse
-$response = [
+if (!$currentShow) {
+    $currentShow = findCurrentShow($db);
+}
+
+$history = getRecentStreams(3);
+$upcomingTracks = getTrendingTracks(3);
+
+$nextTrack = null;
+if ($currentTrack) {
+    $stmt = $db->prepare("
+        SELECT t.id, t.title, ar.stage_name AS artist, al.cover_image AS cover
+        FROM tracks t
+        JOIN artists ar ON t.artist_id = ar.id
+        LEFT JOIN albums al ON t.album_id = al.id
+        WHERE t.id <> ?
+        ORDER BY t.total_streams DESC, t.created_at DESC
+        LIMIT 1
+    ");
+    $stmt->execute([(int) $currentTrack['id']]);
+    $nextTrack = $stmt->fetch();
+}
+
+$stats = [
+    'listeners' => (int) ($live['listeners_count'] ?? 0),
+    'total_tracks_today' => getTodayStreamsCount($db)
+];
+
+echo json_encode([
     'success' => true,
     'timestamp' => time(),
     'server_time' => date('Y-m-d H:i:s'),
     'station' => [
         'name' => 'Tchadok Radio',
-        'tagline' => '24/7 Musique Tchadienne',
-        'frequency' => '101.5 FM',
-        'website' => 'https://tchadok.td',
-        'is_live' => true
+        'tagline' => 'Musique tchadienne en continu',
+        'is_live' => (bool) ($live['is_live'] ?? false),
+        'stream_url' => $live['stream_url'] ?? null
     ],
-    'current_track' => [
-        'id' => $currentTrack['id'],
-        'title' => $currentTrack['title'],
-        'artist' => $currentTrack['artist'],
-        'album' => $currentTrack['album'],
-        'duration' => $currentTrack['duration'],
-        'progress' => $trackProgress,
-        'remaining' => $currentTrack['duration'] - $trackProgress,
-        'genre' => $currentTrack['genre'],
-        'year' => $currentTrack['year'],
-        'cover_url' => $currentTrack['cover'],
-        'percentage' => round(($trackProgress / $currentTrack['duration']) * 100, 1)
-    ],
-    'next_track' => [
-        'id' => $nextTrack['id'],
-        'title' => $nextTrack['title'],
-        'artist' => $nextTrack['artist'],
-        'album' => $nextTrack['album'],
-        'duration' => $nextTrack['duration'],
-        'cover_url' => $nextTrack['cover']
-    ],
+    'current_track' => $currentTrack,
+    'next_track' => $nextTrack,
     'current_show' => $currentShow,
-    'stats' => [
-        'listeners' => $listeners,
-        'peak_today' => $peakListeners,
-        'total_tracks_today' => rand(150, 200),
-        'uptime' => '99.8%'
-    ],
-    'history' => array_slice($radioPlaylist, -3, 3), // 3 dernières tracks
-    'upcoming' => array_slice($radioPlaylist, 0, 3)  // 3 prochaines tracks
-];
+    'stats' => $stats,
+    'history' => $history,
+    'upcoming' => $upcomingTracks,
+    'engine' => [
+        'enabled' => radioEnvBool('RADIO_ENGINE_ENABLED', false),
+        'source' => $engineStatus['engine'] ?? 'database',
+        'status' => !empty($engineStatus['success']) ? 'connected' : 'fallback',
+        'message' => !empty($engineStatus['success']) ? 'Moteur de stream actif' : ($engineStatus['error'] ?? 'Metadonnees DB')
+    ]
+], JSON_UNESCAPED_UNICODE);
 
-// Log de l'activité
-$logEntry = date('Y-m-d H:i:s') . " - Metadata Request: {$currentTrack['title']} - Listeners: {$listeners}\n";
-@file_put_contents('../../logs/radio_metadata.log', $logEntry, FILE_APPEND | LOCK_EX);
+function findCurrentShow($db) {
+    if (!tableExists('radio_shows')) return null;
+    $stmt = $db->query("
+        SELECT id, title, host_name, start_time, end_time
+        FROM radio_shows
+        WHERE status = 'active'
+        ORDER BY start_time ASC
+    ");
+    $shows = $stmt->fetchAll();
+    if (!$shows) return null;
 
-// Retourne la réponse JSON
-echo json_encode($response, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-?>
+    $now = time();
+    $today = date('Y-m-d');
+    foreach ($shows as $show) {
+        if (!$show['start_time'] || !$show['end_time']) {
+            continue;
+        }
+        $startTs = strtotime($today . ' ' . $show['start_time']);
+        $endTs = strtotime($today . ' ' . $show['end_time']);
+        if ($endTs <= $startTs) {
+            $endTs = strtotime('+1 day', $endTs);
+        }
+        if ($now >= $startTs && $now < $endTs) {
+            return [
+                'id' => (int) $show['id'],
+                'title' => $show['title'],
+                'host' => $show['host_name'] ?: 'Tchadok Radio',
+                'start_time' => $show['start_time'],
+                'end_time' => $show['end_time']
+            ];
+        }
+    }
+    return null;
+}
+
+function getTodayStreamsCount($db) {
+    if (!tableExists('streams')) return 0;
+    try {
+        $stmt = $db->query("SELECT COUNT(*) FROM streams WHERE DATE(created_at) = CURDATE()");
+        return (int) $stmt->fetchColumn();
+    } catch (Exception $e) {
+        return 0;
+    }
+}

@@ -5,7 +5,7 @@
  * @version 1.0
  */
 
-const CACHE_NAME = 'tchadok-v1.0.0';
+const CACHE_NAME = 'tchadok-v1.0.1';
 const CACHE_URLS = [
     '/',
     '/index.php',
@@ -17,8 +17,6 @@ const CACHE_URLS = [
     '/assets/images/logo.png',
     '/assets/images/default-avatar.png',
     '/assets/images/default-cover.jpg',
-    'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css',
-    'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
     'https://code.jquery.com/jquery-3.7.1.min.js'
 ];

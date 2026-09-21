@@ -1,38 +1,67 @@
 <?php
 /**
- * Paramètres - Tchadok Platform
- * Gestion des paramètres de compte et préférences
+ * Parametres - Tchadok Platform
+ * Migration Tailwind (progressive)
  */
 
 require_once 'includes/functions.php';
 require_once 'includes/auth.php';
 
-// Vérifier si l'utilisateur est connecté
 if (!isLoggedIn()) {
     header('Location: ' . SITE_URL . '/login.php?redirect=settings');
     exit();
 }
 
-$pageTitle = 'Paramètres';
-$pageDescription = 'Gérez vos paramètres de compte';
+$pageTitle = 'Parametres';
+$pageDescription = 'Pilotez vos preferences de compte';
+$hideTopNav = true;
+$hideFooter = true;
 
 $user = getCurrentUser();
+if (!$user) {
+    header('Location: ' . SITE_URL . '/login.php?redirect=settings');
+    exit();
+}
 $success = '';
 $error = '';
 
-// Traiter la modification du mot de passe
+$dashboardUrl = SITE_URL . '/user-dashboard.php';
+$workspaceLabel = 'Espace fan';
+$roleLabel = 'Fan';
+
+if (isAdmin()) {
+    $dashboardUrl = SITE_URL . '/admin-dashboard.php';
+    $workspaceLabel = 'Console admin';
+    $roleLabel = 'Admin';
+} elseif (isArtist()) {
+    $dashboardUrl = SITE_URL . '/artist-dashboard.php';
+    $workspaceLabel = 'Studio artiste';
+    $roleLabel = 'Artiste';
+}
+
+$fullName = trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? ''));
+if ($fullName === '') {
+    $fullName = $user['username'] ?? 'Utilisateur';
+}
+
+$initialSeed = trim(($user['first_name'] ?? '') . ($user['last_name'] ?? ''));
+if ($initialSeed === '') {
+    $initialSeed = $user['username'] ?? 'U';
+}
+$initials = strtoupper(substr($initialSeed, 0, 2));
+$memberSince = !empty($user['created_at']) ? date('M Y', strtotime($user['created_at'])) : date('M Y');
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'change_password') {
     $currentPassword = $_POST['current_password'] ?? '';
     $newPassword = $_POST['new_password'] ?? '';
     $confirmPassword = $_POST['confirm_password'] ?? '';
 
-    // Validation
     if (empty($currentPassword) || empty($newPassword) || empty($confirmPassword)) {
         $error = 'Tous les champs sont obligatoires.';
     } elseif ($newPassword !== $confirmPassword) {
         $error = 'Les nouveaux mots de passe ne correspondent pas.';
     } elseif (strlen($newPassword) < 8) {
-        $error = 'Le mot de passe doit contenir au moins 8 caractères.';
+        $error = 'Le mot de passe doit contenir au moins 8 caracteres.';
     } else {
         try {
             $dbInstance = TchadokDatabase::getInstance();
@@ -40,7 +69,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
             $userId = $_SESSION['user_id'];
 
-            // Vérifier le mot de passe actuel
             $stmt = $db->prepare("SELECT password_hash FROM users WHERE id = ?");
             $stmt->execute([$userId]);
             $userPassword = $stmt->fetchColumn();
@@ -48,7 +76,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             if (!verifyPassword($currentPassword, $userPassword)) {
                 $error = 'Le mot de passe actuel est incorrect.';
             } else {
-                // Mettre à jour le mot de passe
                 $newPasswordHash = hashPassword($newPassword);
 
                 $stmt = $db->prepare("
@@ -61,521 +88,240 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
                 $stmt->execute([$newPasswordHash, $newPasswordHash, $userId]);
 
-                $success = '✅ Mot de passe modifié avec succès !';
+                $success = 'Mot de passe modifie avec succes !';
             }
-
         } catch (Exception $e) {
             $error = 'Une erreur est survenue lors de la modification du mot de passe.';
         }
     }
 }
 
-// Traiter les paramètres de notification
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_notifications') {
-    // À implémenter avec une table de préférences
-    $success = '✅ Paramètres de notification mis à jour !';
+    $success = 'Parametres de notification mis a jour !';
 }
 
-include 'includes/header.php';
+include 'includes/header-tailwind.php';
 ?>
 
-<div class="settings-container">
-    <!-- Header -->
-    <section class="page-header">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col-lg-12">
-                    <div class="d-flex align-items-center">
-                        <a href="<?php echo SITE_URL; ?>/user-dashboard.php" class="btn btn-outline-secondary me-3">
-                            <i class="fas fa-arrow-left"></i>
-                        </a>
-                        <div class="header-icon-lg">
-                            <i class="fas fa-cog"></i>
+<main class="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(47,109,224,0.18),transparent_28%),radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_24%),#0B0F17] pb-16 pt-8">
+    <section>
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="grid gap-6 lg:grid-cols-[minmax(0,1.45fr)_340px]">
+                <div class="rounded-3xl border border-white/10 bg-surface/75 p-6 shadow-elev-2 sm:p-8">
+                    <div class="flex flex-wrap items-start justify-between gap-6">
+                        <div class="flex items-start gap-4">
+                            <a href="<?php echo $dashboardUrl; ?>" class="grid h-12 w-12 place-items-center rounded-2xl border border-white/10 bg-white/5 text-text hover:bg-white/10">
+                                <i class="fas fa-arrow-left"></i>
+                            </a>
+                            <div class="grid h-16 w-16 place-items-center rounded-3xl bg-white/10 text-xl font-semibold text-text">
+                                <?php echo htmlspecialchars($initials); ?>
+                            </div>
+                            <div>
+                                <p class="text-xs uppercase tracking-[0.28em] text-muted"><?php echo htmlspecialchars($workspaceLabel); ?></p>
+                                <h1 class="mt-2 text-3xl font-display font-bold text-text sm:text-4xl">Parametres</h1>
+                                <p class="mt-3 max-w-2xl text-sm leading-6 text-muted">
+                                    Un centre de pilotage unique pour la securite, la confidentialite, les notifications
+                                    et les reglages de votre compte.
+                                </p>
+                                <div class="mt-4 flex flex-wrap gap-2 text-xs">
+                                    <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-muted"><?php echo htmlspecialchars($roleLabel); ?></span>
+                                    <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-muted">Membre depuis <?php echo htmlspecialchars($memberSince); ?></span>
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <h1 class="mb-2">Paramètres</h1>
-                            <p class="text-muted mb-0">
-                                <i class="fas fa-user me-2"></i>
-                                <?php echo htmlspecialchars($user['first_name'] . ' ' . $user['last_name']); ?>
-                            </p>
+                        <div class="grid gap-3 sm:min-w-[240px]">
+                            <a href="<?php echo SITE_URL; ?>/security-settings.php" class="inline-flex items-center justify-center gap-2 rounded-full bg-accent px-5 py-3 text-sm font-semibold text-white shadow-elev-1">
+                                <i class="fas fa-shield-alt"></i>
+                                Centre de securite
+                            </a>
+                            <a href="<?php echo SITE_URL; ?>/edit-profile.php" class="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-text hover:bg-white/10">
+                                <i class="fas fa-user-pen"></i>
+                                Modifier le profil
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rounded-3xl border border-white/10 bg-surface/75 p-6 shadow-elev-2">
+                    <p class="text-xs uppercase tracking-[0.24em] text-muted">Synthese</p>
+                    <div class="mt-4 space-y-4">
+                        <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                            <p class="text-sm text-muted">Compte</p>
+                            <p class="mt-2 text-xl font-semibold text-text"><?php echo !empty($user['premium_status']) ? 'Premium' : 'Gratuit'; ?></p>
+                            <p class="mt-2 text-xs leading-5 text-muted"><?php echo htmlspecialchars($fullName); ?> gere ici ses preferences principales.</p>
+                        </div>
+                        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                            <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                                <p class="text-xs uppercase tracking-[0.2em] text-muted">Securite</p>
+                                <p class="mt-2 text-sm font-semibold text-text">Acces protege</p>
+                            </div>
+                            <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                                <p class="text-xs uppercase tracking-[0.2em] text-muted">Confidentialite</p>
+                                <p class="mt-2 text-sm font-semibold text-text">Reglages centralises</p>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </section>
 
-    <!-- Contenu -->
-    <section class="settings-content py-5">
-        <div class="container">
-            <div class="row">
-                <!-- Menu Latéral -->
-                <div class="col-lg-3 mb-4">
-                    <div class="settings-nav">
-                        <a href="#security" class="settings-nav-item active">
-                            <i class="fas fa-shield-alt"></i>
-                            <span>Sécurité</span>
+            <div class="mt-6 grid gap-6 lg:grid-cols-4">
+                <aside class="rounded-3xl border border-white/10 bg-surface/75 p-4 shadow-elev-2 lg:sticky lg:top-8">
+                    <nav class="space-y-2 text-sm">
+                        <a href="#security" class="flex items-center gap-3 rounded-2xl px-4 py-3 text-muted hover:bg-white/5 hover:text-text">
+                            <i class="fas fa-shield-alt"></i> Securite
                         </a>
-                        <a href="#notifications" class="settings-nav-item">
-                            <i class="fas fa-bell"></i>
-                            <span>Notifications</span>
+                        <a href="#notifications" class="flex items-center gap-3 rounded-2xl px-4 py-3 text-muted hover:bg-white/5 hover:text-text">
+                            <i class="fas fa-bell"></i> Notifications
                         </a>
-                        <a href="#privacy" class="settings-nav-item">
-                            <i class="fas fa-lock"></i>
-                            <span>Confidentialité</span>
+                        <a href="#privacy" class="flex items-center gap-3 rounded-2xl px-4 py-3 text-muted hover:bg-white/5 hover:text-text">
+                            <i class="fas fa-lock"></i> Confidentialite
                         </a>
-                        <a href="#account" class="settings-nav-item">
-                            <i class="fas fa-user-circle"></i>
-                            <span>Compte</span>
+                        <a href="#account" class="flex items-center gap-3 rounded-2xl px-4 py-3 text-muted hover:bg-white/5 hover:text-text">
+                            <i class="fas fa-user-circle"></i> Compte
                         </a>
-                    </div>
-                </div>
+                    </nav>
+                </aside>
 
-                <!-- Contenu Principal -->
-                <div class="col-lg-9">
+                <div class="space-y-6 lg:col-span-3">
                     <?php if ($success): ?>
-                        <div class="alert alert-success alert-modern">
-                            <i class="fas fa-check-circle me-2"></i>
-                            <?php echo $success; ?>
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle mt-0.5"></i>
+                            <span><?php echo $success; ?></span>
                         </div>
                     <?php endif; ?>
 
                     <?php if ($error): ?>
-                        <div class="alert alert-danger alert-modern">
-                            <i class="fas fa-exclamation-circle me-2"></i>
-                            <?php echo $error; ?>
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-circle mt-0.5"></i>
+                            <span><?php echo $error; ?></span>
                         </div>
                     <?php endif; ?>
 
-                    <!-- Sécurité -->
-                    <div id="security" class="settings-section">
-                        <div class="section-card">
-                            <div class="section-header">
-                                <h4>
-                                    <i class="fas fa-shield-alt me-2 text-primary"></i>
-                                    Sécurité
-                                </h4>
-                                <p class="text-muted">Gérez la sécurité de votre compte</p>
-                            </div>
-
-                            <!-- Changer le Mot de Passe -->
-                            <div class="setting-item">
-                                <div class="setting-info">
-                                    <h5>Changer le Mot de Passe</h5>
-                                    <p class="text-muted">Modifiez votre mot de passe régulièrement pour sécuriser votre compte</p>
-                                </div>
-                                <button class="btn btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#passwordForm">
-                                    <i class="fas fa-key me-2"></i>Modifier
-                                </button>
-                            </div>
-
-                            <div class="collapse mt-3" id="passwordForm">
-                                <form method="POST" action="" class="password-form">
-                                    <input type="hidden" name="action" value="change_password">
-
-                                    <div class="form-group mb-3">
-                                        <label for="current_password" class="form-label">Mot de passe actuel</label>
-                                        <input type="password"
-                                               class="form-control form-control-modern"
-                                               id="current_password"
-                                               name="current_password"
-                                               required>
-                                    </div>
-
-                                    <div class="form-group mb-3">
-                                        <label for="new_password" class="form-label">Nouveau mot de passe</label>
-                                        <input type="password"
-                                               class="form-control form-control-modern"
-                                               id="new_password"
-                                               name="new_password"
-                                               minlength="8"
-                                               required>
-                                        <small class="text-muted">Minimum 8 caractères</small>
-                                    </div>
-
-                                    <div class="form-group mb-3">
-                                        <label for="confirm_password" class="form-label">Confirmer le nouveau mot de passe</label>
-                                        <input type="password"
-                                               class="form-control form-control-modern"
-                                               id="confirm_password"
-                                               name="confirm_password"
-                                               required>
-                                    </div>
-
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="fas fa-save me-2"></i>Enregistrer
-                                    </button>
-                                </form>
-                            </div>
-
-                            <!-- Authentification à Deux Facteurs -->
-                            <div class="setting-item mt-4">
-                                <div class="setting-info">
-                                    <h5>Authentification à Deux Facteurs</h5>
-                                    <p class="text-muted">Ajoutez une couche de sécurité supplémentaire</p>
-                                </div>
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" id="twoFactorSwitch" disabled>
-                                    <label class="form-check-label text-muted" for="twoFactorSwitch">
-                                        Prochainement
-                                    </label>
-                                </div>
+                    <section id="security" class="rounded-3xl border border-white/10 bg-surface/75 p-6 shadow-elev-2 sm:p-8">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <h2 class="text-lg font-semibold text-text">Securite</h2>
+                                <p class="mt-2 text-sm text-muted">Gerez la securite de votre compte.</p>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Notifications -->
-                    <div id="notifications" class="settings-section mt-4">
-                        <div class="section-card">
-                            <div class="section-header">
-                                <h4>
-                                    <i class="fas fa-bell me-2 text-success"></i>
-                                    Notifications
-                                </h4>
-                                <p class="text-muted">Gérez vos préférences de notification</p>
-                            </div>
+                        <details class="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+                            <summary class="cursor-pointer list-none text-sm font-semibold text-text">Changer le mot de passe</summary>
+                            <form method="POST" action="" class="mt-4 space-y-4">
+                                <input type="hidden" name="action" value="change_password">
 
-                            <form method="POST" action="">
-                                <input type="hidden" name="action" value="update_notifications">
-
-                                <div class="setting-item">
-                                    <div class="setting-info">
-                                        <h5>Notifications par Email</h5>
-                                        <p class="text-muted">Recevez des mises à jour par email</p>
-                                    </div>
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="emailNotif" checked>
-                                    </div>
+                                <div>
+                                    <label for="current_password" class="text-sm font-semibold text-text">Mot de passe actuel</label>
+                                    <input type="password" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/60"
+                                           id="current_password" name="current_password" required>
                                 </div>
 
-                                <div class="setting-item mt-3">
-                                    <div class="setting-info">
-                                        <h5>Nouvelles Sorties</h5>
-                                        <p class="text-muted">Soyez notifié des nouvelles sorties musicales</p>
-                                    </div>
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="releaseNotif" checked>
-                                    </div>
+                                <div>
+                                    <label for="new_password" class="text-sm font-semibold text-text">Nouveau mot de passe</label>
+                                    <input type="password" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/60"
+                                           id="new_password" name="new_password" minlength="8" required>
+                                    <p class="mt-2 text-xs text-muted">Minimum 8 caracteres.</p>
                                 </div>
 
-                                <div class="setting-item mt-3">
-                                    <div class="setting-info">
-                                        <h5>Activité Sociale</h5>
-                                        <p class="text-muted">Notifications sur les interactions sociales</p>
-                                    </div>
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="socialNotif">
-                                    </div>
+                                <div>
+                                    <label for="confirm_password" class="text-sm font-semibold text-text">Confirmer le mot de passe</label>
+                                    <input type="password" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/60"
+                                           id="confirm_password" name="confirm_password" required>
                                 </div>
 
-                                <button type="submit" class="btn btn-success mt-4">
-                                    <i class="fas fa-save me-2"></i>Enregistrer les Préférences
+                                <button type="submit" class="rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white">
+                                    <i class="fas fa-save mr-2"></i>Enregistrer
                                 </button>
                             </form>
+                        </details>
+
+                        <div class="mt-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-4">
+                            <div>
+                                <p class="text-sm font-semibold text-text">Authentification a deux facteurs</p>
+                                <p class="text-xs text-muted">Ajoutez une couche de securite supplementaire.</p>
+                            </div>
+                            <div class="text-xs text-muted">Prochainement</div>
                         </div>
-                    </div>
+                    </section>
 
-                    <!-- Confidentialité -->
-                    <div id="privacy" class="settings-section mt-4">
-                        <div class="section-card">
-                            <div class="section-header">
-                                <h4>
-                                    <i class="fas fa-lock me-2 text-warning"></i>
-                                    Confidentialité
-                                </h4>
-                                <p class="text-muted">Contrôlez la visibilité de votre profil</p>
-                            </div>
+                    <section id="notifications" class="rounded-3xl border border-white/10 bg-surface/75 p-6 shadow-elev-2 sm:p-8">
+                        <h2 class="text-lg font-semibold text-text">Notifications</h2>
+                        <p class="mt-2 text-sm text-muted">Gerez vos preferences de notification.</p>
 
-                            <div class="setting-item">
-                                <div class="setting-info">
-                                    <h5>Profil Public</h5>
-                                    <p class="text-muted">Permettre aux autres de voir votre profil</p>
-                                </div>
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" id="publicProfile" checked>
-                                </div>
-                            </div>
+                        <form method="POST" action="" class="mt-6 space-y-4">
+                            <input type="hidden" name="action" value="update_notifications">
 
-                            <div class="setting-item mt-3">
-                                <div class="setting-info">
-                                    <h5>Afficher l'Historique d'Écoute</h5>
-                                    <p class="text-muted">Partager ce que vous écoutez</p>
-                                </div>
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" id="showHistory" checked>
-                                </div>
-                            </div>
+                            <label class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-text">
+                                <span>Notifications par email</span>
+                                <input type="checkbox" class="h-4 w-4 rounded border-white/20 bg-bg text-accent focus:ring-accent/60" checked>
+                            </label>
+                            <label class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-text">
+                                <span>Nouvelles sorties</span>
+                                <input type="checkbox" class="h-4 w-4 rounded border-white/20 bg-bg text-accent focus:ring-accent/60" checked>
+                            </label>
+                            <label class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-text">
+                                <span>Activite sociale</span>
+                                <input type="checkbox" class="h-4 w-4 rounded border-white/20 bg-bg text-accent focus:ring-accent/60">
+                            </label>
 
-                            <div class="setting-item mt-3">
-                                <div class="setting-info">
-                                    <h5>Playlists Publiques</h5>
-                                    <p class="text-muted">Rendre vos playlists visibles par défaut</p>
-                                </div>
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" id="publicPlaylists" checked>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Compte -->
-                    <div id="account" class="settings-section mt-4">
-                        <div class="section-card">
-                            <div class="section-header">
-                                <h4>
-                                    <i class="fas fa-user-circle me-2 text-danger"></i>
-                                    Compte
-                                </h4>
-                                <p class="text-muted">Gérez votre compte Tchadok</p>
-                            </div>
-
-                            <div class="setting-item">
-                                <div class="setting-info">
-                                    <h5>Type de Compte</h5>
-                                    <p class="text-muted">
-                                        <?php echo $user['premium_status'] ? 'Premium' : 'Gratuit'; ?>
-                                    </p>
-                                </div>
-                                <?php if (!$user['premium_status']): ?>
-                                <a href="<?php echo SITE_URL; ?>/premium.php" class="btn btn-warning">
-                                    <i class="fas fa-crown me-2"></i>Passer à Premium
-                                </a>
-                                <?php else: ?>
-                                <span class="badge bg-warning text-dark">
-                                    <i class="fas fa-crown me-1"></i>Premium
-                                </span>
-                                <?php endif; ?>
-                            </div>
-
-                            <div class="setting-item mt-4 pt-4 border-top">
-                                <div class="setting-info">
-                                    <h5 class="text-danger">Zone Dangereuse</h5>
-                                    <p class="text-muted">Actions irréversibles sur votre compte</p>
-                                </div>
-                            </div>
-
-                            <button class="btn btn-outline-danger mt-3" disabled>
-                                <i class="fas fa-trash me-2"></i>Supprimer mon Compte
+                            <button type="submit" class="rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white">
+                                <i class="fas fa-save mr-2"></i>Enregistrer
                             </button>
-                            <small class="d-block text-muted mt-2">
-                                Contactez le support pour supprimer votre compte
-                            </small>
+                        </form>
+                    </section>
+
+                    <section id="privacy" class="rounded-3xl border border-white/10 bg-surface/75 p-6 shadow-elev-2 sm:p-8">
+                        <h2 class="text-lg font-semibold text-text">Confidentialite</h2>
+                        <p class="mt-2 text-sm text-muted">Controlez la visibilite de votre profil.</p>
+
+                        <div class="mt-6 space-y-4">
+                            <label class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-text">
+                                <span>Profil public</span>
+                                <input type="checkbox" class="h-4 w-4 rounded border-white/20 bg-bg text-accent focus:ring-accent/60" checked>
+                            </label>
+                            <label class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-text">
+                                <span>Afficher l historique d ecoute</span>
+                                <input type="checkbox" class="h-4 w-4 rounded border-white/20 bg-bg text-accent focus:ring-accent/60" checked>
+                            </label>
+                            <label class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-text">
+                                <span>Playlists publiques par defaut</span>
+                                <input type="checkbox" class="h-4 w-4 rounded border-white/20 bg-bg text-accent focus:ring-accent/60" checked>
+                            </label>
                         </div>
-                    </div>
+                    </section>
+
+                    <section id="account" class="rounded-3xl border border-white/10 bg-surface/75 p-6 shadow-elev-2 sm:p-8">
+                        <h2 class="text-lg font-semibold text-text">Compte</h2>
+                        <p class="mt-2 text-sm text-muted">Gerez votre abonnement et vos donnees.</p>
+
+                        <div class="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm">
+                            <div>
+                                <p class="font-semibold text-text">Type de compte</p>
+                                <p class="text-muted"><?php echo !empty($user['premium_status']) ? 'Premium' : 'Gratuit'; ?></p>
+                            </div>
+                            <?php if (empty($user['premium_status'])): ?>
+                                <a href="<?php echo SITE_URL; ?>/premium.php" class="rounded-full bg-amber-400 px-4 py-2 text-xs font-semibold text-bg">
+                                    <i class="fas fa-crown mr-2"></i>Passer a Premium
+                                </a>
+                            <?php else: ?>
+                                <span class="rounded-full bg-amber-400/20 px-4 py-2 text-xs font-semibold text-amber-300">
+                                    <i class="fas fa-crown mr-1"></i>Premium
+                                </span>
+                            <?php endif; ?>
+                        </div>
+
+                        <div class="mt-6 rounded-2xl border border-rose-400/40 bg-rose-500/10 p-4 text-sm text-rose-200">
+                            <p class="font-semibold">Zone dangereuse</p>
+                            <p class="mt-1 text-xs text-rose-100/80">Contactez le support pour supprimer votre compte.</p>
+                            <button class="mt-4 rounded-full border border-rose-400/40 bg-rose-500/10 px-4 py-2 text-xs font-semibold text-rose-200" type="button" disabled>
+                                <i class="fas fa-trash mr-2"></i>Supprimer mon compte
+                            </button>
+                        </div>
+                    </section>
                 </div>
             </div>
         </div>
     </section>
-</div>
+</main>
 
-<style>
-:root {
-    --bleu-tchadien: #0066CC;
-    --jaune-solaire: #FFD700;
-    --rouge-terre: #CC3333;
-    --vert-savane: #228B22;
-    --gris-harmattan: #2C3E50;
-}
-
-.settings-container {
-    background: #f5f7fa;
-    min-height: 100vh;
-    padding-bottom: 3rem;
-}
-
-/* Page Header */
-.page-header {
-    background: white;
-    padding: 2rem 0;
-    margin-bottom: 2rem;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-    margin-top: 80px;
-}
-
-.header-icon-lg {
-    width: 70px;
-    height: 70px;
-    background: linear-gradient(135deg, var(--gris-harmattan), #1a252f);
-    border-radius: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 2rem;
-    margin-right: 1.5rem;
-    box-shadow: 0 5px 20px rgba(44, 62, 80, 0.3);
-}
-
-.page-header h1 {
-    color: var(--gris-harmattan);
-    font-weight: 700;
-    font-size: 2rem;
-}
-
-/* Settings Navigation */
-.settings-nav {
-    background: white;
-    border-radius: 15px;
-    padding: 1rem;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
-    position: sticky;
-    top: 100px;
-}
-
-.settings-nav-item {
-    display: flex;
-    align-items: center;
-    padding: 1rem;
-    color: #6c757d;
-    text-decoration: none;
-    border-radius: 10px;
-    transition: all 0.3s ease;
-    margin-bottom: 0.5rem;
-}
-
-.settings-nav-item:last-child {
-    margin-bottom: 0;
-}
-
-.settings-nav-item:hover {
-    background: #f8f9fa;
-    color: var(--bleu-tchadien);
-}
-
-.settings-nav-item.active {
-    background: var(--bleu-tchadien);
-    color: white;
-}
-
-.settings-nav-item i {
-    font-size: 1.2rem;
-    margin-right: 1rem;
-    width: 25px;
-}
-
-/* Section Card */
-.section-card {
-    background: white;
-    padding: 2rem;
-    border-radius: 20px;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
-}
-
-.section-header {
-    margin-bottom: 2rem;
-    padding-bottom: 1rem;
-    border-bottom: 2px solid #f0f0f0;
-}
-
-.section-header h4 {
-    color: var(--gris-harmattan);
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-}
-
-/* Setting Item */
-.setting-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1.5rem;
-    background: #f8f9fa;
-    border-radius: 12px;
-}
-
-.setting-info h5 {
-    color: var(--gris-harmattan);
-    font-size: 1rem;
-    font-weight: 600;
-    margin-bottom: 0.25rem;
-}
-
-.setting-info p {
-    margin: 0;
-    font-size: 0.9rem;
-}
-
-/* Form Switch */
-.form-check-input {
-    width: 3rem;
-    height: 1.5rem;
-    cursor: pointer;
-}
-
-.form-check-input:checked {
-    background-color: var(--vert-savane);
-    border-color: var(--vert-savane);
-}
-
-/* Form Controls */
-.form-control-modern {
-    border: 2px solid #e9ecef;
-    border-radius: 12px;
-    padding: 0.875rem 1.25rem;
-    font-size: 1rem;
-    transition: all 0.3s ease;
-}
-
-.form-control-modern:focus {
-    border-color: var(--bleu-tchadien);
-    box-shadow: 0 0 0 0.2rem rgba(0, 102, 204, 0.1);
-}
-
-.password-form {
-    background: white;
-    padding: 1.5rem;
-    border-radius: 12px;
-    border: 2px solid #e9ecef;
-}
-
-/* Alerts */
-.alert-modern {
-    border-radius: 12px;
-    border: none;
-    padding: 1.25rem;
-    margin-bottom: 2rem;
-}
-
-/* Responsive */
-@media (max-width: 991px) {
-    .page-header {
-        margin-top: 70px;
-    }
-
-    .settings-nav {
-        position: relative;
-        top: 0;
-    }
-
-    .setting-item {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1rem;
-    }
-}
-</style>
-
-<script>
-// Smooth scroll pour les ancres
-document.querySelectorAll('.settings-nav-item').forEach(item => {
-    item.addEventListener('click', function(e) {
-        e.preventDefault();
-
-        // Remove active class from all items
-        document.querySelectorAll('.settings-nav-item').forEach(link => {
-            link.classList.remove('active');
-        });
-
-        // Add active class to clicked item
-        this.classList.add('active');
-
-        // Scroll to section
-        const target = document.querySelector(this.getAttribute('href'));
-        if (target) {
-            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-    });
-});
-</script>
-
-<?php include 'includes/footer.php'; ?>
+<?php include 'includes/footer-tailwind.php'; ?>

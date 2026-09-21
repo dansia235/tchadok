@@ -23,7 +23,7 @@ function createArtistAvatar($name, $size = 200, $color = '#0066CC') {
 }
 
 // Fonction pour créer une couverture de track
-function createTrackCover($title, $artist, $duration = '3:30', $color = '#495057', $size = 200) {
+function createTrackCover($title, $artist, $color = '#495057', $badge = '', $size = 200) {
     $bgColor = urlencode($color);
     $titleFormatted = urlencode(substr($title, 0, 12));
     $artistFormatted = urlencode(substr($artist, 0, 15));

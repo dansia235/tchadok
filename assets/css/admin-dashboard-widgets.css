@@ -1,0 +1,547 @@
+/* Admin Dashboard Widgets Styles */
+.rank-badge {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-color), #ffed4e);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: var(--secondary-color);
+}
+
+.track-title {
+    font-weight: 600;
+    color: var(--secondary-color);
+}
+
+.track-artist {
+    color: var(--accent-color);
+    font-size: 0.9rem;
+}
+
+.streams-count {
+    font-weight: 700;
+    color: var(--success-color);
+}
+
+.country-item {
+    transition: all 0.3s ease;
+}
+
+.country-item:hover {
+    transform: translateX(5px);
+}
+
+.insight-item {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    border-radius: 10px;
+    background: rgba(0, 102, 204, 0.05);
+    transition: all 0.3s ease;
+}
+
+.insight-item:hover {
+    background: rgba(0, 102, 204, 0.1);
+    transform: translateY(-2px);
+}
+
+.insight-icon {
+    margin-right: 1rem;
+    font-size: 1.5rem;
+}
+
+.insight-content h6 {
+    margin-bottom: 0.5rem;
+    color: var(--secondary-color);
+}
+
+.insight-content p {
+    margin-bottom: 0;
+    color: var(--dark-color);
+    font-size: 0.9rem;
+}
+
+/* Source: C:\xampp\htdocs\tchadok\admin\dashboard-tabs\artists.php */
+.artist-card {
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.artist-card:hover {
+    transform: translateY(-5px);
+}
+
+.stat-mini {
+    padding: 0.5rem 0;
+}
+
+.stat-number-mini {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--accent-color);
+}
+
+.genre-circle {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.genre-count {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: white;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Source: C:\xampp\htdocs\tchadok\admin\dashboard-tabs\music.php */
+.music-placeholder {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+.music-placeholder-large {
+    width: 100%;
+    height: 200px;
+    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    position: relative;
+}
+
+.album-card {
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.album-card:hover {
+    transform: translateY(-5px);
+}
+
+.album-cover {
+    position: relative;
+    overflow: hidden;
+    border-radius: 15px;
+}
+
+.album-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.album-cover:hover .album-overlay {
+    opacity: 1;
+}
+
+.album-title {
+    font-weight: 600;
+    color: var(--secondary-color);
+    margin-bottom: 0.5rem;
+}
+
+.artist-name {
+    color: var(--accent-color);
+    font-weight: 500;
+}
+
+.streams-count {
+    font-weight: 600;
+    color: var(--success-color);
+}
+
+.duration {
+    font-family: monospace;
+    font-weight: 600;
+}
+
+.audio-player-floating {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, var(--secondary-color), var(--accent-color));
+    color: white;
+    border-radius: 15px;
+    padding: 1rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    min-width: 400px;
+}
+
+.player-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.track-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+}
+
+.track-cover-mini {
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.track-title-mini {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.artist-name-mini {
+    font-size: 0.8rem;
+    opacity: 0.8;
+}
+
+.player-controls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.player-progress {
+    flex: 1;
+    margin: 0 1rem;
+}
+
+.time-display {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
+}
+
+.playlist-card {
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.playlist-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.playlist-title {
+    font-weight: 600;
+    color: var(--secondary-color);
+}
+
+.playlist-placeholder {
+    width: 100%;
+    height: 150px;
+    background: linear-gradient(135deg, var(--success-color), #20c997);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    border-radius: 10px;
+    position: relative;
+    overflow: hidden;
+}
+
+.playlist-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.playlist-placeholder:hover .playlist-overlay {
+    opacity: 1;
+}
+
+.playlist-description {
+    border-left: 3px solid var(--success-color);
+    padding-left: 0.75rem;
+}
+
+/* Source: C:\xampp\htdocs\tchadok\admin\dashboard-tabs\payments.php */
+.user-info {
+    display: flex;
+    align-items: center;
+}
+
+.user-avatar-mini {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 0.8rem;
+}
+
+.user-details {
+    margin-left: 0.75rem;
+}
+
+.amount-display {
+    text-align: right;
+}
+
+.amount-value {
+    font-size: 1.1rem;
+    color: var(--success-color);
+}
+
+.currency {
+    color: var(--secondary-color);
+    font-weight: 600;
+}
+
+.transaction-ref strong {
+    color: var(--accent-color);
+}
+
+.rank-badge-mini {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--warning-color), #e0a800);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--dark-color);
+    font-weight: bold;
+    font-size: 0.8rem;
+}
+
+.amount-spent {
+    font-weight: 700;
+    color: var(--success-color);
+}
+
+.type-item {
+    padding: 0.75rem;
+    border-radius: 8px;
+    background: rgba(0, 102, 204, 0.05);
+    transition: all 0.3s ease;
+}
+
+.type-item:hover {
+    background: rgba(0, 102, 204, 0.1);
+}
+
+.type-name {
+    font-weight: 600;
+    color: var(--secondary-color);
+}
+
+.type-amount {
+    font-weight: 700;
+    color: var(--success-color);
+}
+
+/* Source: C:\xampp\htdocs\tchadok\admin\dashboard-tabs\playlists.php */
+.playlist-card {
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.playlist-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.playlist-title {
+    font-weight: 600;
+    color: var(--secondary-color);
+}
+
+.playlist-cover {
+    position: relative;
+    overflow: hidden;
+    border-radius: 10px;
+}
+
+.playlist-placeholder {
+    width: 100%;
+    height: 150px;
+    background: linear-gradient(135deg, var(--success-color), #20c997);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+.playlist-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.playlist-cover:hover .playlist-overlay {
+    opacity: 1;
+}
+
+.creator-rank-badge {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--warning-color), #e0a800);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    color: var(--dark-color);
+    font-weight: bold;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.rank-position {
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.playlist-description {
+    border-left: 3px solid var(--success-color);
+    padding-left: 0.75rem;
+}
+
+.stat-mini {
+    padding: 0.5rem 0;
+}
+
+.stat-number-mini {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--accent-color);
+}
+
+/* Source: C:\xampp\htdocs\tchadok\admin\dashboard-tabs\settings.php */
+.mini-card {
+    padding: 1rem;
+    border-radius: 8px;
+    background: rgba(0, 102, 204, 0.05);
+    border: 1px solid rgba(0, 102, 204, 0.1);
+}
+
+.log-item {
+    padding: 0.75rem;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.02);
+    border-left: 4px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.log-item:hover {
+    background: rgba(0, 102, 204, 0.05);
+    border-left-color: var(--primary-color);
+}
+
+.log-level .badge {
+    min-width: 80px;
+}
+
+.logs-container {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.form-check-label {
+    cursor: pointer;
+}
+
+.nav-tabs .nav-link {
+    color: var(--secondary-color);
+}
+
+.nav-tabs .nav-link.active {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+
+/* Source: C:\xampp\htdocs\tchadok\admin\dashboard-modals\modals.php */
+.modal-header.bg-gradient-primary {
+    background: linear-gradient(135deg, var(--primary-color), var(--accent-color)) !important;
+}
+
+.modal-header.bg-gradient-success {
+    background: linear-gradient(135deg, var(--success-color), #20c997) !important;
+}
+
+.modal-header.bg-gradient-warning {
+    background: linear-gradient(135deg, var(--warning-color), #ffc107) !important;
+}
+
+.modal-header.bg-gradient-info {
+    background: linear-gradient(135deg, var(--info-color), #17a2b8) !important;
+}
+
+.modal-body {
+    background-color: #f8f9fa;
+}
+
+.form-label {
+    font-weight: 600;
+    color: var(--secondary-color);
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(0, 102, 204, 0.25);
+}
+
+.form-check-input:checked {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.btn-group .btn {
+    margin-right: 0.5rem;
+}
+

@@ -28,9 +28,6 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%230066CC'/%3E%3Cpath d='M30 45 L30 55 L40 60 L40 40 Z M45 35 L45 65 L55 70 L55 30 Z M60 40 L60 60 L70 55 L70 45 Z' fill='%23FFD700'/%3E%3C/svg%3E">
     <link rel="apple-touch-icon" href="<?php echo SITE_URL; ?>/assets/images/apple-touch-icon.png">
     
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
     <!-- Font Awesome Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     
@@ -52,112 +49,18 @@
             <link href="<?php echo $css; ?>" rel="stylesheet">
         <?php endforeach; ?>
     <?php endif; ?>
-    
-    <style>
-        /* Navbar styles from tchadok-homepage.html */
-        .navbar {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
-            padding: 1rem 0;
-        }
-        
-        .navbar-brand {
-            font-family: 'Montserrat', sans-serif;
-            font-weight: 900;
-            font-size: 2rem;
-            color: #0066CC !important;
-            display: flex;
-            align-items: center;
-        }
-        
-        .logo-svg {
-            width: 40px;
-            height: 40px;
-            margin-right: 10px;
-        }
-        
-        .navbar-nav .nav-link {
-            color: #2C3E50 !important;
-            font-weight: 600;
-            margin: 0 0.5rem;
-            transition: all 0.3s ease;
-            position: relative;
-        }
-        
-        .navbar-nav .nav-link::after {
-            content: '';
-            position: absolute;
-            bottom: -5px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 0;
-            height: 3px;
-            background: #FFD700;
-            transition: width 0.3s ease;
-        }
-        
-        .navbar-nav .nav-link:hover::after {
-            width: 80%;
-        }
-        
-        .btn-primary-custom {
-            background: linear-gradient(135deg, #0066CC, #0052a3);
-            border: none;
-            color: white;
-            font-weight: 600;
-            padding: 0.5rem 1.5rem;
-            border-radius: 50px;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0, 102, 204, 0.3);
-        }
-        
-        .btn-primary-custom:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 25px rgba(0, 102, 204, 0.4);
-            color: white;
-        }
-        
-        .btn-secondary-custom {
-            background: transparent;
-            border: 2px solid #FFD700;
-            color: #2C3E50;
-            font-weight: 600;
-            padding: 0.5rem 1.5rem;
-            border-radius: 50px;
-            transition: all 0.3s ease;
-        }
-        
-        .btn-secondary-custom:hover {
-            background: #FFD700;
-            color: #2C3E50;
-            transform: translateY(-2px);
-        }
-    </style>
+<link href="<?php echo SITE_URL; ?>/assets/css/player.css" rel="stylesheet">
 </head>
 <body>
-    <!-- Loading Spinner avec auto-masquage rapide -->
-    <div id="pageLoader" class="position-fixed w-100 h-100 d-flex align-items-center justify-content-center" 
-         style="background: rgba(255,255,255,0.9); z-index: 9999; animation: autoHide 1s forwards;">
-        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
-            <span class="visually-hidden">Chargement...</span>
+    <!-- Loading Spinner -->
+    <div id="pageLoader" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,255,255,0.95);z-index:9999;display:flex;align-items:center;justify-content:center;transition:opacity 0.3s ease;">
+        <div style="text-align:center;">
+            <svg width="50" height="50" viewBox="0 0 100 100" style="animation:spin 1s linear infinite;">
+                <circle cx="50" cy="50" r="40" fill="none" stroke="#0066CC" stroke-width="6" stroke-dasharray="200" stroke-dashoffset="60" stroke-linecap="round"/>
+            </svg>
         </div>
     </div>
-    
-    <style>
-        @keyframes autoHide {
-            0%, 50% { opacity: 1; }
-            100% { opacity: 0; display: none !important; }
-        }
-        
-        /* Force la disparition après 1 seconde */
-        #pageLoader {
-            animation: autoHide 1s forwards;
-        }
-    </style>
-
-    <!-- Navbar -->
+<!-- Navbar -->
     <nav class="navbar navbar-expand-lg fixed-top">
         <div class="container">
             <a class="navbar-brand" href="<?php echo SITE_URL; ?>">
@@ -171,25 +74,23 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
+                <?php
+                $currentPage = basename($_SERVER['PHP_SELF']);
+                $navItems = [
+                    ['url' => '/', 'file' => 'index.php', 'label' => 'Accueil'],
+                    ['url' => '/decouvrir.php', 'file' => 'decouvrir.php', 'label' => 'Découvrir'],
+                    ['url' => '/artists.php', 'file' => 'artists.php', 'label' => 'Artistes'],
+                    ['url' => '/radio-live.php', 'file' => 'radio-live.php', 'label' => 'Radio Live'],
+                    ['url' => '/emissions.php', 'file' => 'emissions.php', 'label' => 'Émissions'],
+                    ['url' => '/blog.php', 'file' => 'blog.php', 'label' => 'Blog'],
+                ];
+                ?>
                 <ul class="navbar-nav mx-auto">
+                    <?php foreach ($navItems as $nav): ?>
                     <li class="nav-item">
-                        <a class="nav-link" href="<?php echo SITE_URL; ?>">Accueil</a>
+                        <a class="nav-link<?php echo ($currentPage === $nav['file']) ? ' active' : ''; ?>" href="<?php echo SITE_URL . $nav['url']; ?>"><?php echo $nav['label']; ?></a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="<?php echo SITE_URL; ?>/decouvrir.php">Découvrir</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="<?php echo SITE_URL; ?>/artists.php">Artistes</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="<?php echo SITE_URL; ?>/radio-live.php">Radio Live</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="<?php echo SITE_URL; ?>/emissions.php">Émissions</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="<?php echo SITE_URL; ?>/blog.php">Blog</a>
-                    </li>
+                    <?php endforeach; ?>
                 </ul>
                 <div class="d-flex gap-2">
                     <?php if (!isLoggedIn()): ?>
@@ -234,46 +135,34 @@
     <?php endif; ?>
 
     <script>
-        // Cache le loader avec plusieurs méthodes pour s'assurer qu'il disparaît
+        // Transition fluide au chargement
         function hideLoader() {
             const loader = document.getElementById('pageLoader');
             if (loader) {
-                loader.style.display = 'none';
+                loader.style.opacity = '0';
+                document.body.style.opacity = '1';
+                setTimeout(() => { 
+                    loader.style.display = 'none';
+                }, 400);
             }
         }
         
-        // Cache immédiatement après que le DOM soit prêt
-        document.addEventListener('DOMContentLoaded', function() {
-            // Cache le loader après 500ms pour éviter qu'il bloque les clics
-            setTimeout(hideLoader, 500);
+        document.addEventListener('DOMContentLoaded', () => {
+            document.body.style.opacity = '0';
+            document.body.style.transition = 'opacity 0.4s ease-in-out';
+            setTimeout(hideLoader, 100);
         });
-        
-        // Cache aussi quand tout est chargé
+
         window.addEventListener('load', hideLoader);
-        
-        // Cache aussi si il y a une erreur
-        window.addEventListener('error', function() {
-            setTimeout(hideLoader, 1000);
-        });
-        
-        // Force le masquage après 1.5 secondes peu importe quoi
-        setTimeout(() => {
-            const loader = document.getElementById('pageLoader');
-            if (loader) {
-                loader.style.display = 'none';
-                loader.style.visibility = 'hidden';
-                loader.style.opacity = '0';
-                console.log('🚫 Loader forcément masqué');
-            }
-        }, 1500);
-        
-        // Navbar background on scroll (from tchadok-homepage.html)
+        setTimeout(hideLoader, 1500);
+
+        // Navbar scroll effect modernisé
         $(document).ready(function() {
             $(window).scroll(function() {
-                if ($(this).scrollTop() > 50) {
-                    $('.navbar').css('background', 'rgba(255, 255, 255, 0.98)');
+                if ($(this).scrollTop() > 30) {
+                    $('.navbar').addClass('shadow-sm').css('padding', '0.6rem 0');
                 } else {
-                    $('.navbar').css('background', 'rgba(255, 255, 255, 0.95)');
+                    $('.navbar').removeClass('shadow-sm').css('padding', '1rem 0');
                 }
             });
         });
@@ -299,3 +188,4 @@
             hideLoader();
         }
     </script>
+

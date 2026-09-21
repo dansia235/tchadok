@@ -1,341 +1,152 @@
 <?php
 /**
- * Historique d'Écoute - Tchadok Platform
- * Affiche l'historique des morceaux écoutés par l'utilisateur
+ * Historique d'ecoute - Tchadok Platform
+ * Migration Tailwind (progressive)
  */
 
 require_once 'includes/functions.php';
 require_once 'includes/auth.php';
 
-// Vérifier si l'utilisateur est connecté
+// Verifier si l'utilisateur est connecte
 if (!isLoggedIn()) {
     header('Location: ' . SITE_URL . '/login.php?redirect=history');
     exit();
 }
 
-$pageTitle = 'Historique d\'Écoute';
-$pageDescription = 'Votre historique d\'écoute musicale';
+$pageTitle = 'Historique d\'ecoute';
+$pageDescription = 'Votre historique d\'ecoute musicale';
 
 $user = getCurrentUser();
 
-// Récupérer l'historique depuis la base de données
+// Recuperer l'historique depuis la base de donnees
 try {
     $dbInstance = TchadokDatabase::getInstance();
     $db = $dbInstance->getConnection();
 
     $userId = $_SESSION['user_id'];
 
-    // Pour l'instant, on simule l'historique (à implémenter plus tard avec une vraie table d'historique)
     $history = [];
+    if ($db) {
+        $stmt = $db->prepare("
+            SELECT s.id, s.created_at,
+                   t.id AS track_id, t.title, t.duration,
+                   ar.stage_name AS artist,
+                   al.cover_image
+            FROM streams s
+            JOIN tracks t ON s.track_id = t.id
+            JOIN artists ar ON s.artist_id = ar.id
+            LEFT JOIN albums al ON t.album_id = al.id
+            WHERE s.user_id = ?
+            ORDER BY s.created_at DESC
+            LIMIT 50
+        ");
+        $stmt->execute([$userId]);
+        $rows = $stmt->fetchAll();
 
+        foreach ($rows as $row) {
+            $history[] = [
+                'id' => (int) $row['track_id'],
+                'title' => $row['title'],
+                'artist' => $row['artist'],
+                'duration' => formatDurationShort($row['duration']),
+                'played_at' => date('d/m/Y H:i', strtotime($row['created_at'])),
+                'cover' => $row['cover_image'] ? SITE_URL . '/' . $row['cover_image'] : SITE_URL . '/' . DEFAULT_COVER
+            ];
+        }
+    }
 } catch (Exception $e) {
     $history = [];
 }
 
-include 'includes/header.php';
+include 'includes/header-tailwind.php';
 ?>
 
-<div class="history-container">
-    <!-- Header de la Page -->
-    <section class="page-header">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col-lg-8">
-                    <div class="d-flex align-items-center">
-                        <div class="header-icon-lg">
-                            <i class="fas fa-history"></i>
+<main class="pt-24 pb-16">
+    <section class="bg-bg">
+        <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+            <div class="rounded-3xl border border-white/10 bg-surface/60 p-6 shadow-elev-2 sm:p-8">
+                <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div class="flex flex-wrap items-center gap-4">
+                        <div class="grid h-14 w-14 place-items-center rounded-2xl bg-accent/20 text-accent">
+                            <i class="fas fa-history text-2xl"></i>
                         </div>
                         <div>
-                            <h1 class="mb-2">Historique d'Écoute</h1>
-                            <p class="text-muted mb-0">
-                                <i class="fas fa-user me-2"></i>
-                                <?php echo htmlspecialchars($user['first_name'] . ' ' . $user['last_name']); ?>
+                            <p class="text-xs uppercase tracking-[0.2em] text-muted">Bibliotheque</p>
+                            <h1 class="mt-1 text-3xl font-display font-bold text-text">Historique d'ecoute</h1>
+                            <p class="mt-2 text-sm text-muted">
+                                <i class="fas fa-user mr-2"></i>
+                                <?php echo htmlspecialchars(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? '')); ?>
                             </p>
                         </div>
                     </div>
-                </div>
-                <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
-                    <button class="btn btn-outline-primary">
-                        <i class="fas fa-filter me-2"></i>Filtrer
-                    </button>
-                    <button class="btn btn-outline-danger ms-2">
-                        <i class="fas fa-trash me-2"></i>Effacer
-                    </button>
+                    <div class="flex flex-wrap gap-2">
+                        <button class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-text">
+                            <i class="fas fa-filter"></i>
+                            Filtrer
+                        </button>
+                        <button class="inline-flex items-center gap-2 rounded-full border border-rose-400/40 bg-rose-500/10 px-4 py-2 text-xs font-semibold text-rose-200">
+                            <i class="fas fa-trash"></i>
+                            Effacer
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Contenu -->
-    <section class="history-content py-5">
-        <div class="container">
+    <section class="mt-8">
+        <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <?php if (empty($history)): ?>
-                <!-- État Vide -->
-                <div class="empty-state-large">
-                    <div class="empty-icon">
-                        <i class="fas fa-music"></i>
+                <div class="rounded-3xl border border-white/10 bg-surface/60 p-10 text-center shadow-elev-2">
+                    <div class="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-accent/20 text-accent">
+                        <i class="fas fa-music text-3xl"></i>
                     </div>
-                    <h3 class="mb-3">Aucun historique d'écoute</h3>
-                    <p class="text-muted mb-4">
-                        Commencez à écouter de la musique tchadienne pour voir votre historique ici.
+                    <h3 class="mt-5 text-xl font-semibold text-text">Aucun historique d'ecoute</h3>
+                    <p class="mt-2 text-sm text-muted">
+                        Commencez a ecouter de la musique tchadienne pour voir votre historique ici.
                     </p>
-                    <a href="<?php echo SITE_URL; ?>/decouvrir.php" class="btn btn-primary btn-lg">
-                        <i class="fas fa-compass me-2"></i>Découvrir de la Musique
+                    <a href="<?php echo SITE_URL; ?>/decouvrir.php" class="mt-6 inline-flex items-center justify-center rounded-full bg-accent px-6 py-3 text-sm font-semibold text-white shadow-elev-1 hover:shadow-elev-2">
+                        <i class="fas fa-compass mr-2"></i>Découvrir de la musique
                     </a>
                 </div>
             <?php else: ?>
-                <!-- Liste d'Historique -->
-                <div class="history-list">
+                <div class="space-y-4">
                     <?php foreach ($history as $item): ?>
-                        <div class="history-item">
-                            <div class="history-item-cover">
-                                <img src="<?php echo htmlspecialchars($item['cover']); ?>" alt="Cover">
-                                <div class="play-overlay">
+                        <article class="flex flex-col gap-4 rounded-3xl border border-white/10 bg-surface/60 p-4 shadow-elev-1 transition hover:border-white/20 sm:p-5 md:flex-row md:items-center">
+                            <div class="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-2xl">
+                                <img src="<?php echo htmlspecialchars($item['cover']); ?>" alt="Cover" class="h-full w-full object-cover">
+                                <button class="absolute inset-0 grid place-items-center bg-black/60 text-white opacity-0 transition hover:opacity-100" type="button">
                                     <i class="fas fa-play"></i>
-                                </div>
+                                </button>
                             </div>
-                            <div class="history-item-info">
-                                <h5 class="mb-1"><?php echo htmlspecialchars($item['title']); ?></h5>
-                                <p class="text-muted mb-0">
-                                    <i class="fas fa-user me-1"></i>
+                            <div class="flex-1">
+                                <h4 class="text-base font-semibold text-text"><?php echo htmlspecialchars($item['title']); ?></h4>
+                                <p class="mt-1 text-sm text-muted">
+                                    <i class="fas fa-user mr-1"></i>
                                     <?php echo htmlspecialchars($item['artist']); ?>
                                 </p>
                             </div>
-                            <div class="history-item-meta">
-                                <span class="text-muted">
-                                    <i class="far fa-clock me-1"></i>
-                                    <?php echo htmlspecialchars($item['duration']); ?>
-                                </span>
+                            <div class="hidden items-center gap-2 text-xs text-muted md:flex">
+                                <i class="far fa-clock"></i>
+                                <span><?php echo htmlspecialchars($item['duration']); ?></span>
                             </div>
-                            <div class="history-item-date">
-                                <span class="text-muted">
-                                    <?php echo htmlspecialchars($item['played_at']); ?>
-                                </span>
+                            <div class="hidden items-center text-xs text-muted lg:flex">
+                                <?php echo htmlspecialchars($item['played_at']); ?>
                             </div>
-                            <div class="history-item-actions">
-                                <button class="btn btn-sm btn-icon" title="Ajouter aux favoris">
+                            <div class="flex items-center gap-2">
+                                <button class="grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-white/5 text-text hover:bg-white/10" title="Ajouter aux favoris">
                                     <i class="far fa-heart"></i>
                                 </button>
-                                <button class="btn btn-sm btn-icon" title="Ajouter à une playlist">
+                                <button class="grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-white/5 text-text hover:bg-white/10" title="Ajouter a une playlist">
                                     <i class="fas fa-plus"></i>
                                 </button>
                             </div>
-                        </div>
+                        </article>
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
         </div>
     </section>
-</div>
+</main>
 
-<style>
-:root {
-    --bleu-tchadien: #0066CC;
-    --jaune-solaire: #FFD700;
-    --rouge-terre: #CC3333;
-    --vert-savane: #228B22;
-    --gris-harmattan: #2C3E50;
-}
-
-.history-container {
-    background: #f5f7fa;
-    min-height: 100vh;
-    padding-bottom: 3rem;
-}
-
-/* Page Header */
-.page-header {
-    background: white;
-    padding: 2rem 0;
-    margin-bottom: 2rem;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-    margin-top: 80px;
-}
-
-.header-icon-lg {
-    width: 70px;
-    height: 70px;
-    background: linear-gradient(135deg, var(--bleu-tchadien), #0052a3);
-    border-radius: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 2rem;
-    margin-right: 1.5rem;
-    box-shadow: 0 5px 20px rgba(0, 102, 204, 0.3);
-}
-
-.page-header h1 {
-    color: var(--gris-harmattan);
-    font-weight: 700;
-    font-size: 2rem;
-}
-
-/* Empty State */
-.empty-state-large {
-    text-align: center;
-    padding: 5rem 2rem;
-    background: white;
-    border-radius: 20px;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
-}
-
-.empty-icon {
-    width: 120px;
-    height: 120px;
-    background: linear-gradient(135deg, var(--bleu-tchadien), var(--jaune-solaire));
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto 2rem;
-    font-size: 3rem;
-    color: white;
-    box-shadow: 0 10px 40px rgba(0, 102, 204, 0.3);
-}
-
-.empty-state-large h3 {
-    color: var(--gris-harmattan);
-    font-weight: 600;
-}
-
-/* History List */
-.history-list {
-    background: white;
-    border-radius: 20px;
-    overflow: hidden;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
-}
-
-.history-item {
-    display: flex;
-    align-items: center;
-    padding: 1.25rem 1.5rem;
-    border-bottom: 1px solid #f0f0f0;
-    transition: all 0.3s ease;
-    gap: 1.5rem;
-}
-
-.history-item:last-child {
-    border-bottom: none;
-}
-
-.history-item:hover {
-    background: #f8f9fa;
-}
-
-.history-item-cover {
-    position: relative;
-    width: 60px;
-    height: 60px;
-    border-radius: 10px;
-    overflow: hidden;
-    flex-shrink: 0;
-    cursor: pointer;
-}
-
-.history-item-cover img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.play-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.history-item-cover:hover .play-overlay {
-    opacity: 1;
-}
-
-.play-overlay i {
-    color: white;
-    font-size: 1.5rem;
-}
-
-.history-item-info {
-    flex: 1;
-    min-width: 0;
-}
-
-.history-item-info h5 {
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--gris-harmattan);
-    margin: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.history-item-info p {
-    font-size: 0.9rem;
-    margin: 0;
-}
-
-.history-item-meta,
-.history-item-date {
-    flex-shrink: 0;
-}
-
-.history-item-actions {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.btn-icon {
-    width: 36px;
-    height: 36px;
-    padding: 0;
-    border: none;
-    background: #f0f0f0;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #6c757d;
-    transition: all 0.3s ease;
-}
-
-.btn-icon:hover {
-    background: var(--bleu-tchadien);
-    color: white;
-}
-
-/* Responsive */
-@media (max-width: 991px) {
-    .page-header {
-        margin-top: 70px;
-    }
-
-    .history-item-meta,
-    .history-item-date {
-        display: none;
-    }
-}
-
-@media (max-width: 576px) {
-    .history-item {
-        padding: 1rem;
-        gap: 1rem;
-    }
-
-    .history-item-cover {
-        width: 50px;
-        height: 50px;
-    }
-}
-</style>
-
-<?php include 'includes/footer.php'; ?>
+<?php include 'includes/footer-tailwind.php'; ?>

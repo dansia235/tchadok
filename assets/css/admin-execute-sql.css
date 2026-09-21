@@ -1,0 +1,25 @@
+/* Admin Execute SQL Styles */
+.navbar-admin {
+            background: linear-gradient(135deg, #2C3E50, #0066CC);
+        }
+        .sql-output {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .btn-sql {
+            background: linear-gradient(135deg, #0066CC, #0052a3);
+            border: none;
+            color: white;
+            margin: 0.25rem;
+        }
+        .btn-sql:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 102, 204, 0.4);
+            color: white;
+        }
+

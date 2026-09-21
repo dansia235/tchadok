@@ -1,1251 +1,570 @@
 <?php
 /**
  * Page Premium - Tchadok Platform
+ * Refonte interface Premium
  */
 
 require_once 'includes/functions.php';
 require_once 'includes/auth.php';
 
 $pageTitle = 'Tchadok Premium';
-$pageDescription = 'Découvrez Tchadok Premium : streaming illimité, qualité HD, téléchargements et plus encore.';
+$pageDescription = 'Activez Tchadok Premium et profitez d\'une expérience musicale fluide, élégante et pensée pour la scène tchadienne.';
 
 $isLoggedIn = isLoggedIn();
-$isPremium = $isLoggedIn && isset($_SESSION['premium_status']) && $_SESSION['premium_status'];
+$isPremium = $isLoggedIn && !empty($_SESSION['premium_status']);
+$user = $isLoggedIn ? getCurrentUser() : null;
 
-include 'includes/header.php';
+$dashboardUrl = SITE_URL . '/user-dashboard.php';
+$workspaceLabel = 'Espace fan';
+
+if ($isLoggedIn && isAdmin()) {
+    $dashboardUrl = SITE_URL . '/admin-dashboard.php';
+    $workspaceLabel = 'Console admin';
+} elseif ($isLoggedIn && isArtist()) {
+    $dashboardUrl = SITE_URL . '/artist-dashboard.php';
+    $workspaceLabel = 'Studio artiste';
+}
+
+$walletBalance = (float) ($user['wallet_balance'] ?? 0);
+$profileName = trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? ''));
+if ($profileName === '') {
+    $profileName = $user['username'] ?? 'Utilisateur';
+}
+
+$publicLoginUrl = SITE_URL . '/login.php?redirect=premium';
+$registerUrl = SITE_URL . '/register.php';
+$walletUrl = SITE_URL . '/wallet.php';
+$supportUrl = SITE_URL . '/contact.php';
+
+$heroStats = [
+    ['value' => '320 kbps', 'label' => 'qualité audio'],
+    ['value' => '0 pub', 'label' => 'écoute continue'],
+    ['value' => '24/7', 'label' => 'lecture sans limite'],
+];
+
+$membershipSignals = [
+    [
+        'label' => 'Statut',
+        'value' => $isPremium ? 'Premium actif' : 'Formule gratuite',
+        'tone' => $isPremium
+            ? 'border-amber-300/60 bg-amber-100/90 text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200'
+            : 'border-slate-200 bg-white/90 text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-muted'
+    ],
+    [
+        'label' => 'Portefeuille',
+        'value' => number_format($walletBalance, 0, ',', ' ') . ' FCFA',
+        'tone' => 'border-slate-200 bg-white/90 text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-text'
+    ],
+    [
+        'label' => 'Parcours',
+        'value' => $isLoggedIn ? $workspaceLabel : 'Visiteur',
+        'tone' => 'border-slate-200 bg-white/90 text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-muted'
+    ],
+];
+
+$offerMoments = [
+    [
+        'icon' => 'fa-bolt',
+        'title' => 'Un flux sans rupture',
+        'text' => 'Passez d’un titre à l’autre sans interruption et sans coupure publicitaire.',
+        'tone' => 'from-accent/20 to-accent/5 text-accent'
+    ],
+    [
+        'icon' => 'fa-download',
+        'title' => 'Votre musique partout',
+        'text' => 'Téléchargez vos morceaux et gardez vos playlists disponibles, même hors ligne.',
+        'tone' => 'from-emerald-500/20 to-emerald-500/5 text-emerald-700 dark:text-emerald-300'
+    ],
+    [
+        'icon' => 'fa-crown',
+        'title' => 'Une relation premium',
+        'text' => 'Support prioritaire, sorties sélectionnées et un accès mieux orchestré à vos contenus favoris.',
+        'tone' => 'from-amber-400/20 to-amber-400/5 text-amber-700 dark:text-amber-200'
+    ],
+];
+
+$features = [
+    [
+        'icon' => 'fa-infinity',
+        'title' => 'Streaming illimité',
+        'text' => 'Écoutez vos artistes favoris sans plafond de lecture ni restrictions inutiles.',
+        'tone' => 'bg-accent/15 text-accent'
+    ],
+    [
+        'icon' => 'fa-download',
+        'title' => 'Téléchargements hors ligne',
+        'text' => 'Gardez vos morceaux et playlists disponibles même sans connexion.',
+        'tone' => 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+    ],
+    [
+        'icon' => 'fa-wave-square',
+        'title' => 'Qualité audio HD',
+        'text' => 'Profitez d’un rendu plus riche, propre et stable jusqu’à 320 kbps.',
+        'tone' => 'bg-amber-400/15 text-amber-700 dark:text-amber-300'
+    ],
+    [
+        'icon' => 'fa-ban',
+        'title' => 'Sans publicité',
+        'text' => 'Conservez une écoute fluide, sans interruption entre les contenus.',
+        'tone' => 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
+    ],
+    [
+        'icon' => 'fa-headset',
+        'title' => 'Support prioritaire',
+        'text' => 'Un parcours plus rapide pour les questions de compte, paiement et activation.',
+        'tone' => 'bg-sky-400/15 text-sky-700 dark:text-sky-200'
+    ],
+    [
+        'icon' => 'fa-layer-group',
+        'title' => 'Playlists enrichies',
+        'text' => 'Créez une expérience d’écoute plus libre avec un usage plus intensif et plus confortable.',
+        'tone' => 'bg-white/10 text-slate-700 dark:text-text'
+    ]
+];
+
+$plans = [
+    [
+        'key' => 'monthly',
+        'name' => 'Formule mensuelle',
+        'price' => 2500,
+        'period' => 'mois',
+        'icon' => 'fa-calendar-alt',
+        'highlight' => false,
+        'badge' => null,
+        'note' => 'Souple et sans engagement long',
+        'features' => [
+            'Streaming illimité',
+            'Téléchargements hors ligne',
+            'Qualité audio HD',
+            'Sans publicité',
+            'Support prioritaire'
+        ],
+        'button' => 'Activer cette formule'
+    ],
+    [
+        'key' => 'yearly',
+        'name' => 'Formule annuelle',
+        'price' => 25000,
+        'period' => 'an',
+        'icon' => 'fa-calendar-check',
+        'highlight' => true,
+        'badge' => 'Recommandé',
+        'note' => 'Économisez 5 000 FCFA sur l’année',
+        'features' => [
+            'Tous les avantages mensuels',
+            'Tarif plus avantageux sur la durée',
+            'Accès premium continu toute l’année',
+            'Expérience plus stable pour les gros auditeurs',
+            'Priorité durable sur le support'
+        ],
+        'button' => 'Choisir l’annuel'
+    ]
+];
+
+$paymentMethods = [
+    ['label' => 'Airtel Money', 'icon' => 'fa-mobile-alt', 'tone' => 'bg-accent/15 text-accent', 'text' => 'Paiement mobile rapide'],
+    ['label' => 'Moov Money', 'icon' => 'fa-money-bill-wave', 'tone' => 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300', 'text' => 'Validation locale simplifiée'],
+    ['label' => 'Ecobank', 'icon' => 'fa-university', 'tone' => 'bg-amber-400/15 text-amber-700 dark:text-amber-300', 'text' => 'Canal bancaire fiable'],
+    ['label' => 'Visa', 'icon' => 'fa-credit-card', 'tone' => 'bg-white/10 text-slate-700 dark:text-text', 'text' => 'Carte internationale']
+];
+
+$faqs = [
+    [
+        'q' => 'Puis-je annuler mon abonnement à tout moment ?',
+        'a' => 'Oui, vous pouvez annuler depuis votre profil. Les avantages restent actifs jusqu\'à la fin de la période de facturation.'
+    ],
+    [
+        'q' => 'Que deviennent mes téléchargements si j\'annule ?',
+        'a' => 'Les fichiers téléchargés légalement restent disponibles. Vous pourrez continuer à les écouter.'
+    ],
+    [
+        'q' => 'Y a-t-il une période d\'essai gratuite ?',
+        'a' => 'Oui, nous offrons 7 jours d\'essai pour les nouveaux utilisateurs Premium.'
+    ],
+    [
+        'q' => 'Puis-je utiliser Premium sur plusieurs appareils ?',
+        'a' => 'Oui, jusqu\'à 5 appareils. L\'écoute simultanée est limitée à 3 appareils.'
+    ],
+    [
+        'q' => 'Le paiement est-il immédiatement actif ?',
+        'a' => 'L’activation démarre après validation du paiement. Le délai dépend du canal utilisé, mais le parcours reste suivi depuis votre compte.'
+    ]
+];
+
+$additionalJS = [
+    SITE_URL . '/assets/js/premium.js'
+];
+
+include 'includes/header-tailwind.php';
 ?>
 
-<div class="premium-page">
-    <!-- Hero Section -->
-    <section class="premium-hero">
-        <div class="hero-background"></div>
-        <div class="floating-notes">
-            <span class="note">♪</span>
-            <span class="note">♫</span>
-            <span class="note">♪</span>
-            <span class="note">♫</span>
-            <span class="note">♪</span>
-        </div>
-        <div class="container position-relative">
-            <div class="row align-items-center min-vh-75">
-                <div class="col-lg-6 text-white">
-                    <div class="crown-icon mb-4">
+<main class="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(47,109,224,0.10),transparent_28%),radial-gradient(circle_at_top_left,rgba(255,193,7,0.10),transparent_24%),#f5f7fb] pb-20 pt-24 dark:bg-[radial-gradient(circle_at_top_right,rgba(47,109,224,0.18),transparent_28%),radial-gradient(circle_at_top_left,rgba(245,158,11,0.12),transparent_24%),#0B0F17]">
+    <section class="relative w-full overflow-hidden bg-[linear-gradient(120deg,#f7f9fd_0%,#e7efff_34%,#fff7dd_70%,#d8e5ff_100%)] py-16 lg:py-20 dark:bg-[linear-gradient(120deg,#0B0F17_0%,#141A26_34%,#1B2433_70%,#2F6DE0_100%)]">
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.78),transparent_56%)] dark:bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_52%)]"></div>
+        <div class="absolute -left-24 top-12 h-72 w-72 rounded-full bg-accent/12 blur-3xl dark:bg-accent/25"></div>
+        <div class="absolute right-0 top-10 h-96 w-96 rounded-full bg-amber-400/16 blur-3xl dark:bg-amber-400/12"></div>
+        <div class="absolute inset-y-0 right-[14%] hidden w-px bg-slate-300/60 dark:bg-white/10 lg:block"></div>
+
+        <div class="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_400px]">
+                <div class="rounded-[2rem] border border-slate-200/90 bg-[linear-gradient(160deg,rgba(255,255,255,0.96),rgba(234,242,255,0.90))] p-8 shadow-elev-3 backdrop-blur-sm dark:border-white/15 dark:bg-[linear-gradient(160deg,rgba(20,26,38,0.86),rgba(27,36,51,0.82))] sm:p-10">
+                    <div class="inline-flex items-center gap-2 rounded-full border border-amber-300/60 bg-amber-100/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/12 dark:text-amber-200">
                         <i class="fas fa-crown"></i>
+                        Offre premium
                     </div>
-                    <h1 class="premium-title mb-3">Tchadok Premium</h1>
-                    <p class="premium-subtitle mb-4">
-                        Vivez la musique tchadienne comme jamais auparavant.
-                        Streaming illimité, qualité premium et accès exclusif à vos artistes préférés.
+
+                    <h1 class="mt-6 max-w-3xl text-4xl font-display font-bold leading-tight text-slate-900 dark:text-white sm:text-5xl lg:text-6xl">
+                        Une écoute premium, pensée pour la scène tchadienne.
+                    </h1>
+
+                    <p class="mt-5 max-w-2xl text-base leading-8 text-slate-600 dark:text-white/78 sm:text-lg">
+                        Tchadok Premium revient dans un vrai parcours public :
+                        même header que le reste du site, meilleure lisibilité, couleurs cohérentes
+                        et une mise en page plus propre que l’ancienne version en double bloc.
                     </p>
 
-                    <?php if (!$isPremium): ?>
-                    <div class="d-flex gap-3 flex-wrap">
-                        <a href="#plans" class="btn btn-premium-primary">
-                            <i class="fas fa-crown me-2"></i>
-                            Devenir Premium
+                    <div class="mt-6 flex flex-wrap gap-2 text-xs">
+                        <?php foreach ($membershipSignals as $signal): ?>
+                            <span class="rounded-full border px-3 py-1 <?php echo $signal['tone']; ?>">
+                                <span class="font-semibold"><?php echo htmlspecialchars($signal['label']); ?> :</span>
+                                <?php echo htmlspecialchars($signal['value']); ?>
+                            </span>
+                        <?php endforeach; ?>
+                        <?php if ($isLoggedIn): ?>
+                            <span class="rounded-full border border-slate-200 bg-white/90 px-3 py-1 text-slate-700 dark:border-white/15 dark:bg-white/10 dark:text-white/80">
+                                <?php echo htmlspecialchars($profileName); ?>
+                            </span>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="mt-8 flex flex-wrap gap-3">
+                        <?php if (!$isLoggedIn): ?>
+                            <a href="<?php echo $publicLoginUrl; ?>" class="inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-semibold text-white shadow-elev-1 transition hover:-translate-y-0.5 hover:shadow-elev-2">
+                                <i class="fas fa-right-to-bracket"></i>
+                                Se connecter pour activer
+                            </a>
+                            <a href="<?php echo $registerUrl; ?>" class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-6 py-3 text-sm font-semibold text-text hover:bg-white/10">
+                                <i class="fas fa-user-plus"></i>
+                                Créer un compte
+                            </a>
+                        <?php elseif ($isPremium): ?>
+                            <a href="<?php echo $walletUrl; ?>" class="inline-flex items-center gap-2 rounded-full bg-amber-400 px-6 py-3 text-sm font-semibold text-bg shadow-elev-1 transition hover:-translate-y-0.5 hover:shadow-elev-2">
+                                <i class="fas fa-wallet"></i>
+                                Voir mon portefeuille
+                            </a>
+                            <a href="<?php echo $dashboardUrl; ?>" class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-6 py-3 text-sm font-semibold text-text hover:bg-white/10">
+                                <i class="fas fa-columns"></i>
+                                Retour à mon espace
+                            </a>
+                            <a href="<?php echo $supportUrl; ?>" class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-6 py-3 text-sm font-semibold text-text hover:bg-white/10">
+                                <i class="fas fa-headset"></i>
+                                Support premium
+                            </a>
+                        <?php else: ?>
+                            <a href="#plans" class="inline-flex items-center gap-2 rounded-full bg-amber-400 px-6 py-3 text-sm font-semibold text-bg shadow-elev-1 transition hover:-translate-y-0.5 hover:shadow-elev-2">
+                                <i class="fas fa-crown"></i>
+                                Découvrir les formules
+                            </a>
+                            <a href="<?php echo $walletUrl; ?>" class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-6 py-3 text-sm font-semibold text-text hover:bg-white/10">
+                                <i class="fas fa-wallet"></i>
+                                Préparer mon paiement
+                            </a>
+                            <a href="<?php echo $dashboardUrl; ?>" class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-6 py-3 text-sm font-semibold text-text hover:bg-white/10">
+                                <i class="fas fa-arrow-left"></i>
+                                Retour à mon espace
+                            </a>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="mt-10 grid gap-4 sm:grid-cols-3">
+                        <?php foreach ($heroStats as $stat): ?>
+                            <div class="rounded-3xl border border-slate-200 bg-white/85 p-4 dark:border-white/15 dark:bg-white/10">
+                                <p class="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-white/60"><?php echo htmlspecialchars($stat['label']); ?></p>
+                                <p class="mt-3 text-2xl font-semibold text-slate-900 dark:text-white"><?php echo htmlspecialchars($stat['value']); ?></p>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+
+                <aside class="rounded-[2rem] border border-slate-200/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(245,247,251,0.94))] p-6 shadow-elev-2 backdrop-blur-sm dark:border-white/15 dark:bg-[linear-gradient(180deg,rgba(20,26,38,0.9),rgba(11,15,23,0.88))]">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <p class="text-xs uppercase tracking-[0.24em] text-slate-500 dark:text-white/55">Activation</p>
+                            <h2 class="mt-2 text-2xl font-display font-semibold text-slate-900 dark:text-white">
+                                <?php echo $isPremium ? 'Premium déjà actif' : 'Prêt à passer au niveau supérieur'; ?>
+                            </h2>
+                        </div>
+                        <span class="grid h-14 w-14 place-items-center rounded-2xl bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300">
+                            <i class="fas fa-crown text-2xl"></i>
+                        </span>
+                    </div>
+
+                    <div class="mt-6 space-y-4">
+                        <?php foreach ($offerMoments as $moment): ?>
+                            <div class="rounded-3xl border border-slate-200 bg-white/80 p-5 dark:border-white/15 dark:bg-white/8">
+                                <div class="flex items-start gap-4">
+                                    <span class="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br <?php echo $moment['tone']; ?>">
+                                        <i class="fas <?php echo $moment['icon']; ?>"></i>
+                                    </span>
+                                    <div>
+                                        <h3 class="text-sm font-semibold text-slate-900 dark:text-white"><?php echo $moment['title']; ?></h3>
+                                        <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-white/72"><?php echo $moment['text']; ?></p>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <div class="mt-6 rounded-3xl border border-emerald-300/40 bg-emerald-100/70 p-5 dark:border-emerald-400/20 dark:bg-emerald-500/10">
+                        <p class="text-xs uppercase tracking-[0.24em] text-emerald-700 dark:text-emerald-100/80">Paiement</p>
+                        <p class="mt-3 text-sm leading-6 text-emerald-800 dark:text-emerald-100">
+                            Le paiement reste guidé, tracé et redirige vers l’écran de validation dédié pour un parcours plus net.
+                        </p>
+                    </div>
+                </aside>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-8">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="grid gap-4 lg:grid-cols-3">
+                <?php foreach ($offerMoments as $moment): ?>
+                    <div class="rounded-3xl border border-white/10 bg-surface/60 p-5 shadow-elev-1">
+                        <div class="flex items-center gap-3">
+                            <span class="grid h-11 w-11 place-items-center rounded-2xl bg-white/5 text-text">
+                                <i class="fas <?php echo $moment['icon']; ?>"></i>
+                            </span>
+                            <div>
+                                <p class="text-sm font-semibold text-text"><?php echo $moment['title']; ?></p>
+                                <p class="mt-1 text-xs text-muted"><?php echo $moment['text']; ?></p>
+                            </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </section>
+
+    <section id="features" class="py-12">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                    <p class="text-xs uppercase tracking-[0.24em] text-muted">Avantages</p>
+                    <h2 class="mt-2 text-3xl font-display font-bold text-text">Une offre plus claire, plus complète, plus utile</h2>
+                    <p class="mt-3 max-w-2xl text-sm leading-6 text-muted">
+                        Les bénéfices sont désormais présentés comme un vrai produit public :
+                        contraste lisible, hiérarchie stable et une grammaire visuelle alignée avec les autres interfaces.
+                    </p>
+                </div>
+                <?php if ($isLoggedIn): ?>
+                    <a href="<?php echo $dashboardUrl; ?>" class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-text hover:bg-white/10">
+                        <i class="fas fa-arrow-left"></i>
+                        Retour à mon espace
+                    </a>
+                <?php endif; ?>
+            </div>
+
+            <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                <?php foreach ($features as $feature): ?>
+                    <article class="rounded-3xl border border-white/10 bg-surface/60 p-6 shadow-elev-1 transition hover:-translate-y-1 hover:shadow-elev-2">
+                        <div class="grid h-14 w-14 place-items-center rounded-2xl <?php echo $feature['tone']; ?>">
+                            <i class="fas <?php echo $feature['icon']; ?> text-xl"></i>
+                        </div>
+                        <h3 class="mt-5 text-lg font-semibold text-text"><?php echo $feature['title']; ?></h3>
+                        <p class="mt-3 text-sm leading-6 text-muted"><?php echo $feature['text']; ?></p>
+                    </article>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </section>
+
+    <section id="plans" class="py-12">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(231,239,255,0.92))] p-8 shadow-elev-2 dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(20,26,38,0.92))] sm:p-10">
+                <div class="flex flex-wrap items-end justify-between gap-4">
+                    <div>
+                        <p class="text-xs uppercase tracking-[0.24em] text-muted">Formules</p>
+                        <h2 class="mt-2 text-3xl font-display font-bold text-text">Choisissez un rythme d’abonnement cohérent</h2>
+                        <p class="mt-3 max-w-2xl text-sm leading-6 text-muted">
+                            Les montants affichés sont alignés avec l’écran de paiement pour éviter tout décalage
+                            entre la promesse de la page et la validation finale.
+                        </p>
+                    </div>
+                    <div class="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-muted">
+                        Activation après validation du paiement
+                    </div>
+                </div>
+
+                <div class="mt-10 grid gap-6 lg:grid-cols-2">
+                    <?php foreach ($plans as $plan): ?>
+                        <article class="relative flex h-full flex-col rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-elev-1 <?php echo $plan['highlight'] ? 'ring-2 ring-amber-400/40' : ''; ?>">
+                            <?php if ($plan['badge']): ?>
+                                <span class="absolute -top-4 left-6 rounded-full bg-amber-400 px-4 py-1 text-xs font-semibold text-bg shadow-elev-1">
+                                    <?php echo $plan['badge']; ?>
+                                </span>
+                            <?php endif; ?>
+
+                            <div class="flex items-center justify-between gap-4">
+                                <div class="flex items-center gap-3">
+                                    <span class="grid h-12 w-12 place-items-center rounded-2xl <?php echo $plan['highlight'] ? 'bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300' : 'bg-accent/15 text-accent'; ?>">
+                                        <i class="fas <?php echo $plan['icon']; ?>"></i>
+                                    </span>
+                                    <div>
+                                        <p class="text-xs uppercase tracking-[0.2em] text-muted">Formule</p>
+                                        <h3 class="text-lg font-semibold text-text"><?php echo $plan['name']; ?></h3>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-3xl font-semibold text-text"><?php echo number_format($plan['price'], 0, ',', ' '); ?></p>
+                                    <p class="text-xs text-muted">FCFA / <?php echo $plan['period']; ?></p>
+                                </div>
+                            </div>
+
+                            <?php if ($plan['note']): ?>
+                                <p class="mt-5 rounded-2xl border border-white/10 bg-white/80 px-4 py-3 text-sm text-muted dark:bg-bg/60">
+                                    <?php echo $plan['note']; ?>
+                                </p>
+                            <?php endif; ?>
+
+                            <ul class="mt-6 space-y-3 text-sm text-muted">
+                                <?php foreach ($plan['features'] as $item): ?>
+                                    <li class="flex items-start gap-3">
+                                        <i class="fas fa-check-circle mt-0.5 text-emerald-700 dark:text-emerald-300"></i>
+                                        <span><?php echo $item; ?></span>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+
+                            <div class="mt-8">
+                                <?php if (!$isLoggedIn): ?>
+                                    <a href="<?php echo $publicLoginUrl; ?>" class="inline-flex w-full items-center justify-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-semibold text-white shadow-elev-1 hover:shadow-elev-2">
+                                        <i class="fas fa-right-to-bracket"></i>
+                                        Se connecter pour continuer
+                                    </a>
+                                <?php elseif ($isPremium): ?>
+                                    <button type="button" class="inline-flex w-full items-center justify-center gap-2 rounded-full border border-amber-300/60 bg-amber-100/90 px-6 py-3 text-sm font-semibold text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200" disabled>
+                                        <i class="fas fa-check-circle"></i>
+                                        Déjà actif sur votre compte
+                                    </button>
+                                <?php else: ?>
+                                    <button type="button"
+                                            class="inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold shadow-elev-1 transition hover:shadow-elev-2 <?php echo $plan['highlight'] ? 'bg-amber-400 text-bg' : 'bg-accent text-white'; ?>"
+                                            data-subscribe
+                                            data-plan="<?php echo $plan['key']; ?>">
+                                        <i class="fas fa-crown"></i>
+                                        <?php echo $plan['button']; ?>
+                                    </button>
+                                <?php endif; ?>
+                            </div>
+                        </article>
+                    <?php endforeach; ?>
+                </div>
+
+                <?php if (!$isLoggedIn): ?>
+                    <div class="mt-8 rounded-3xl border border-accent/30 bg-accent/10 p-5 text-sm text-accent">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <i class="fas fa-info-circle"></i>
+                            <span>Vous devez être connecté pour lancer la souscription et accéder à l’écran de paiement.</span>
+                        </div>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-12">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_420px]">
+                <div class="rounded-[2rem] border border-white/10 bg-surface/60 p-8 shadow-elev-1">
+                    <p class="text-xs uppercase tracking-[0.24em] text-muted">Paiement</p>
+                    <h2 class="mt-2 text-3xl font-display font-bold text-text">Méthodes de paiement acceptées</h2>
+                    <p class="mt-3 max-w-2xl text-sm leading-6 text-muted">
+                        Le bloc paiement reprend le même niveau de finition que le reste du front :
+                        cartes homogènes, contraste stable et meilleure lisibilité sur desktop comme mobile.
+                    </p>
+
+                    <div class="mt-8 grid gap-4 sm:grid-cols-2">
+                        <?php foreach ($paymentMethods as $method): ?>
+                            <div class="rounded-3xl border border-white/10 bg-white/5 p-5">
+                                <div class="flex items-center gap-4">
+                                    <span class="grid h-12 w-12 place-items-center rounded-2xl <?php echo $method['tone']; ?>">
+                                        <i class="fas <?php echo $method['icon']; ?>"></i>
+                                    </span>
+                                    <div>
+                                        <p class="text-sm font-semibold text-text"><?php echo $method['label']; ?></p>
+                                        <p class="mt-1 text-xs text-muted"><?php echo $method['text']; ?></p>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+
+                <div class="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(47,109,224,0.08),rgba(255,255,255,0.96))] p-8 shadow-elev-2 dark:bg-[linear-gradient(180deg,rgba(47,109,224,0.12),rgba(20,26,38,0.9))]">
+                    <p class="text-xs uppercase tracking-[0.24em] text-muted">Confiance</p>
+                    <h2 class="mt-2 text-2xl font-display font-semibold text-text">Un parcours plus professionnel</h2>
+                    <div class="mt-6 space-y-4 text-sm text-muted">
+                        <div class="rounded-3xl border border-white/10 bg-white/5 p-4">
+                            <span class="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
+                                <i class="fas fa-shield-alt"></i>
+                                Paiements sécurisés et cryptés
+                            </span>
+                        </div>
+                        <div class="rounded-3xl border border-white/10 bg-white/5 p-4">
+                            <span class="flex items-center gap-2 text-sky-700 dark:text-sky-200">
+                                <i class="fas fa-route"></i>
+                                Redirection claire vers l’écran de paiement
+                            </span>
+                        </div>
+                        <div class="rounded-3xl border border-white/10 bg-white/5 p-4">
+                            <span class="flex items-center gap-2 text-amber-700 dark:text-amber-200">
+                                <i class="fas fa-headset"></i>
+                                Support prioritaire pour les demandes premium
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="mt-8 flex flex-wrap gap-3">
+                        <a href="<?php echo $supportUrl; ?>" class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-text hover:bg-white/10">
+                            <i class="fas fa-headset"></i>
+                            Contacter le support
                         </a>
-                        <a href="#features" class="btn btn-premium-outline">
-                            En savoir plus
-                        </a>
-                    </div>
-                    <?php else: ?>
-                    <div class="premium-badge-alert">
-                        <i class="fas fa-crown me-2"></i>
-                        <strong>Vous êtes déjà membre Premium !</strong>
-                    </div>
-                    <?php endif; ?>
-                </div>
-                <div class="col-lg-6 text-center mt-5 mt-lg-0">
-                    <div class="premium-showcase">
-                        <div class="showcase-glow"></div>
-                        <img src="<?php echo SITE_URL; ?>/assets/images/logo.svg"
-                             alt="Tchadok Premium"
-                             class="premium-logo-image">
-                        <div class="premium-tagline">
-                            <span class="tagline-text">La musique tchadienne</span>
-                            <span class="tagline-highlight">à portée de clic</span>
-                        </div>
+                        <?php if ($isLoggedIn): ?>
+                            <a href="<?php echo $walletUrl; ?>" class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-text hover:bg-white/10">
+                                <i class="fas fa-wallet"></i>
+                                Ouvrir le portefeuille
+                            </a>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Features Section -->
-    <section id="features" class="features-section">
-        <div class="container">
-            <div class="text-center mb-5">
-                <h2 class="section-title">Pourquoi choisir Premium ?</h2>
-                <p class="section-subtitle">Débloquez l'expérience musicale complète</p>
+    <section class="py-12">
+        <div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+            <div class="text-center">
+                <p class="text-xs uppercase tracking-[0.24em] text-muted">FAQ</p>
+                <h2 class="mt-2 text-3xl font-display font-bold text-text">Questions fréquentes</h2>
+                <p class="mt-3 text-sm text-muted">Tout ce qu’il faut savoir avant d’activer Premium.</p>
             </div>
 
-            <div class="row g-4">
-                <div class="col-lg-4 col-md-6">
-                    <div class="feature-card">
-                        <div class="feature-icon-wrapper blue-gradient">
-                            <i class="fas fa-infinity"></i>
-                        </div>
-                        <h5 class="feature-title">Streaming Illimité</h5>
-                        <p class="feature-text">
-                            Écoutez autant que vous voulez, quand vous voulez.
-                            Aucune limite sur le nombre de titres ou le temps d'écoute.
-                        </p>
-                    </div>
-                </div>
-
-                <div class="col-lg-4 col-md-6">
-                    <div class="feature-card">
-                        <div class="feature-icon-wrapper green-gradient">
-                            <i class="fas fa-download"></i>
-                        </div>
-                        <h5 class="feature-title">Téléchargements Gratuits</h5>
-                        <p class="feature-text">
-                            Téléchargez vos titres préférés pour les écouter hors ligne.
-                            Accès permanent à votre collection.
-                        </p>
-                    </div>
-                </div>
-
-                <div class="col-lg-4 col-md-6">
-                    <div class="feature-card">
-                        <div class="feature-icon-wrapper yellow-gradient">
-                            <i class="fas fa-hd-video"></i>
-                        </div>
-                        <h5 class="feature-title">Qualité Audio HD</h5>
-                        <p class="feature-text">
-                            Profitez de la meilleure qualité audio avec notre streaming HD.
-                            Son cristallin jusqu'à 320kbps.
-                        </p>
-                    </div>
-                </div>
-
-                <div class="col-lg-4 col-md-6">
-                    <div class="feature-card">
-                        <div class="feature-icon-wrapper red-gradient">
-                            <i class="fas fa-ban"></i>
-                        </div>
-                        <h5 class="feature-title">Sans Publicité</h5>
-                        <p class="feature-text">
-                            Écoutez votre musique sans interruption.
-                            Fini les publicités qui coupent vos moments musicaux.
-                        </p>
-                    </div>
-                </div>
-
-                <div class="col-lg-4 col-md-6">
-                    <div class="feature-card">
-                        <div class="feature-icon-wrapper yellow-gradient">
-                            <i class="fas fa-star"></i>
-                        </div>
-                        <h5 class="feature-title">Accès Exclusif</h5>
-                        <p class="feature-text">
-                            Nouveautés en avant-première, concerts privés,
-                            et contenus exclusifs de vos artistes préférés.
-                        </p>
-                    </div>
-                </div>
-
-                <div class="col-lg-4 col-md-6">
-                    <div class="feature-card">
-                        <div class="feature-icon-wrapper blue-gradient">
-                            <i class="fas fa-headphones"></i>
-                        </div>
-                        <h5 class="feature-title">Support Prioritaire</h5>
-                        <p class="feature-text">
-                            Support client dédié et prioritaire.
-                            Assistance rapide pour tous vos besoins.
-                        </p>
-                    </div>
-                </div>
+            <div class="mt-10 space-y-4">
+                <?php foreach ($faqs as $faq): ?>
+                    <details class="rounded-3xl border border-white/10 bg-surface/60 p-5 shadow-elev-1">
+                        <summary class="cursor-pointer list-none text-sm font-semibold text-text">
+                            <div class="flex items-center justify-between gap-4">
+                                <span><?php echo $faq['q']; ?></span>
+                                <i class="fas fa-chevron-down text-xs text-muted"></i>
+                            </div>
+                        </summary>
+                        <p class="mt-3 text-sm leading-6 text-muted"><?php echo $faq['a']; ?></p>
+                    </details>
+                <?php endforeach; ?>
             </div>
         </div>
     </section>
+</main>
 
-    <!-- Pricing Plans -->
-    <section id="plans" class="pricing-section">
-        <div class="container">
-            <div class="text-center mb-5">
-                <h2 class="section-title">Choisissez votre plan</h2>
-                <p class="section-subtitle">Des tarifs adaptés à vos besoins</p>
-            </div>
-
-            <div class="row justify-content-center g-4">
-                <!-- Plan Mensuel -->
-                <div class="col-lg-4 col-md-6">
-                    <div class="pricing-card">
-                        <div class="pricing-header">
-                            <div class="pricing-icon blue-gradient">
-                                <i class="fas fa-calendar-alt"></i>
-                            </div>
-                            <h4 class="pricing-plan-name">Premium Mensuel</h4>
-                            <div class="price-display">
-                                <span class="price-currency">FCFA</span>
-                                <span class="price-amount">1,500</span>
-                                <span class="price-period">/mois</span>
-                            </div>
-                        </div>
-                        <div class="pricing-body">
-                            <ul class="pricing-features">
-                                <li>
-                                    <i class="fas fa-check-circle"></i>
-                                    Streaming illimité
-                                </li>
-                                <li>
-                                    <i class="fas fa-check-circle"></i>
-                                    Téléchargements gratuits
-                                </li>
-                                <li>
-                                    <i class="fas fa-check-circle"></i>
-                                    Qualité audio HD
-                                </li>
-                                <li>
-                                    <i class="fas fa-check-circle"></i>
-                                    Sans publicité
-                                </li>
-                                <li>
-                                    <i class="fas fa-check-circle"></i>
-                                    Support prioritaire
-                                </li>
-                            </ul>
-                            <button class="btn btn-pricing"
-                                    onclick="subscribePremium('monthly')"
-                                    <?php echo !$isLoggedIn ? 'disabled title="Connexion requise"' : ''; ?>>
-                                <i class="fas fa-crown me-2"></i>
-                                Choisir ce plan
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Plan Annuel (Recommandé) -->
-                <div class="col-lg-4 col-md-6">
-                    <div class="pricing-card recommended">
-                        <div class="recommended-badge">
-                            <i class="fas fa-star me-1"></i>
-                            Recommandé
-                        </div>
-                        <div class="pricing-header">
-                            <div class="pricing-icon yellow-gradient">
-                                <i class="fas fa-calendar-check"></i>
-                            </div>
-                            <h4 class="pricing-plan-name">Premium Annuel</h4>
-                            <div class="price-display">
-                                <span class="price-currency">FCFA</span>
-                                <span class="price-amount">10,000</span>
-                                <span class="price-period">/an</span>
-                            </div>
-                            <div class="savings-badge">
-                                <s>18,000 FCFA</s> - Économisez 8,000 FCFA !
-                            </div>
-                        </div>
-                        <div class="pricing-body">
-                            <ul class="pricing-features">
-                                <li>
-                                    <i class="fas fa-check-circle"></i>
-                                    Tout du plan mensuel
-                                </li>
-                                <li>
-                                    <i class="fas fa-check-circle"></i>
-                                    <strong>2 mois gratuits</strong>
-                                </li>
-                                <li>
-                                    <i class="fas fa-check-circle"></i>
-                                    Accès exclusif aux concerts
-                                </li>
-                                <li>
-                                    <i class="fas fa-check-circle"></i>
-                                    Badge VIP sur le profil
-                                </li>
-                                <li>
-                                    <i class="fas fa-check-circle"></i>
-                                    Playlists personnalisées
-                                </li>
-                            </ul>
-                            <button class="btn btn-pricing-recommended"
-                                    onclick="subscribePremium('yearly')"
-                                    <?php echo !$isLoggedIn ? 'disabled title="Connexion requise"' : ''; ?>>
-                                <i class="fas fa-crown me-2"></i>
-                                Choisir ce plan
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Plan Étudiant -->
-                <div class="col-lg-4 col-md-6">
-                    <div class="pricing-card">
-                        <div class="pricing-header">
-                            <div class="pricing-icon green-gradient">
-                                <i class="fas fa-graduation-cap"></i>
-                            </div>
-                            <h4 class="pricing-plan-name">Premium Étudiant</h4>
-                            <div class="price-display">
-                                <span class="price-currency">FCFA</span>
-                                <span class="price-amount">1,000</span>
-                                <span class="price-period">/mois</span>
-                            </div>
-                            <div class="student-note">
-                                <i class="fas fa-info-circle me-1"></i>
-                                Justificatif de scolarité requis
-                            </div>
-                        </div>
-                        <div class="pricing-body">
-                            <ul class="pricing-features">
-                                <li>
-                                    <i class="fas fa-check-circle"></i>
-                                    Streaming illimité
-                                </li>
-                                <li>
-                                    <i class="fas fa-check-circle"></i>
-                                    Téléchargements limités (50/mois)
-                                </li>
-                                <li>
-                                    <i class="fas fa-check-circle"></i>
-                                    Qualité audio standard
-                                </li>
-                                <li>
-                                    <i class="fas fa-check-circle"></i>
-                                    Sans publicité
-                                </li>
-                                <li>
-                                    <i class="fas fa-graduation-cap"></i>
-                                    Tarif étudiant spécial
-                                </li>
-                            </ul>
-                            <button class="btn btn-pricing"
-                                    onclick="subscribePremium('student')"
-                                    <?php echo !$isLoggedIn ? 'disabled title="Connexion requise"' : ''; ?>>
-                                <i class="fas fa-graduation-cap me-2"></i>
-                                Choisir ce plan
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <?php if (!$isLoggedIn): ?>
-            <div class="text-center mt-5">
-                <div class="login-notice">
-                    <i class="fas fa-info-circle me-2"></i>
-                    Vous devez être connecté pour souscrire à un abonnement Premium.
-                    <a href="<?php echo SITE_URL; ?>/login.php" class="login-link">Se connecter</a>
-                </div>
-            </div>
-            <?php endif; ?>
-        </div>
-    </section>
-
-    <!-- Payment Methods -->
-    <section class="payment-section">
-        <div class="container">
-            <div class="text-center mb-5">
-                <h2 class="section-title">Méthodes de paiement acceptées</h2>
-                <p class="section-subtitle">Paiement sécurisé avec vos moyens préférés</p>
-            </div>
-
-            <div class="row justify-content-center">
-                <div class="col-lg-10">
-                    <div class="payment-methods-grid">
-                        <div class="payment-method-card">
-                            <div class="payment-icon blue-gradient">
-                                <i class="fas fa-mobile-alt"></i>
-                            </div>
-                            <strong>Airtel Money</strong>
-                        </div>
-                        <div class="payment-method-card">
-                            <div class="payment-icon green-gradient">
-                                <i class="fas fa-money-bill-wave"></i>
-                            </div>
-                            <strong>Moov Money</strong>
-                        </div>
-                        <div class="payment-method-card">
-                            <div class="payment-icon yellow-gradient">
-                                <i class="fas fa-university"></i>
-                            </div>
-                            <strong>Ecobank</strong>
-                        </div>
-                        <div class="payment-method-card">
-                            <div class="payment-icon blue-gradient">
-                                <i class="fab fa-cc-visa"></i>
-                            </div>
-                            <strong>Visa</strong>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="text-center mt-5">
-                <div class="security-badge">
-                    <i class="fas fa-shield-alt me-2"></i>
-                    <span>Tous les paiements sont sécurisés et cryptés</span>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- FAQ Section -->
-    <section class="faq-section">
-        <div class="container">
-            <div class="text-center mb-5">
-                <h2 class="section-title">Questions Fréquentes</h2>
-                <p class="section-subtitle">Tout ce que vous devez savoir</p>
-            </div>
-
-            <div class="row justify-content-center">
-                <div class="col-lg-8">
-                    <div class="accordion premium-accordion" id="premiumFAQ">
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
-                                    <i class="fas fa-question-circle me-2"></i>
-                                    Puis-je annuler mon abonnement à tout moment ?
-                                </button>
-                            </h2>
-                            <div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#premiumFAQ">
-                                <div class="accordion-body">
-                                    Oui, vous pouvez annuler votre abonnement Premium à tout moment depuis votre profil.
-                                    Vous continuerez à bénéficier des avantages Premium jusqu'à la fin de votre période de facturation.
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
-                                    <i class="fas fa-question-circle me-2"></i>
-                                    Que se passe-t-il avec mes téléchargements si j'annule ?
-                                </button>
-                            </h2>
-                            <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#premiumFAQ">
-                                <div class="accordion-body">
-                                    Tous les fichiers que vous avez téléchargés légalement restent vôtres.
-                                    Vous pourrez continuer à les écouter même après l'annulation de votre abonnement.
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
-                                    <i class="fas fa-question-circle me-2"></i>
-                                    Y a-t-il une période d'essai gratuite ?
-                                </button>
-                            </h2>
-                            <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#premiumFAQ">
-                                <div class="accordion-body">
-                                    Oui ! Nous offrons 7 jours d'essai gratuit pour tous les nouveaux utilisateurs Premium.
-                                    Vous pouvez annuler à tout moment pendant la période d'essai.
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq4">
-                                    <i class="fas fa-question-circle me-2"></i>
-                                    Puis-je utiliser Premium sur plusieurs appareils ?
-                                </button>
-                            </h2>
-                            <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#premiumFAQ">
-                                <div class="accordion-body">
-                                    Oui, vous pouvez utiliser votre compte Premium sur jusqu'à 5 appareils différents.
-                                    Cependant, l'écoute simultanée est limitée à 3 appareils.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-</div>
-
-<style>
-:root {
-    --bleu-tchadien: #0066CC;
-    --jaune-solaire: #FFD700;
-    --rouge-terre: #CC3333;
-    --vert-savane: #228B22;
-}
-
-/* Hero Section */
-.premium-hero {
-    position: relative;
-    min-height: 90vh;
-    display: flex;
-    align-items: center;
-    overflow: hidden;
-    padding: 100px 0;
-}
-
-.hero-background {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, var(--bleu-tchadien) 0%, #004999 50%, var(--jaune-solaire) 100%);
-    z-index: -2;
-}
-
-.hero-background::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: radial-gradient(circle at 20% 50%, rgba(255, 215, 0, 0.2) 0%, transparent 50%),
-                radial-gradient(circle at 80% 80%, rgba(204, 51, 51, 0.15) 0%, transparent 50%);
-    animation: pulse 15s ease-in-out infinite;
-}
-
-@keyframes pulse {
-    0%, 100% { opacity: 0.5; }
-    50% { opacity: 1; }
-}
-
-.floating-notes {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: -1;
-    overflow: hidden;
-}
-
-.floating-notes .note {
-    position: absolute;
-    font-size: 2rem;
-    color: rgba(255, 255, 255, 0.15);
-    animation: float 20s infinite;
-    pointer-events: none;
-}
-
-.floating-notes .note:nth-child(1) {
-    left: 10%;
-    top: 20%;
-    animation-delay: 0s;
-    animation-duration: 25s;
-}
-
-.floating-notes .note:nth-child(2) {
-    left: 70%;
-    top: 60%;
-    animation-delay: 5s;
-    animation-duration: 22s;
-}
-
-.floating-notes .note:nth-child(3) {
-    left: 30%;
-    top: 70%;
-    animation-delay: 10s;
-    animation-duration: 28s;
-}
-
-.floating-notes .note:nth-child(4) {
-    left: 85%;
-    top: 30%;
-    animation-delay: 15s;
-    animation-duration: 24s;
-}
-
-.floating-notes .note:nth-child(5) {
-    left: 50%;
-    top: 50%;
-    animation-delay: 8s;
-    animation-duration: 26s;
-}
-
-@keyframes float {
-    0% {
-        transform: translateY(0px) rotate(0deg);
-        opacity: 0;
-    }
-    10% {
-        opacity: 0.15;
-    }
-    90% {
-        opacity: 0.15;
-    }
-    100% {
-        transform: translateY(-1000px) rotate(360deg);
-        opacity: 0;
-    }
-}
-
-.crown-icon i {
-    font-size: 3.5rem;
-    background: linear-gradient(135deg, var(--jaune-solaire), #FFA500);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    animation: logoFloat 3s ease-in-out infinite;
-    filter: drop-shadow(0 5px 15px rgba(255, 215, 0, 0.5));
-}
-
-@keyframes logoFloat {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-15px); }
-}
-
-.premium-title {
-    font-size: 4rem;
-    font-weight: 900;
-    color: white;
-    text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
-    animation: fadeInUp 1s ease;
-    line-height: 1.2;
-}
-
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.premium-subtitle {
-    font-size: 1.25rem;
-    color: rgba(255, 255, 255, 0.95);
-    line-height: 1.8;
-    animation: fadeInUp 1s ease 0.2s backwards;
-}
-
-.btn-premium-primary {
-    background: linear-gradient(135deg, var(--jaune-solaire), #FFA500);
-    color: #1a1a1a;
-    border: none;
-    padding: 15px 40px;
-    font-size: 1.1rem;
-    font-weight: 700;
-    border-radius: 50px;
-    transition: all 0.3s ease;
-    box-shadow: 0 5px 20px rgba(255, 215, 0, 0.4);
-    position: relative;
-    overflow: hidden;
-}
-
-.btn-premium-primary::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-    transition: left 0.5s;
-}
-
-.btn-premium-primary:hover::before {
-    left: 100%;
-}
-
-.btn-premium-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 30px rgba(255, 215, 0, 0.6);
-    color: #1a1a1a;
-}
-
-.btn-premium-outline {
-    background: transparent;
-    color: white;
-    border: 2px solid white;
-    padding: 15px 40px;
-    font-size: 1.1rem;
-    font-weight: 600;
-    border-radius: 50px;
-    transition: all 0.3s ease;
-}
-
-.btn-premium-outline:hover {
-    background: white;
-    color: var(--bleu-tchadien);
-    transform: translateY(-2px);
-}
-
-.premium-badge-alert {
-    display: inline-flex;
-    align-items: center;
-    background: linear-gradient(135deg, var(--jaune-solaire), #FFA500);
-    color: #1a1a1a;
-    padding: 15px 30px;
-    border-radius: 50px;
-    font-size: 1.1rem;
-    box-shadow: 0 5px 20px rgba(255, 215, 0, 0.4);
-    animation: fadeInUp 1s ease 0.4s backwards;
-}
-
-.premium-showcase {
-    position: relative;
-    animation: fadeInUp 1s ease 0.6s backwards;
-}
-
-.showcase-glow {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 400px;
-    height: 400px;
-    background: radial-gradient(circle, rgba(255, 215, 0, 0.3) 0%, transparent 70%);
-    border-radius: 50%;
-    animation: pulse 3s ease-in-out infinite;
-}
-
-.premium-logo-image {
-    width: 300px;
-    height: auto;
-    filter: drop-shadow(0 15px 40px rgba(0, 0, 0, 0.4));
-    animation: logoFloat 3s ease-in-out infinite;
-}
-
-.premium-tagline {
-    margin-top: 30px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    animation: fadeInUp 1s ease 0.8s backwards;
-}
-
-.tagline-text {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: white;
-    text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.3);
-    letter-spacing: 0.5px;
-}
-
-.tagline-highlight {
-    font-size: 2rem;
-    font-weight: 800;
-    background: linear-gradient(135deg, var(--jaune-solaire), #FFA500);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    text-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
-    filter: drop-shadow(0 2px 8px rgba(255, 215, 0, 0.4));
-    animation: shimmer 3s ease-in-out infinite;
-}
-
-@keyframes shimmer {
-    0%, 100% {
-        filter: drop-shadow(0 2px 8px rgba(255, 215, 0, 0.4));
-    }
-    50% {
-        filter: drop-shadow(0 4px 16px rgba(255, 215, 0, 0.6));
-    }
-}
-
-.min-vh-75 {
-    min-height: 75vh;
-}
-
-/* Features Section */
-.features-section {
-    padding: 100px 0;
-    background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);
-}
-
-.section-title {
-    font-size: 2.5rem;
-    font-weight: 800;
-    color: #1a1a1a;
-    margin-bottom: 1rem;
-}
-
-.section-subtitle {
-    font-size: 1.2rem;
-    color: #6c757d;
-}
-
-.feature-card {
-    background: white;
-    border-radius: 20px;
-    padding: 40px 30px;
-    text-align: center;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
-    transition: all 0.4s ease;
-    height: 100%;
-    border: 2px solid transparent;
-}
-
-.feature-card:hover {
-    transform: translateY(-10px);
-    box-shadow: 0 15px 40px rgba(0, 102, 204, 0.15);
-    border-color: var(--bleu-tchadien);
-}
-
-.feature-icon-wrapper {
-    width: 80px;
-    height: 80px;
-    border-radius: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto 25px;
-    font-size: 2.5rem;
-    color: white;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-}
-
-.blue-gradient {
-    background: linear-gradient(135deg, var(--bleu-tchadien), #0052a3);
-}
-
-.green-gradient {
-    background: linear-gradient(135deg, var(--vert-savane), #1a6b1a);
-}
-
-.yellow-gradient {
-    background: linear-gradient(135deg, var(--jaune-solaire), #FFA500);
-}
-
-.red-gradient {
-    background: linear-gradient(135deg, var(--rouge-terre), #a32929);
-}
-
-.feature-title {
-    font-size: 1.4rem;
-    font-weight: 700;
-    color: #1a1a1a;
-    margin-bottom: 15px;
-}
-
-.feature-text {
-    color: #6c757d;
-    line-height: 1.7;
-    margin: 0;
-}
-
-/* Pricing Section */
-.pricing-section {
-    padding: 100px 0;
-    background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
-}
-
-.pricing-card {
-    background: white;
-    border-radius: 25px;
-    overflow: hidden;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-    transition: all 0.4s ease;
-    height: 100%;
-    border: 3px solid transparent;
-    position: relative;
-}
-
-.pricing-card:hover {
-    transform: translateY(-10px);
-    box-shadow: 0 20px 50px rgba(0, 102, 204, 0.2);
-}
-
-.pricing-card.recommended {
-    border-color: var(--jaune-solaire);
-    box-shadow: 0 15px 40px rgba(255, 215, 0, 0.3);
-    transform: scale(1.05);
-}
-
-.pricing-card.recommended:hover {
-    transform: scale(1.08) translateY(-10px);
-}
-
-.recommended-badge {
-    position: absolute;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    background: linear-gradient(135deg, var(--jaune-solaire), #FFA500);
-    color: #1a1a1a;
-    padding: 10px 30px;
-    border-radius: 50px;
-    font-weight: 700;
-    font-size: 1rem;
-    box-shadow: 0 8px 25px rgba(255, 215, 0, 0.5);
-    z-index: 10;
-    animation: badgePulse 2s ease-in-out infinite;
-}
-
-@keyframes badgePulse {
-    0%, 100% {
-        transform: translateX(-50%) scale(1);
-    }
-    50% {
-        transform: translateX(-50%) scale(1.05);
-    }
-}
-
-.pricing-header {
-    padding: 50px 30px 30px;
-    text-align: center;
-}
-
-.pricing-icon {
-    width: 70px;
-    height: 70px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto 20px;
-    font-size: 2rem;
-    color: white;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-}
-
-.pricing-plan-name {
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: #1a1a1a;
-    margin-bottom: 20px;
-}
-
-.price-display {
-    margin: 20px 0;
-}
-
-.price-currency {
-    font-size: 1rem;
-    color: #6c757d;
-    vertical-align: top;
-    margin-top: 10px;
-}
-
-.price-amount {
-    font-size: 3.5rem;
-    font-weight: 900;
-    color: var(--bleu-tchadien);
-    margin: 0 5px;
-}
-
-.price-period {
-    font-size: 1rem;
-    color: #6c757d;
-}
-
-.savings-badge {
-    font-size: 0.95rem;
-    color: var(--vert-savane);
-    font-weight: 600;
-    margin-top: 10px;
-}
-
-.student-note {
-    font-size: 0.9rem;
-    color: #6c757d;
-    margin-top: 10px;
-}
-
-.pricing-body {
-    padding: 30px;
-}
-
-.pricing-features {
-    list-style: none;
-    padding: 0;
-    margin: 0 0 30px 0;
-}
-
-.pricing-features li {
-    padding: 12px 0;
-    color: #495057;
-    font-size: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.pricing-features i {
-    color: var(--vert-savane);
-    font-size: 1.2rem;
-    flex-shrink: 0;
-}
-
-.btn-pricing {
-    width: 100%;
-    background: linear-gradient(135deg, var(--bleu-tchadien), #0052a3);
-    color: white;
-    border: none;
-    padding: 15px;
-    font-size: 1.1rem;
-    font-weight: 700;
-    border-radius: 50px;
-    transition: all 0.3s ease;
-    box-shadow: 0 5px 15px rgba(0, 102, 204, 0.3);
-}
-
-.btn-pricing:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0, 102, 204, 0.4);
-    background: linear-gradient(135deg, #0052a3, var(--bleu-tchadien));
-    color: white;
-}
-
-.btn-pricing-recommended {
-    width: 100%;
-    background: linear-gradient(135deg, var(--jaune-solaire), #FFA500);
-    color: #1a1a1a;
-    border: none;
-    padding: 15px;
-    font-size: 1.1rem;
-    font-weight: 700;
-    border-radius: 50px;
-    transition: all 0.3s ease;
-    box-shadow: 0 5px 15px rgba(255, 215, 0, 0.4);
-}
-
-.btn-pricing-recommended:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(255, 215, 0, 0.5);
-    background: linear-gradient(135deg, #FFA500, var(--jaune-solaire));
-    color: #1a1a1a;
-}
-
-.login-notice {
-    background: linear-gradient(135deg, rgba(0, 102, 204, 0.1), rgba(255, 215, 0, 0.1));
-    color: #495057;
-    padding: 20px 30px;
-    border-radius: 15px;
-    border: 2px solid var(--bleu-tchadien);
-    display: inline-block;
-}
-
-.login-link {
-    color: var(--bleu-tchadien);
-    font-weight: 700;
-    text-decoration: none;
-    margin-left: 5px;
-    transition: color 0.3s ease;
-}
-
-.login-link:hover {
-    color: var(--jaune-solaire);
-    text-decoration: underline;
-}
-
-/* Payment Section */
-.payment-section {
-    padding: 100px 0;
-    background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);
-}
-
-.payment-methods-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 30px;
-}
-
-.payment-method-card {
-    background: white;
-    border-radius: 20px;
-    padding: 40px 20px;
-    text-align: center;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
-    transition: all 0.3s ease;
-    border: 2px solid transparent;
-}
-
-.payment-method-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 15px 35px rgba(0, 102, 204, 0.15);
-    border-color: var(--bleu-tchadien);
-}
-
-.payment-icon {
-    width: 70px;
-    height: 70px;
-    border-radius: 15px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto 20px;
-    font-size: 2rem;
-    color: white;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-}
-
-.payment-method-card strong {
-    color: #1a1a1a;
-    font-size: 1.1rem;
-}
-
-.security-badge {
-    display: inline-flex;
-    align-items: center;
-    background: linear-gradient(135deg, rgba(34, 139, 34, 0.1), rgba(0, 102, 204, 0.1));
-    color: var(--vert-savane);
-    padding: 15px 30px;
-    border-radius: 50px;
-    font-weight: 600;
-    border: 2px solid var(--vert-savane);
-}
-
-.security-badge i {
-    font-size: 1.3rem;
-}
-
-/* FAQ Section */
-.faq-section {
-    padding: 100px 0;
-    background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
-}
-
-.premium-accordion .accordion-item {
-    background: white;
-    border: none;
-    border-radius: 15px;
-    margin-bottom: 15px;
-    box-shadow: 0 3px 15px rgba(0, 0, 0, 0.08);
-    overflow: hidden;
-}
-
-.premium-accordion .accordion-button {
-    background: white;
-    color: #1a1a1a;
-    font-weight: 600;
-    font-size: 1.1rem;
-    padding: 20px 25px;
-    border: none;
-    box-shadow: none;
-}
-
-.premium-accordion .accordion-button:not(.collapsed) {
-    background: linear-gradient(135deg, rgba(0, 102, 204, 0.1), rgba(255, 215, 0, 0.05));
-    color: var(--bleu-tchadien);
-    box-shadow: none;
-}
-
-.premium-accordion .accordion-button:focus {
-    border: none;
-    box-shadow: none;
-}
-
-.premium-accordion .accordion-button i {
-    color: var(--bleu-tchadien);
-}
-
-.premium-accordion .accordion-body {
-    padding: 20px 25px;
-    color: #495057;
-    line-height: 1.8;
-    background: white;
-}
-
-/* Responsive Design */
-@media (max-width: 991px) {
-    .premium-title {
-        font-size: 3rem;
-    }
-
-    .pricing-card.recommended {
-        transform: scale(1);
-    }
-
-    .pricing-card.recommended:hover {
-        transform: translateY(-10px);
-    }
-}
-
-@media (max-width: 767px) {
-    .premium-title {
-        font-size: 2.5rem;
-    }
-
-    .premium-subtitle {
-        font-size: 1.1rem;
-    }
-
-    .section-title {
-        font-size: 2rem;
-    }
-
-    .price-amount {
-        font-size: 2.5rem;
-    }
-
-    .payment-methods-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-/* Disabled State */
-button:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-</style>
-
-<script>
-function subscribePremium(plan) {
-    console.log('Subscribe to plan:', plan);
-
-    const planNames = {
-        'monthly': 'Premium Mensuel (1,500 FCFA/mois)',
-        'yearly': 'Premium Annuel (10,000 FCFA/an)',
-        'student': 'Premium Étudiant (1,000 FCFA/mois)'
-    };
-
-    const notification = document.createElement('div');
-    notification.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 15px;">
-            <i class="fas fa-crown" style="font-size: 24px; color: #FFD700;"></i>
-            <div>
-                <div style="font-size: 1.1rem; font-weight: 700; margin-bottom: 5px;">
-                    🎵 Souscription Premium
-                </div>
-                <div style="font-size: 0.95rem; opacity: 0.9;">${planNames[plan]}</div>
-                <div style="font-size: 0.85rem; margin-top: 5px; opacity: 0.8;">
-                    Redirection vers le paiement...
-                </div>
-            </div>
-        </div>
-    `;
-    notification.style.cssText = `
-        position: fixed;
-        top: 30px;
-        right: 30px;
-        background: linear-gradient(135deg, #228B22, #1a6b1a);
-        color: white;
-        padding: 20px 25px;
-        border-radius: 15px;
-        z-index: 10000;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-        max-width: 380px;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        animation: slideInRight 0.4s ease;
-    `;
-
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes slideInRight {
-            from {
-                transform: translateX(400px);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-    `;
-    document.head.appendChild(style);
-
-    document.body.appendChild(notification);
-    setTimeout(() => {
-        notification.style.animation = 'slideInRight 0.4s ease reverse';
-        setTimeout(() => notification.remove(), 400);
-    }, 4500);
-
-    // Redirection vers la page de paiement
-    setTimeout(() => {
-        window.location.href = '<?php echo SITE_URL; ?>/premium-payment.php?plan=' + plan;
-    }, 2000);
-}
-</script>
-
-<?php include 'includes/footer.php'; ?>
+<?php include 'includes/footer-tailwind.php'; ?>

@@ -14,8 +14,10 @@ function generateVerificationCode() {
 /**
  * Génère un token sécurisé
  */
-function generateSecureToken($length = 32) {
-    return bin2hex(random_bytes($length));
+if (!function_exists('generateSecureToken')) {
+    function generateSecureToken($length = 32) {
+        return bin2hex(random_bytes($length));
+    }
 }
 
 /**
@@ -99,6 +101,7 @@ function sendSMSVerificationCode($phone, $code, $purpose = 'login') {
 /**
  * Valide un numéro de téléphone tchadien
  */
+if (!function_exists('validateTchadianPhone')) {
 function validateTchadianPhone($phone) {
     // Nettoyer le numéro
     $phone = preg_replace('/[^0-9+]/', '', $phone);
@@ -117,6 +120,7 @@ function validateTchadianPhone($phone) {
     }
     
     return false;
+}
 }
 
 /**
@@ -488,6 +492,7 @@ function getRecentSuccessfulLogins($userId, $days) {
     ];
 }
 
+if (!function_exists('getUserById')) {
 function getUserById($userId) {
     // Simulation - récupérer utilisateur de la base
     return [
@@ -495,6 +500,7 @@ function getUserById($userId) {
         'email' => 'user@example.com',
         'first_name' => 'John'
     ];
+}
 }
 
 /**

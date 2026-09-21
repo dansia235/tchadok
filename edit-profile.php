@@ -1,22 +1,28 @@
 <?php
 /**
- * Modifier le Profil - Tchadok Platform
- * Permet aux utilisateurs de modifier leurs informations personnelles
+ * Modifier le profil - Tchadok Platform
+ * Migration Tailwind (progressive)
  */
 
 require_once 'includes/functions.php';
 require_once 'includes/auth.php';
 
-// Vérifier si l'utilisateur est connecté
+// Verifier si l'utilisateur est connecte
 if (!isLoggedIn()) {
     header('Location: ' . SITE_URL . '/login.php?redirect=edit-profile');
     exit();
 }
 
-$pageTitle = 'Modifier le Profil';
-$pageDescription = 'Mettez à jour vos informations personnelles';
+$pageTitle = 'Modifier le profil';
+$pageDescription = 'Mettez a jour vos informations personnelles';
+$hideTopNav = true;
+$hideFooter = true;
 
 $user = getCurrentUser();
+if (!$user) {
+    header('Location: ' . SITE_URL . '/login.php?redirect=edit-profile');
+    exit();
+}
 $success = '';
 $error = '';
 
@@ -31,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Validation
     if (empty($firstName) || empty($lastName)) {
-        $error = 'Le prénom et le nom sont obligatoires.';
+        $error = 'Le prenom et le nom sont obligatoires.';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = 'Adresse email invalide.';
     } else {
@@ -41,14 +47,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $userId = $_SESSION['user_id'];
 
-            // Vérifier si l'email est déjà utilisé par un autre utilisateur
+            // Verifier si l'email est deja utilise par un autre utilisateur
             $stmt = $db->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
             $stmt->execute([$email, $userId]);
 
             if ($stmt->fetch()) {
-                $error = 'Cet email est déjà utilisé par un autre compte.';
+                $error = 'Cet email est deja utilise par un autre compte.';
             } else {
-                // Mettre à jour le profil
+                // Mettre a jour le profil
                 $stmt = $db->prepare("
                     UPDATE users
                     SET first_name = ?,
@@ -71,45 +77,114 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $userId
                 ]);
 
-                // Mettre à jour la session
+                // Mettre a jour la session
                 $_SESSION['user_data']['first_name'] = $firstName;
                 $_SESSION['user_data']['last_name'] = $lastName;
                 $_SESSION['user_data']['email'] = $email;
 
-                // Recharger les données utilisateur
+                // Recharger les donnees utilisateur
                 $user = getCurrentUser();
 
-                $success = '✅ Profil mis à jour avec succès !';
+                $success = 'Profil mis a jour avec succes !';
             }
-
         } catch (Exception $e) {
-            $error = 'Une erreur est survenue lors de la mise à jour du profil.';
+            $error = 'Une erreur est survenue lors de la mise a jour du profil.';
         }
     }
 }
 
-include 'includes/header.php';
+$bioLength = strlen($user['bio'] ?? '');
+$completion = 0;
+if (!empty($user['first_name'])) $completion += 15;
+if (!empty($user['last_name'])) $completion += 15;
+if (!empty($user['email'])) $completion += 15;
+if (!empty($user['phone'])) $completion += 15;
+if (!empty($user['city'])) $completion += 20;
+if (!empty($user['bio'])) $completion += 20;
+
+$dashboardUrl = SITE_URL . '/user-dashboard.php';
+$workspaceLabel = 'Espace fan';
+$roleLabel = 'Fan';
+
+if (isAdmin()) {
+    $dashboardUrl = SITE_URL . '/admin-dashboard.php';
+    $workspaceLabel = 'Console admin';
+    $roleLabel = 'Admin';
+} elseif (isArtist()) {
+    $dashboardUrl = SITE_URL . '/artist-dashboard.php';
+    $workspaceLabel = 'Studio artiste';
+    $roleLabel = 'Artiste';
+}
+
+$fullName = trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? ''));
+if ($fullName === '') {
+    $fullName = $user['username'] ?? 'Utilisateur';
+}
+
+$initialSeed = trim(($user['first_name'] ?? '') . ($user['last_name'] ?? ''));
+if ($initialSeed === '') {
+    $initialSeed = $user['username'] ?? 'U';
+}
+$initials = strtoupper(substr($initialSeed, 0, 2));
+$memberSince = !empty($user['created_at']) ? date('M Y', strtotime($user['created_at'])) : date('M Y');
+
+include 'includes/header-tailwind.php';
 ?>
 
-<div class="edit-profile-container">
-    <!-- Header -->
-    <section class="page-header">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col-lg-12">
-                    <div class="d-flex align-items-center">
-                        <a href="<?php echo SITE_URL; ?>/user-dashboard.php" class="btn btn-outline-secondary me-3">
-                            <i class="fas fa-arrow-left"></i>
-                        </a>
-                        <div class="header-icon-lg">
-                            <i class="fas fa-user-edit"></i>
+<main class="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(47,109,224,0.18),transparent_28%),radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_24%),#0B0F17] pb-16 pt-8">
+    <section>
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="grid gap-6 lg:grid-cols-[minmax(0,1.45fr)_340px]">
+                <div class="rounded-3xl border border-white/10 bg-surface/75 p-6 shadow-elev-2 sm:p-8">
+                    <div class="flex flex-wrap items-start justify-between gap-6">
+                        <div class="flex items-start gap-4">
+                            <a href="<?php echo $dashboardUrl; ?>" class="grid h-12 w-12 place-items-center rounded-2xl border border-white/10 bg-white/5 text-text hover:bg-white/10">
+                                <i class="fas fa-arrow-left"></i>
+                            </a>
+                            <div class="grid h-16 w-16 place-items-center rounded-3xl bg-white/10 text-xl font-semibold text-text">
+                                <?php echo htmlspecialchars($initials); ?>
+                            </div>
+                            <div>
+                                <p class="text-xs uppercase tracking-[0.28em] text-muted"><?php echo htmlspecialchars($workspaceLabel); ?></p>
+                                <h1 class="mt-2 text-3xl font-display font-bold text-text sm:text-4xl">Modifier le profil</h1>
+                                <p class="mt-3 max-w-2xl text-sm leading-6 text-muted">
+                                    Affinez votre identite, vos coordonnees et votre presentation avec une interface
+                                    plus claire, plus lisible et orientee action.
+                                </p>
+                                <div class="mt-4 flex flex-wrap gap-2 text-xs">
+                                    <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-muted"><?php echo htmlspecialchars($roleLabel); ?></span>
+                                    <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-muted">Membre depuis <?php echo htmlspecialchars($memberSince); ?></span>
+                                    <span class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-muted">@<?php echo htmlspecialchars($user['username'] ?? ''); ?></span>
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <h1 class="mb-2">Modifier le Profil</h1>
-                            <p class="text-muted mb-0">
-                                <i class="fas fa-at me-2"></i>
-                                <?php echo htmlspecialchars($user['username']); ?>
-                            </p>
+                        <div class="grid gap-3 sm:min-w-[240px]">
+                            <a href="<?php echo SITE_URL; ?>/settings.php" class="inline-flex items-center justify-center gap-2 rounded-full bg-accent px-5 py-3 text-sm font-semibold text-white shadow-elev-1">
+                                <i class="fas fa-sliders-h"></i>
+                                Parametres
+                            </a>
+                            <a href="<?php echo $dashboardUrl; ?>" class="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-text hover:bg-white/10">
+                                <i class="fas fa-columns"></i>
+                                Retour au dashboard
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rounded-3xl border border-white/10 bg-surface/75 p-6 shadow-elev-2">
+                    <p class="text-xs uppercase tracking-[0.24em] text-muted">Synthese</p>
+                    <div class="mt-4 space-y-4">
+                        <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                            <p class="text-sm text-muted">Completude du profil</p>
+                            <div class="mt-3 h-2 w-full rounded-full bg-white/10">
+                                <div class="h-2 rounded-full bg-gradient-to-r from-accent to-emerald-400" style="width: <?php echo $completion; ?>%"></div>
+                            </div>
+                            <p class="mt-3 text-2xl font-semibold text-text"><?php echo $completion; ?>%</p>
+                        </div>
+                        <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+                            <p class="text-xs uppercase tracking-[0.2em] text-muted">Identite</p>
+                            <p class="mt-2 text-sm font-semibold text-text"><?php echo htmlspecialchars($fullName); ?></p>
+                            <p class="mt-1 text-xs text-muted"><?php echo htmlspecialchars($user['email'] ?? ''); ?></p>
                         </div>
                     </div>
                 </div>
@@ -117,98 +192,82 @@ include 'includes/header.php';
         </div>
     </section>
 
-    <!-- Formulaire -->
-    <section class="form-section py-5">
-        <div class="container">
-            <div class="row">
-                <!-- Colonne Principale -->
-                <div class="col-lg-8">
-                    <div class="form-card mb-4">
-                        <h4 class="mb-4">
-                            <i class="fas fa-info-circle me-2 text-primary"></i>
-                            Informations Personnelles
-                        </h4>
+    <section class="mt-8">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_360px]">
+                <div class="space-y-6">
+                    <div class="rounded-3xl border border-white/10 bg-surface/75 p-6 shadow-elev-2 sm:p-8">
+                        <h2 class="text-xl font-display font-semibold text-text">Informations personnelles</h2>
+                        <p class="mt-2 text-sm text-muted">Gardez vos informations a jour pour une meilleure experience.</p>
 
                         <?php if ($success): ?>
-                            <div class="alert alert-success alert-modern">
-                                <i class="fas fa-check-circle me-2"></i>
-                                <?php echo $success; ?>
+                            <div class="alert alert-success mt-5">
+                                <i class="fas fa-check-circle mt-0.5"></i>
+                                <span><?php echo $success; ?></span>
                             </div>
                         <?php endif; ?>
 
                         <?php if ($error): ?>
-                            <div class="alert alert-danger alert-modern">
-                                <i class="fas fa-exclamation-circle me-2"></i>
-                                <?php echo $error; ?>
+                            <div class="alert alert-danger mt-5">
+                                <i class="fas fa-exclamation-circle mt-0.5"></i>
+                                <span><?php echo $error; ?></span>
                             </div>
                         <?php endif; ?>
 
-                        <form method="POST" action="">
-                            <div class="row">
-                                <!-- Prénom -->
-                                <div class="col-md-6 mb-4">
-                                    <label for="first_name" class="form-label">
-                                        <i class="fas fa-user me-2"></i>Prénom *
-                                    </label>
+                        <form method="POST" action="" class="mt-6 space-y-6">
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <div>
+                                    <label for="first_name" class="text-sm font-semibold text-text">Prenom *</label>
                                     <input type="text"
-                                           class="form-control form-control-modern"
+                                           class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/60"
                                            id="first_name"
                                            name="first_name"
+                                           autocomplete="given-name"
                                            value="<?php echo htmlspecialchars($user['first_name']); ?>"
                                            required>
                                 </div>
-
-                                <!-- Nom -->
-                                <div class="col-md-6 mb-4">
-                                    <label for="last_name" class="form-label">
-                                        <i class="fas fa-user me-2"></i>Nom *
-                                    </label>
+                                <div>
+                                    <label for="last_name" class="text-sm font-semibold text-text">Nom *</label>
                                     <input type="text"
-                                           class="form-control form-control-modern"
+                                           class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/60"
                                            id="last_name"
                                            name="last_name"
+                                           autocomplete="family-name"
                                            value="<?php echo htmlspecialchars($user['last_name']); ?>"
                                            required>
                                 </div>
                             </div>
 
-                            <!-- Email -->
-                            <div class="form-group mb-4">
-                                <label for="email" class="form-label">
-                                    <i class="fas fa-envelope me-2"></i>Email *
-                                </label>
+                            <div>
+                                <label for="email" class="text-sm font-semibold text-text">Email *</label>
                                 <input type="email"
-                                       class="form-control form-control-modern"
+                                       class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/60"
                                        id="email"
                                        name="email"
+                                       autocomplete="email"
                                        value="<?php echo htmlspecialchars($user['email']); ?>"
                                        required>
                             </div>
 
-                            <!-- Téléphone -->
-                            <div class="form-group mb-4">
-                                <label for="phone" class="form-label">
-                                    <i class="fas fa-phone me-2"></i>Téléphone
-                                </label>
+                            <div>
+                                <label for="phone" class="text-sm font-semibold text-text">Telephone</label>
                                 <input type="tel"
-                                       class="form-control form-control-modern"
+                                       class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/60"
                                        id="phone"
                                        name="phone"
+                                       autocomplete="tel"
                                        placeholder="+235 XX XX XX XX"
                                        value="<?php echo htmlspecialchars($user['phone'] ?? ''); ?>">
                             </div>
 
-                            <!-- Ville -->
-                            <div class="form-group mb-4">
-                                <label for="city" class="form-label">
-                                    <i class="fas fa-map-marker-alt me-2"></i>Ville
-                                </label>
-                                <select class="form-control form-control-modern" id="city" name="city">
+                            <div>
+                                <label for="city" class="text-sm font-semibold text-text">Ville</label>
+                                <select class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/60" id="city" name="city">
                                     <option value="">Choisir une ville...</option>
                                     <option value="N'Djamena" <?php echo ($user['city'] ?? '') === "N'Djamena" ? 'selected' : ''; ?>>N'Djamena</option>
                                     <option value="Moundou" <?php echo ($user['city'] ?? '') === 'Moundou' ? 'selected' : ''; ?>>Moundou</option>
                                     <option value="Sarh" <?php echo ($user['city'] ?? '') === 'Sarh' ? 'selected' : ''; ?>>Sarh</option>
-                                    <option value="Abéché" <?php echo ($user['city'] ?? '') === 'Abéché' ? 'selected' : ''; ?>>Abéché</option>
+                                    <option value="Ab&#233;ch&#233;" <?php echo ($user['city'] ?? '') === "Ab\xC3\xA9ch\xC3\xA9" || ($user['city'] ?? '') === 'Ab&#233;ch&#233;' ? 'selected' : ''; ?>>Ab&#233;ch&#233;</option>
                                     <option value="Kelo" <?php echo ($user['city'] ?? '') === 'Kelo' ? 'selected' : ''; ?>>Kelo</option>
                                     <option value="Koumra" <?php echo ($user['city'] ?? '') === 'Koumra' ? 'selected' : ''; ?>>Koumra</option>
                                     <option value="Pala" <?php echo ($user['city'] ?? '') === 'Pala' ? 'selected' : ''; ?>>Pala</option>
@@ -219,97 +278,73 @@ include 'includes/header.php';
                                 </select>
                             </div>
 
-                            <!-- Biographie -->
-                            <div class="form-group mb-4">
-                                <label for="bio" class="form-label">
-                                    <i class="fas fa-pencil-alt me-2"></i>Biographie
-                                </label>
-                                <textarea class="form-control form-control-modern"
+                            <div>
+                                <label for="bio" class="text-sm font-semibold text-text">Biographie</label>
+                                <textarea class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/60"
                                           id="bio"
                                           name="bio"
                                           rows="4"
+                                          maxlength="500"
                                           placeholder="Parlez-nous de vous..."><?php echo htmlspecialchars($user['bio'] ?? ''); ?></textarea>
-                                <small class="text-muted">
-                                    <?php
-                                    $bioLength = strlen($user['bio'] ?? '');
-                                    echo $bioLength;
-                                    ?>/500 caractères
-                                </small>
+                                <p class="mt-2 text-xs text-muted"><?php echo $bioLength; ?>/500 caracteres</p>
                             </div>
 
-                            <!-- Boutons -->
-                            <div class="form-actions">
-                                <a href="<?php echo SITE_URL; ?>/user-dashboard.php" class="btn btn-outline-secondary btn-lg">
-                                    <i class="fas fa-times me-2"></i>Annuler
+                            <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                                <a href="<?php echo $dashboardUrl; ?>" class="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-6 py-3 text-sm font-semibold text-text hover:bg-white/10">
+                                    <i class="fas fa-times mr-2"></i>Annuler
                                 </a>
-                                <button type="submit" class="btn btn-primary btn-lg">
-                                    <i class="fas fa-save me-2"></i>Enregistrer
+                                <button type="submit" class="inline-flex items-center justify-center rounded-full bg-accent px-6 py-3 text-sm font-semibold text-white shadow-elev-1 hover:shadow-elev-2">
+                                    <i class="fas fa-save mr-2"></i>Enregistrer
                                 </button>
                             </div>
                         </form>
                     </div>
                 </div>
 
-                <!-- Sidebar -->
-                <div class="col-lg-4">
-                    <!-- Avatar -->
-                    <div class="form-card mb-4">
-                        <h5 class="mb-3">
-                            <i class="fas fa-camera me-2 text-primary"></i>
-                            Photo de Profil
-                        </h5>
-                        <div class="avatar-upload-section">
-                            <div class="avatar-preview-large">
-                                <span class="avatar-initial-large">
-                                    <?php echo strtoupper(substr($user['first_name'], 0, 1) . substr($user['last_name'], 0, 1)); ?>
-                                </span>
+                <div class="space-y-6">
+                    <div class="rounded-3xl border border-white/10 bg-surface/75 p-6 shadow-elev-2">
+                        <h3 class="text-base font-semibold text-text">Photo de profil</h3>
+                        <p class="mt-2 text-sm text-muted">Ajoutez une photo pour personnaliser votre compte.</p>
+                        <div class="mt-6 flex flex-col items-center gap-4 text-center">
+                            <div class="grid h-28 w-28 place-items-center rounded-full bg-gradient-to-br from-accent to-accent-2 text-4xl font-semibold text-bg">
+                                <?php echo strtoupper(substr($user['first_name'] ?? '', 0, 1) . substr($user['last_name'] ?? '', 0, 1)); ?>
                             </div>
-                            <button type="button" class="btn btn-outline-primary btn-sm mt-3 w-100">
-                                <i class="fas fa-upload me-2"></i>Changer la Photo
+                            <button type="button" class="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-text">
+                                <i class="fas fa-upload mr-2"></i>Changer la photo
                             </button>
-                            <small class="text-muted d-block mt-2 text-center">JPG, PNG (Max 2MB)</small>
+                            <p class="text-xs text-muted">JPG, PNG (max 2MB)</p>
                         </div>
                     </div>
 
-                    <!-- Statistiques du Profil -->
-                    <div class="form-card">
-                        <h5 class="mb-3">
-                            <i class="fas fa-chart-line me-2 text-success"></i>
-                            Complétion du Profil
-                        </h5>
-                        <div class="profile-completion-widget">
-                            <?php
-                            $completion = 0;
-                            if (!empty($user['first_name'])) $completion += 15;
-                            if (!empty($user['last_name'])) $completion += 15;
-                            if (!empty($user['email'])) $completion += 15;
-                            if (!empty($user['phone'])) $completion += 15;
-                            if (!empty($user['city'])) $completion += 20;
-                            if (!empty($user['bio'])) $completion += 20;
-                            ?>
-                            <div class="completion-circle">
-                                <svg viewBox="0 0 100 100">
-                                    <circle cx="50" cy="50" r="45" fill="none" stroke="#e9ecef" stroke-width="8"/>
-                                    <circle cx="50" cy="50" r="45" fill="none" stroke="#0066CC" stroke-width="8"
+                    <div class="rounded-3xl border border-white/10 bg-surface/75 p-6 shadow-elev-2">
+                        <h3 class="text-base font-semibold text-text">Completion du profil</h3>
+                        <p class="mt-2 text-sm text-muted">Completez votre profil pour plus de visibilite.</p>
+
+                        <div class="mt-6 flex flex-col items-center gap-5">
+                            <div class="relative h-36 w-36">
+                                <svg class="h-full w-full -rotate-90" viewBox="0 0 100 100">
+                                    <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="8" class="text-white/10"></circle>
+                                    <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="8"
                                             stroke-dasharray="<?php echo $completion * 2.827; ?> 283"
                                             stroke-linecap="round"
-                                            transform="rotate(-90 50 50)"/>
+                                            class="text-accent"></circle>
                                 </svg>
-                                <div class="completion-text">
-                                    <span class="completion-value"><?php echo $completion; ?>%</span>
+                                <div class="absolute inset-0 flex items-center justify-center">
+                                    <span class="text-3xl font-semibold text-text"><?php echo $completion; ?>%</span>
                                 </div>
                             </div>
-                            <div class="completion-details mt-3">
-                                <div class="completion-item <?php echo !empty($user['phone']) ? 'completed' : ''; ?>">
-                                    <i class="fas fa-check-circle me-2"></i>
-                                    <span>Numéro de téléphone</span>
+
+                            <div class="w-full space-y-2 text-sm">
+                                <div class="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 <?php echo !empty($user['phone']) ? 'text-emerald-200 bg-emerald-500/10 border-emerald-400/30' : 'text-muted'; ?>">
+                                    <i class="fas fa-check-circle"></i>
+                                    <span>Numero de telephone</span>
                                 </div>
-                                <div class="completion-item <?php echo !empty($user['city']) ? 'completed' : ''; ?>">
-                                    <i class="fas fa-check-circle me-2"></i>
+                                <div class="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 <?php echo !empty($user['city']) ? 'text-emerald-200 bg-emerald-500/10 border-emerald-400/30' : 'text-muted'; ?>">
+                                    <i class="fas fa-check-circle"></i>
                                     <span>Ville</span>
                                 </div>
-                                <div class="completion-item <?php echo !empty($user['bio']) ? 'completed' : ''; ?>">
-                                    <i class="fas fa-check-circle me-2"></i>
+                                <div class="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 <?php echo !empty($user['bio']) ? 'text-emerald-200 bg-emerald-500/10 border-emerald-400/30' : 'text-muted'; ?>">
+                                    <i class="fas fa-check-circle"></i>
                                     <span>Biographie</span>
                                 </div>
                             </div>
@@ -319,192 +354,6 @@ include 'includes/header.php';
             </div>
         </div>
     </section>
-</div>
+</main>
 
-<style>
-:root {
-    --bleu-tchadien: #0066CC;
-    --jaune-solaire: #FFD700;
-    --rouge-terre: #CC3333;
-    --vert-savane: #228B22;
-    --gris-harmattan: #2C3E50;
-}
-
-.edit-profile-container {
-    background: #f5f7fa;
-    min-height: 100vh;
-    padding-bottom: 3rem;
-}
-
-/* Page Header */
-.page-header {
-    background: white;
-    padding: 2rem 0;
-    margin-bottom: 2rem;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-    margin-top: 80px;
-}
-
-.header-icon-lg {
-    width: 70px;
-    height: 70px;
-    background: linear-gradient(135deg, var(--bleu-tchadien), #0052a3);
-    border-radius: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 2rem;
-    margin-right: 1.5rem;
-    box-shadow: 0 5px 20px rgba(0, 102, 204, 0.3);
-}
-
-.page-header h1 {
-    color: var(--gris-harmattan);
-    font-weight: 700;
-    font-size: 2rem;
-}
-
-/* Form Card */
-.form-card {
-    background: white;
-    padding: 2rem;
-    border-radius: 20px;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
-}
-
-.form-label {
-    font-weight: 600;
-    color: var(--gris-harmattan);
-    margin-bottom: 0.75rem;
-}
-
-.form-control-modern {
-    border: 2px solid #e9ecef;
-    border-radius: 12px;
-    padding: 0.875rem 1.25rem;
-    font-size: 1rem;
-    transition: all 0.3s ease;
-}
-
-.form-control-modern:focus {
-    border-color: var(--bleu-tchadien);
-    box-shadow: 0 0 0 0.2rem rgba(0, 102, 204, 0.1);
-}
-
-/* Avatar Upload */
-.avatar-upload-section {
-    text-align: center;
-}
-
-.avatar-preview-large {
-    width: 150px;
-    height: 150px;
-    background: linear-gradient(135deg, var(--bleu-tchadien), var(--jaune-solaire));
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto 1rem;
-    box-shadow: 0 8px 30px rgba(0, 102, 204, 0.3);
-}
-
-.avatar-initial-large {
-    font-size: 3rem;
-    font-weight: 700;
-    color: white;
-}
-
-/* Profile Completion */
-.profile-completion-widget {
-    text-align: center;
-}
-
-.completion-circle {
-    position: relative;
-    width: 150px;
-    height: 150px;
-    margin: 0 auto;
-}
-
-.completion-circle svg {
-    width: 100%;
-    height: 100%;
-}
-
-.completion-text {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-}
-
-.completion-value {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--bleu-tchadien);
-}
-
-.completion-details {
-    text-align: left;
-}
-
-.completion-item {
-    display: flex;
-    align-items: center;
-    padding: 0.75rem;
-    border-radius: 8px;
-    margin-bottom: 0.5rem;
-    color: #6c757d;
-}
-
-.completion-item.completed {
-    color: var(--vert-savane);
-    background: rgba(34, 139, 34, 0.05);
-}
-
-.completion-item i {
-    font-size: 1.1rem;
-}
-
-/* Alerts */
-.alert-modern {
-    border-radius: 12px;
-    border: none;
-    padding: 1.25rem;
-    margin-bottom: 2rem;
-}
-
-/* Form Actions */
-.form-actions {
-    display: flex;
-    gap: 1rem;
-    justify-content: flex-end;
-    margin-top: 2rem;
-    padding-top: 2rem;
-    border-top: 1px solid #e9ecef;
-}
-
-/* Responsive */
-@media (max-width: 991px) {
-    .page-header {
-        margin-top: 70px;
-    }
-
-    .form-card {
-        padding: 1.5rem;
-    }
-}
-
-@media (max-width: 576px) {
-    .form-actions {
-        flex-direction: column-reverse;
-    }
-
-    .form-actions .btn {
-        width: 100%;
-    }
-}
-</style>
-
-<?php include 'includes/footer.php'; ?>
+<?php include 'includes/footer-tailwind.php'; ?>

@@ -1,874 +1,631 @@
 <?php
 /**
  * Interface d'upload pour artistes - Tchadok Platform
+ * Migration Tailwind (progressive)
  */
 
 require_once 'includes/functions.php';
 require_once 'includes/auth.php';
 
-// Vérifier si l'utilisateur est connecté et est un artiste
+// Verifier si l'utilisateur est connecte et est un artiste
 if (!isLoggedIn()) {
     header('Location: ' . SITE_URL . '/login.php?redirect=upload');
     exit();
 }
 
-// Vérifier le statut artiste (simulation)
-$isArtist = $_SESSION['user_type'] ?? 'listener' === 'artist';
-if (!$isArtist) {
+if (!isArtist()) {
     $_SESSION['error'] = 'Seuls les artistes peuvent uploader des titres.';
     header('Location: ' . SITE_URL . '/artist-signup.php');
     exit();
 }
 
-$pageTitle = 'Upload de Musique';
+$dbInstance = TchadokDatabase::getInstance();
+$db = $dbInstance->getConnection();
+
+$artist = null;
+if ($db) {
+    $stmt = $db->prepare("SELECT * FROM artists WHERE user_id = ?");
+    $stmt->execute([$_SESSION['user_id']]);
+    $artist = $stmt->fetch(PDO::FETCH_ASSOC);
+}
+
+if (!$artist) {
+    $_SESSION['error'] = 'Profil artiste introuvable.';
+    header('Location: ' . SITE_URL . '/artist-dashboard.php');
+    exit();
+}
+
+$genres = $db ? $db->query("SELECT id, name FROM genres WHERE is_active = 1 ORDER BY name ASC")->fetchAll() : [];
+$artistStats = [
+    'tracks' => 0,
+    'streams' => 0,
+    'fans' => 0
+];
+
+if ($db) {
+    $stmt = $db->prepare("SELECT COUNT(*) FROM tracks WHERE artist_id = ?");
+    $stmt->execute([$artist['id']]);
+    $artistStats['tracks'] = (int) $stmt->fetchColumn();
+
+    $stmt = $db->prepare("SELECT COALESCE(SUM(total_streams), 0) FROM tracks WHERE artist_id = ?");
+    $stmt->execute([$artist['id']]);
+    $artistStats['streams'] = (int) $stmt->fetchColumn();
+
+    $stmt = $db->prepare("SELECT COUNT(*) FROM follows WHERE followed_id = ? AND followed_type = 'artist'");
+    $stmt->execute([$artist['id']]);
+    $artistStats['fans'] = (int) $stmt->fetchColumn();
+}
+
+$success = '';
+$error = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $title = sanitizeInput($_POST['title'] ?? '');
+    $artistName = sanitizeInput($_POST['artist'] ?? '');
+    $featuring = sanitizeInput($_POST['featuring'] ?? '');
+    $genreId = !empty($_POST['genre_id']) ? (int) $_POST['genre_id'] : null;
+    $customGenre = sanitizeInput($_POST['genre_name'] ?? '');
+    $albumTitle = sanitizeInput($_POST['album'] ?? '');
+    $description = sanitizeInput($_POST['description'] ?? '');
+    $releaseDate = sanitizeInput($_POST['release_date'] ?? '');
+    $language = sanitizeInput($_POST['language'] ?? '');
+    $lyrics = sanitizeInput($_POST['lyrics'] ?? '');
+    $explicitContent = isset($_POST['explicit']) ? 1 : 0;
+    $distribution = sanitizeInput($_POST['distribution'] ?? 'free');
+    $price = (float) ($_POST['price'] ?? 0);
+
+    if ($title === '') {
+        $error = 'Le titre est obligatoire.';
+    } else {
+        try {
+            if ($customGenre && !$genreId) {
+                $stmt = $db->prepare("INSERT INTO genres (name, name_french, is_active, created_at) VALUES (?, ?, 1, NOW())");
+                $stmt->execute([$customGenre, $customGenre]);
+                $genreId = (int) $db->lastInsertId();
+            }
+
+            if ($artistName && $artistName !== $artist['stage_name']) {
+                $stmt = $db->prepare("UPDATE artists SET stage_name = ?, updated_at = NOW() WHERE id = ?");
+                $stmt->execute([$artistName, $artist['id']]);
+                $artist['stage_name'] = $artistName;
+            }
+
+            $audioPath = null;
+            if (!empty($_FILES['audio_file']['tmp_name'])) {
+                $upload = uploadFile(
+                    $_FILES['audio_file'],
+                    __DIR__ . '/' . AUDIO_PATH,
+                    ALLOWED_AUDIO_TYPES,
+                    MAX_AUDIO_SIZE
+                );
+                if (!$upload['success']) {
+                    throw new Exception($upload['message']);
+                }
+                $audioPath = AUDIO_PATH . $upload['filename'];
+            }
+
+            if (!$audioPath) {
+                throw new Exception('Le fichier audio est requis.');
+            }
+
+            $coverPath = null;
+            if (!empty($_FILES['cover_image']['tmp_name'])) {
+                $coverUpload = uploadFile(
+                    $_FILES['cover_image'],
+                    __DIR__ . '/' . IMAGES_PATH,
+                    ALLOWED_IMAGE_TYPES,
+                    MAX_IMAGE_SIZE
+                );
+                if ($coverUpload['success']) {
+                    $coverPath = IMAGES_PATH . $coverUpload['filename'];
+                }
+            }
+
+            $albumId = null;
+            if ($albumTitle !== '') {
+                $stmt = $db->prepare("SELECT id FROM albums WHERE artist_id = ? AND title = ? LIMIT 1");
+                $stmt->execute([$artist['id'], $albumTitle]);
+                $albumId = $stmt->fetchColumn();
+
+                if (!$albumId) {
+                    $stmt = $db->prepare("
+                        INSERT INTO albums (artist_id, title, description, cover_image, genre_id, type, price, release_date, language, is_free, status, created_at)
+                        VALUES (?, ?, ?, ?, ?, 'album', 0, ?, ?, 1, 'draft', NOW())
+                    ");
+                    $stmt->execute([
+                        $artist['id'],
+                        $albumTitle,
+                        $description ?: null,
+                        $coverPath,
+                        $genreId,
+                        $releaseDate ?: null,
+                        $language ?: null
+                    ]);
+                    $albumId = (int) $db->lastInsertId();
+                } elseif ($coverPath) {
+                    $stmt = $db->prepare("UPDATE albums SET cover_image = COALESCE(cover_image, ?) WHERE id = ?");
+                    $stmt->execute([$coverPath, $albumId]);
+                }
+            } elseif ($coverPath) {
+                $stmt = $db->prepare("
+                    INSERT INTO albums (artist_id, title, description, cover_image, genre_id, type, price, release_date, language, is_free, status, created_at)
+                    VALUES (?, ?, ?, ?, ?, 'single', 0, ?, ?, 1, 'draft', NOW())
+                ");
+                $stmt->execute([
+                    $artist['id'],
+                    $title,
+                    $description ?: null,
+                    $coverPath,
+                    $genreId,
+                    $releaseDate ?: null,
+                    $language ?: null
+                ]);
+                $albumId = (int) $db->lastInsertId();
+            }
+
+            if ($featuring) {
+                $description = trim($description . "\nFeaturing: " . $featuring);
+            }
+
+            $isFree = 1;
+            $downloadAllowed = 1;
+            if ($distribution === 'paid') {
+                $isFree = 0;
+                $price = max(0, $price);
+            } elseif ($distribution === 'premium') {
+                $isFree = 0;
+                $price = 0;
+                $downloadAllowed = 0;
+            } else {
+                $price = 0;
+            }
+
+            $stmt = $db->prepare("
+                INSERT INTO tracks
+                (album_id, artist_id, title, description, genre_id, audio_file, preview_file, lyrics, duration, price, is_free, download_allowed, language, release_date, explicit_content, status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
+            ");
+            $stmt->execute([
+                $albumId,
+                $artist['id'],
+                $title,
+                $description ?: null,
+                $genreId,
+                $audioPath,
+                null,
+                $lyrics ?: null,
+                1,
+                $price,
+                $isFree,
+                $downloadAllowed,
+                $language ?: null,
+                $releaseDate ?: null,
+                $explicitContent
+            ]);
+
+            $success = 'Votre titre a bien ete soumis. Il sera publie apres validation.';
+            header('refresh:2;url=' . SITE_URL . '/artist-dashboard.php');
+        } catch (Exception $e) {
+            $error = 'Erreur: ' . $e->getMessage();
+        }
+    }
+}
+
+$pageTitle = 'Upload de musique';
 $pageDescription = 'Partagez votre musique avec le monde';
 
-include 'includes/header.php';
+$additionalJS = [
+    SITE_URL . '/assets/js/upload.js'
+];
+
+include 'includes/header-tailwind.php';
 ?>
 
-<div class="upload-page">
-    <!-- Hero Section -->
-    <section class="upload-hero py-4" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-        <div class="container">
-            <div class="row align-items-center text-white">
-                <div class="col-lg-8">
-                    <h1 class="display-5 fw-bold mb-3">
-                        <i class="fas fa-cloud-upload-alt me-3"></i>
-                        Upload de Musique
-                    </h1>
-                    <p class="lead mb-0">
-                        Partagez votre talent avec des milliers d'auditeurs tchadiens
-                    </p>
-                </div>
-                <div class="col-lg-4 text-end">
-                    <div class="upload-stats">
-                        <div class="stat-item">
-                            <h3><?php echo rand(15, 35); ?></h3>
-                            <p>Titres uploadés</p>
-                        </div>
-                        <div class="stat-item">
-                            <h3><?php echo formatNumber(rand(10000, 50000)); ?></h3>
-                            <p>Écoutes totales</p>
+<main class="pt-24 pb-16">
+    <section class="bg-bg">
+        <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+            <div class="grid gap-6 lg:grid-cols-12">
+                <div class="lg:col-span-8">
+                    <div class="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/70 via-slate-800/40 to-emerald-500/10 p-6 shadow-elev-2 sm:p-8">
+                        <div class="flex flex-wrap items-start gap-4">
+                            <span class="grid h-14 w-14 place-items-center rounded-2xl bg-accent/20 text-accent">
+                                <i class="fas fa-cloud-arrow-up text-2xl"></i>
+                            </span>
+                            <div class="min-w-[200px] flex-1">
+                                <p class="text-xs uppercase tracking-[0.28em] text-muted">Studio createur</p>
+                                <h1 class="mt-2 text-3xl font-display font-bold text-text sm:text-4xl">Upload de musique</h1>
+                                <p class="mt-3 text-sm text-muted sm:text-base">
+                                    Partagez votre talent avec des milliers d'auditeurs et donnez vie a vos titres
+                                    grace a une experience d'upload fluide et premium.
+                                </p>
+                                <div class="mt-6 flex flex-wrap items-center gap-3 text-xs text-muted">
+                                    <span class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                                        <i class="fas fa-check-circle text-emerald-300"></i>
+                                        Format audio HD recommande
+                                    </span>
+                                    <span class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                                        <i class="fas fa-shield-alt text-sky-300"></i>
+                                        Droits verifies
+                                    </span>
+                                </div>
+                            </div>
                         </div>
                     </div>
+                </div>
+                <div class="lg:col-span-4">
+                    <div class="rounded-3xl border border-white/10 bg-surface/60 p-6 shadow-elev-2">
+                        <h2 class="text-sm font-semibold text-text">Statistiques artistes</h2>
+                        <p class="mt-2 text-xs text-muted">Apercu de votre audience actuelle.</p>
+                        <div class="mt-5 space-y-3">
+                            <div class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                                <span class="text-xs text-muted">Titres uploades</span>
+                                <span class="text-lg font-semibold text-text"><?php echo number_format($artistStats['tracks']); ?></span>
+                            </div>
+                            <div class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                                <span class="text-xs text-muted">Ecoutes totales</span>
+                                <span class="text-lg font-semibold text-text"><?php echo formatNumber($artistStats['streams']); ?></span>
+                            </div>
+                            <div class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                                <span class="text-xs text-muted">Fans engages</span>
+                                <span class="text-lg font-semibold text-text"><?php echo formatNumber($artistStats['fans']); ?></span>
+                            </div>
+                        </div>
+                        <div class="mt-5 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-xs text-emerald-200">
+                            <i class="fas fa-bolt mr-2"></i>
+                            Publiez regulierement pour rester visible sur la homepage.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 rounded-3xl border border-white/10 bg-surface/60 p-6 shadow-elev-2 sm:p-8">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                        <p class="text-xs uppercase tracking-[0.28em] text-muted">Processus</p>
+                        <h2 class="mt-2 text-2xl font-display font-bold text-text">Publier un nouveau titre</h2>
+                        <p class="mt-2 text-sm text-muted">Completez les 3 etapes pour mettre votre musique en ligne.</p>
+                    </div>
+                    <div class="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-text">
+                        Etape <span data-step-count>1</span>/3
+                    </div>
+                </div>
+
+                <?php if ($success): ?>
+                    <div class="mt-6 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+                        <i class="fas fa-check-circle mr-2"></i><?php echo htmlspecialchars($success); ?>
+                    </div>
+                <?php endif; ?>
+                <?php if ($error): ?>
+                    <div class="mt-6 rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+                        <i class="fas fa-exclamation-triangle mr-2"></i><?php echo htmlspecialchars($error); ?>
+                    </div>
+                <?php endif; ?>
+
+                <div class="relative mt-8">
+                    <div class="absolute left-6 right-6 top-5 h-px bg-white/10"></div>
+                    <div class="relative z-10 flex items-center justify-between">
+                        <div class="flex flex-col items-center gap-2" data-stepper-item data-step="1">
+                            <div class="flex h-10 w-10 items-center justify-center rounded-full border text-sm font-semibold transition" data-step-circle>1</div>
+                            <span class="text-[11px] font-semibold uppercase tracking-[0.2em]" data-step-label>Infos</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2" data-stepper-item data-step="2">
+                            <div class="flex h-10 w-10 items-center justify-center rounded-full border text-sm font-semibold transition" data-step-circle>2</div>
+                            <span class="text-[11px] font-semibold uppercase tracking-[0.2em]" data-step-label>Fichiers</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2" data-stepper-item data-step="3">
+                            <div class="flex h-10 w-10 items-center justify-center rounded-full border text-sm font-semibold transition" data-step-circle>3</div>
+                            <span class="text-[11px] font-semibold uppercase tracking-[0.2em]" data-step-label>Final</span>
+                        </div>
+                    </div>
+                </div>
+
+                <form id="uploadForm" method="POST" enctype="multipart/form-data" class="mt-8 space-y-10">
+                    <div data-form-step="1">
+                        <div class="grid gap-6 lg:grid-cols-2">
+                            <div class="lg:col-span-2">
+                                <label for="title" class="text-sm font-semibold text-text">Titre de la chanson *</label>
+                                <input type="text" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/60"
+                                       id="title" name="title" required placeholder="Ex: Sahara Beat" maxlength="100">
+                            </div>
+
+                            <div>
+                                <label for="artist" class="text-sm font-semibold text-text">Nom d'artiste *</label>
+                                <input type="text" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/60"
+                                       id="artist" name="artist" required
+                                       value="<?php echo htmlspecialchars($artist['stage_name'] ?? ''); ?>"
+                                       placeholder="Votre nom d'artiste" readonly>
+                            </div>
+                            <div>
+                                <label for="featuring" class="text-sm font-semibold text-text">Featuring (optionnel)</label>
+                                <input type="text" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/60"
+                                       id="featuring" name="featuring" placeholder="Ex: Artiste 1, Artiste 2">
+                            </div>
+
+                            <div>
+                                <label for="genre" class="text-sm font-semibold text-text">Genre *</label>
+                                <select class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/60"
+                                        id="genre" name="genre_id" <?php echo empty($genres) ? '' : 'required'; ?>>
+                                    <option value="">Selectionnez un genre</option>
+                                    <?php foreach ($genres as $genre): ?>
+                                        <option value="<?php echo (int) $genre['id']; ?>">
+                                            <?php echo htmlspecialchars($genre['name']); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <?php if (empty($genres)): ?>
+                                    <input type="text" class="mt-3 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text"
+                                           name="genre_name" placeholder="Saisir un nouveau genre">
+                                    <p class="mt-2 text-xs text-muted">Aucun genre disponible. Ajoutez-en un pour continuer.</p>
+                                <?php endif; ?>
+                            </div>
+                            <div>
+                                <label for="album" class="text-sm font-semibold text-text">Album (optionnel)</label>
+                                <input type="text" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/60"
+                                       id="album" name="album" placeholder="Nom de l'album">
+                            </div>
+
+                            <div class="lg:col-span-2">
+                                <label for="description" class="text-sm font-semibold text-text">Description</label>
+                                <textarea class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/60"
+                                          id="description" name="description" rows="4" maxlength="1000"
+                                          placeholder="Parlez de votre titre, de son inspiration..."></textarea>
+                                <div class="mt-2 text-xs text-muted">
+                                    <span data-description-count>0</span>/1000 caracteres
+                                </div>
+                            </div>
+
+                            <div>
+                                <label for="release_date" class="text-sm font-semibold text-text">Date de sortie</label>
+                                <input type="date" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/60"
+                                       id="release_date" name="release_date" value="<?php echo date('Y-m-d'); ?>">
+                            </div>
+                            <div>
+                                <label for="language" class="text-sm font-semibold text-text">Langue principale</label>
+                                <select class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/60"
+                                        id="language" name="language">
+                                    <option value="fr">Francais</option>
+                                    <option value="ar">Arabe</option>
+                                    <option value="sara">Sara</option>
+                                    <option value="kanembou">Kanembou</option>
+                                    <option value="other">Autre</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <label class="mt-6 flex items-start gap-3 text-sm text-muted">
+                            <input class="mt-1 h-4 w-4 rounded border-white/20 bg-bg text-accent focus:ring-accent/60"
+                                   type="checkbox" id="explicit" name="explicit">
+                            <span>Contenu explicite (paroles inappropriees pour les mineurs)</span>
+                        </label>
+
+                        <div class="mt-8 flex justify-end">
+                            <button type="button" class="flex items-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-semibold text-white shadow-elev-1 hover:shadow-elev-2"
+                                    data-step-next>
+                                Suivant
+                                <i class="fas fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="hidden" data-form-step="2">
+                        <div class="space-y-6">
+                            <div>
+                                <h3 class="text-lg font-semibold text-text">Upload des fichiers</h3>
+                                <p class="mt-2 text-sm text-muted">Ajoutez vos pistes et visuels pour une publication complete.</p>
+                            </div>
+
+                            <div class="space-y-4">
+                                <div class="rounded-2xl border border-dashed border-white/20 bg-white/5 p-6 transition" data-dropzone="audio">
+                                    <input type="file" id="audioFile" name="audio_file" accept="audio/*" required class="hidden" data-file-input>
+                                    <div class="flex flex-col items-center gap-3 text-center" data-file-placeholder>
+                                        <span class="grid h-12 w-12 place-items-center rounded-2xl bg-accent/20 text-accent">
+                                            <i class="fas fa-music text-xl"></i>
+                                        </span>
+                                        <div>
+                                            <p class="text-sm font-semibold text-text">Fichier audio *</p>
+                                            <p class="mt-1 text-xs text-muted">Glissez-deposez ou cliquez pour selectionner</p>
+                                        </div>
+                                        <p class="text-xs text-muted">MP3, WAV, M4A - Max 50MB - Qualite recommande</p>
+                                    </div>
+                                    <div class="hidden w-full items-center gap-3 rounded-2xl border border-white/10 bg-bg/60 p-3" data-file-info>
+                                        <span class="grid h-12 w-12 place-items-center rounded-xl bg-white/10 text-text">
+                                            <i class="fas fa-headphones"></i>
+                                        </span>
+                                        <div class="flex-1">
+                                            <p class="text-sm font-semibold text-text" data-file-name>Nom du fichier</p>
+                                            <p class="text-xs text-muted" data-file-meta>0 MB</p>
+                                        </div>
+                                        <button type="button" class="rounded-full border border-white/10 bg-white/5 p-2 text-rose-200 hover:text-rose-100" data-file-remove>
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="rounded-2xl border border-dashed border-white/20 bg-white/5 p-6 transition" data-dropzone="cover">
+                                    <input type="file" id="coverFile" name="cover_image" accept="image/*" class="hidden" data-file-input>
+                                    <div class="flex flex-col items-center gap-3 text-center" data-file-placeholder>
+                                        <span class="grid h-12 w-12 place-items-center rounded-2xl bg-sky-500/20 text-sky-200">
+                                            <i class="fas fa-image text-xl"></i>
+                                        </span>
+                                        <div>
+                                            <p class="text-sm font-semibold text-text">Image de couverture</p>
+                                            <p class="mt-1 text-xs text-muted">Ajoutez une image impactante pour votre titre</p>
+                                        </div>
+                                        <p class="text-xs text-muted">JPG, PNG - Min 500x500px - Max 5MB</p>
+                                    </div>
+                                    <div class="hidden w-full items-center gap-3 rounded-2xl border border-white/10 bg-bg/60 p-3" data-file-info>
+                                        <img class="h-14 w-14 rounded-xl object-cover" alt="Apercu" data-file-preview>
+                                        <div class="flex-1">
+                                            <p class="text-sm font-semibold text-text" data-file-name>Nom du fichier</p>
+                                            <p class="text-xs text-muted" data-file-meta>0 MB</p>
+                                        </div>
+                                        <button type="button" class="rounded-full border border-white/10 bg-white/5 p-2 text-rose-200 hover:text-rose-100" data-file-remove>
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label for="lyrics" class="text-sm font-semibold text-text">Paroles (optionnel)</label>
+                                <textarea class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/60"
+                                          id="lyrics" name="lyrics" rows="6" placeholder="Ajoutez les paroles de votre chanson..."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="mt-8 flex flex-wrap justify-between gap-3">
+                            <button type="button" class="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-6 py-3 text-sm font-semibold text-text hover:bg-white/10"
+                                    data-step-prev>
+                                <i class="fas fa-arrow-left"></i>
+                                Precedent
+                            </button>
+                            <button type="button" class="flex items-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-semibold text-white shadow-elev-1 hover:shadow-elev-2"
+                                    data-step-next>
+                                Suivant
+                                <i class="fas fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="hidden" data-form-step="3">
+                        <div class="space-y-6">
+                            <div>
+                                <h3 class="text-lg font-semibold text-text">Finalisation</h3>
+                                <p class="mt-2 text-sm text-muted">Choisissez la distribution et confirmez vos droits.</p>
+                            </div>
+
+                            <div class="rounded-2xl border border-white/10 bg-white/5 p-5">
+                                <h4 class="text-sm font-semibold text-text">Options de distribution</h4>
+                                <div class="mt-4 grid gap-3 sm:grid-cols-3">
+                                    <label class="block">
+                                        <input type="radio" name="distribution" value="free" class="peer sr-only" checked>
+                                        <div class="h-full rounded-2xl border border-white/10 bg-bg/40 p-4 text-sm transition peer-checked:border-accent peer-checked:bg-accent/10">
+                                            <p class="font-semibold text-text">Gratuit</p>
+                                            <p class="mt-2 text-xs text-muted">Accessible a tous les utilisateurs.</p>
+                                        </div>
+                                    </label>
+                                    <label class="block">
+                                        <input type="radio" name="distribution" value="premium" class="peer sr-only">
+                                        <div class="h-full rounded-2xl border border-white/10 bg-bg/40 p-4 text-sm transition peer-checked:border-amber-400/60 peer-checked:bg-amber-400/10">
+                                            <p class="font-semibold text-text">Premium</p>
+                                            <p class="mt-2 text-xs text-muted">Reserve aux abonnes Premium.</p>
+                                        </div>
+                                    </label>
+                                    <label class="block">
+                                        <input type="radio" name="distribution" value="paid" class="peer sr-only">
+                                        <div class="h-full rounded-2xl border border-white/10 bg-bg/40 p-4 text-sm transition peer-checked:border-emerald-400/60 peer-checked:bg-emerald-500/10">
+                                            <p class="font-semibold text-text">Payant</p>
+                                            <p class="mt-2 text-xs text-muted">Vente a l'unite.</p>
+                                        </div>
+                                    </label>
+                                </div>
+
+                                <div class="mt-4 hidden max-w-sm" data-price-wrapper>
+                                    <label for="price" class="text-sm font-semibold text-text">Prix (FCFA)</label>
+                                    <input type="number" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/60"
+                                           id="price" name="price" min="500" max="10000" step="500" placeholder="Ex: 1000">
+                                    <p class="mt-2 text-xs text-muted">Prix entre 500 et 10 000 FCFA.</p>
+                                </div>
+                            </div>
+
+                            <div class="rounded-2xl border border-white/10 bg-white/5 p-5">
+                                <h4 class="text-sm font-semibold text-text">Droits et permissions</h4>
+                                <div class="mt-4 space-y-3 text-sm text-muted">
+                                    <label class="flex items-start gap-3">
+                                        <input class="mt-1 h-4 w-4 rounded border-white/20 bg-bg text-accent focus:ring-accent/60"
+                                               type="checkbox" id="terms" name="terms" required>
+                                        <span>J'accepte les <a href="<?php echo SITE_URL; ?>/conditions.php" class="text-accent hover:text-accent/80">conditions d'utilisation</a> *</span>
+                                    </label>
+                                    <label class="flex items-start gap-3">
+                                        <input class="mt-1 h-4 w-4 rounded border-white/20 bg-bg text-accent focus:ring-accent/60"
+                                               type="checkbox" id="copyright" name="copyright" required>
+                                        <span>Je confirme etre le proprietaire des droits de cette oeuvre *</span>
+                                    </label>
+                                    <label class="flex items-start gap-3">
+                                        <input class="mt-1 h-4 w-4 rounded border-white/20 bg-bg text-accent focus:ring-accent/60"
+                                               type="checkbox" id="newsletter" name="newsletter" checked>
+                                        <span>Recevoir des notifications sur les performances de mon titre</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="rounded-2xl border border-white/10 bg-white/5 p-5">
+                                <h4 class="text-sm font-semibold text-text">Resume de l'upload</h4>
+                                <div class="mt-4 grid gap-2 text-sm text-muted">
+                                    <div class="flex items-center justify-between">
+                                        <span>Titre</span>
+                                        <span class="font-semibold text-text" data-summary-title>-</span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span>Artiste</span>
+                                        <span class="font-semibold text-text" data-summary-artist>-</span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span>Genre</span>
+                                        <span class="font-semibold text-text" data-summary-genre>-</span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span>Distribution</span>
+                                        <span class="font-semibold text-text" data-summary-distribution>Gratuit</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-8 flex flex-wrap justify-between gap-3">
+                            <button type="button" class="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-6 py-3 text-sm font-semibold text-text hover:bg-white/10"
+                                    data-step-prev>
+                                <i class="fas fa-arrow-left"></i>
+                                Precedent
+                            </button>
+                            <button type="submit" class="flex items-center gap-2 rounded-full bg-emerald-400 px-6 py-3 text-sm font-semibold text-bg shadow-elev-1 hover:shadow-elev-2">
+                                <i class="fas fa-cloud-arrow-up"></i>
+                                Publier le titre
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <div class="mt-12 grid gap-4 md:grid-cols-3">
+                <div class="rounded-3xl border border-white/10 bg-surface/60 p-6 text-center shadow-elev-1">
+                    <div class="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-accent/20 text-accent">
+                        <i class="fas fa-music"></i>
+                    </div>
+                    <h3 class="mt-4 text-base font-semibold text-text">Qualite audio</h3>
+                    <p class="mt-2 text-sm text-muted">Publiez en 320kbps minimum pour une ecoute optimale.</p>
+                </div>
+                <div class="rounded-3xl border border-white/10 bg-surface/60 p-6 text-center shadow-elev-1">
+                    <div class="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-sky-500/20 text-sky-200">
+                        <i class="fas fa-image"></i>
+                    </div>
+                    <h3 class="mt-4 text-base font-semibold text-text">Visuel impactant</h3>
+                    <p class="mt-2 text-sm text-muted">Une pochette soignee augmente la decouverte.</p>
+                </div>
+                <div class="rounded-3xl border border-white/10 bg-surface/60 p-6 text-center shadow-elev-1">
+                    <div class="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-emerald-500/20 text-emerald-200">
+                        <i class="fas fa-tags"></i>
+                    </div>
+                    <h3 class="mt-4 text-base font-semibold text-text">Metadonnees</h3>
+                    <p class="mt-2 text-sm text-muted">Renseignez chaque champ pour un meilleur reach.</p>
                 </div>
             </div>
         </div>
     </section>
+</main>
 
-    <!-- Upload Form -->
-    <section class="py-5">
-        <div class="container">
-            <div class="row justify-content-center">
-                <div class="col-lg-8">
-                    <!-- Upload Steps -->
-                    <div class="upload-steps mb-5">
-                        <div class="step active" data-step="1">
-                            <div class="step-number">1</div>
-                            <div class="step-label">Informations</div>
-                        </div>
-                        <div class="step" data-step="2">
-                            <div class="step-number">2</div>
-                            <div class="step-label">Fichiers</div>
-                        </div>
-                        <div class="step" data-step="3">
-                            <div class="step-number">3</div>
-                            <div class="step-label">Finalisation</div>
-                        </div>
-                    </div>
-
-                    <form id="uploadForm" method="POST" enctype="multipart/form-data" class="upload-form">
-                        <!-- Étape 1: Informations -->
-                        <div class="form-step active" data-step="1">
-                            <h3 class="mb-4">Informations du titre</h3>
-                            
-                            <div class="mb-3">
-                                <label for="title" class="form-label">Titre de la chanson *</label>
-                                <input type="text" class="form-control" id="title" name="title" required
-                                       placeholder="Ex: Sahara Beat" maxlength="100">
-                            </div>
-
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="artist" class="form-label">Nom d'artiste *</label>
-                                    <input type="text" class="form-control" id="artist" name="artist" required
-                                           value="<?php echo htmlspecialchars($_SESSION['artist_name'] ?? ''); ?>"
-                                           placeholder="Votre nom d'artiste">
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="featuring" class="form-label">Featuring (optionnel)</label>
-                                    <input type="text" class="form-control" id="featuring" name="featuring"
-                                           placeholder="Ex: Artiste 1, Artiste 2">
-                                </div>
-                            </div>
-
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="genre" class="form-label">Genre *</label>
-                                    <select class="form-select" id="genre" name="genre" required>
-                                        <option value="">Sélectionnez un genre</option>
-                                        <option value="afrobeat">Afrobeat</option>
-                                        <option value="hip-hop">Hip-Hop</option>
-                                        <option value="gospel">Gospel</option>
-                                        <option value="traditionnel">Traditionnel</option>
-                                        <option value="reggae">Reggae</option>
-                                        <option value="rnb">R&B</option>
-                                        <option value="folk">Folk</option>
-                                        <option value="zouk">Zouk</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="album" class="form-label">Album (optionnel)</label>
-                                    <input type="text" class="form-control" id="album" name="album"
-                                           placeholder="Nom de l'album">
-                                </div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="description" class="form-label">Description</label>
-                                <textarea class="form-control" id="description" name="description" rows="4"
-                                          placeholder="Parlez de votre titre, de son inspiration..." maxlength="1000"></textarea>
-                                <small class="text-muted">0/1000 caractères</small>
-                            </div>
-
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="release_date" class="form-label">Date de sortie</label>
-                                    <input type="date" class="form-control" id="release_date" name="release_date"
-                                           value="<?php echo date('Y-m-d'); ?>">
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="language" class="form-label">Langue principale</label>
-                                    <select class="form-select" id="language" name="language">
-                                        <option value="fr">Français</option>
-                                        <option value="ar">Arabe</option>
-                                        <option value="sara">Sara</option>
-                                        <option value="kanembou">Kanembou</option>
-                                        <option value="other">Autre</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="form-check mb-3">
-                                <input class="form-check-input" type="checkbox" id="explicit" name="explicit">
-                                <label class="form-check-label" for="explicit">
-                                    Contenu explicite (paroles inappropriées pour les mineurs)
-                                </label>
-                            </div>
-
-                            <div class="d-flex justify-content-end">
-                                <button type="button" class="btn btn-primary btn-lg" onclick="nextStep()">
-                                    Suivant
-                                    <i class="fas fa-arrow-right ms-2"></i>
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Étape 2: Fichiers -->
-                        <div class="form-step" data-step="2">
-                            <h3 class="mb-4">Upload des fichiers</h3>
-
-                            <!-- Audio File -->
-                            <div class="file-upload-zone mb-4" id="audioDropZone">
-                                <input type="file" id="audioFile" name="audio_file" accept="audio/*" required hidden>
-                                <div class="upload-icon">
-                                    <i class="fas fa-music fa-3x text-primary"></i>
-                                </div>
-                                <h5>Fichier Audio *</h5>
-                                <p class="text-muted">Glissez-déposez ou cliquez pour sélectionner</p>
-                                <small class="text-muted">MP3, WAV, M4A • Max 50MB • Haute qualité recommandée</small>
-                                <div class="file-info" style="display: none;">
-                                    <i class="fas fa-check-circle text-success"></i>
-                                    <span class="file-name"></span>
-                                    <button type="button" class="btn btn-sm btn-link" onclick="removeFile('audio')">
-                                        <i class="fas fa-times"></i>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Cover Image -->
-                            <div class="file-upload-zone mb-4" id="coverDropZone">
-                                <input type="file" id="coverFile" name="cover_image" accept="image/*" hidden>
-                                <div class="upload-icon">
-                                    <i class="fas fa-image fa-3x text-info"></i>
-                                </div>
-                                <h5>Image de Couverture</h5>
-                                <p class="text-muted">Glissez-déposez ou cliquez pour sélectionner</p>
-                                <small class="text-muted">JPG, PNG • Min 500x500px • Max 5MB</small>
-                                <div class="file-info" style="display: none;">
-                                    <img class="preview-image" alt="Preview">
-                                    <button type="button" class="btn btn-sm btn-link" onclick="removeFile('cover')">
-                                        <i class="fas fa-times"></i>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Lyrics (optional) -->
-                            <div class="mb-4">
-                                <label for="lyrics" class="form-label">Paroles (optionnel)</label>
-                                <textarea class="form-control" id="lyrics" name="lyrics" rows="6"
-                                          placeholder="Ajoutez les paroles de votre chanson..."></textarea>
-                            </div>
-
-                            <div class="d-flex justify-content-between">
-                                <button type="button" class="btn btn-secondary btn-lg" onclick="previousStep()">
-                                    <i class="fas fa-arrow-left me-2"></i>
-                                    Précédent
-                                </button>
-                                <button type="button" class="btn btn-primary btn-lg" onclick="nextStep()">
-                                    Suivant
-                                    <i class="fas fa-arrow-right ms-2"></i>
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Étape 3: Finalisation -->
-                        <div class="form-step" data-step="3">
-                            <h3 class="mb-4">Finalisation</h3>
-
-                            <!-- Pricing & Distribution -->
-                            <div class="card mb-4">
-                                <div class="card-body">
-                                    <h5 class="card-title">Options de distribution</h5>
-                                    
-                                    <div class="form-check mb-3">
-                                        <input class="form-check-input" type="radio" name="distribution" id="free" value="free" checked>
-                                        <label class="form-check-label" for="free">
-                                            <strong>Gratuit</strong> - Accessible à tous les utilisateurs
-                                        </label>
-                                    </div>
-                                    
-                                    <div class="form-check mb-3">
-                                        <input class="form-check-input" type="radio" name="distribution" id="premium" value="premium">
-                                        <label class="form-check-label" for="premium">
-                                            <strong>Premium uniquement</strong> - Réservé aux abonnés Premium
-                                        </label>
-                                    </div>
-                                    
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="distribution" id="paid" value="paid">
-                                        <label class="form-check-label" for="paid">
-                                            <strong>Payant</strong> - Vente à l'unité
-                                        </label>
-                                    </div>
-                                    
-                                    <div class="price-input mt-3" style="display: none;">
-                                        <label for="price" class="form-label">Prix (FCFA)</label>
-                                        <input type="number" class="form-control" id="price" name="price" 
-                                               min="500" max="10000" step="500" placeholder="Ex: 1000">
-                                        <small class="text-muted">Prix entre 500 et 10,000 FCFA</small>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Rights & Permissions -->
-                            <div class="card mb-4">
-                                <div class="card-body">
-                                    <h5 class="card-title">Droits et permissions</h5>
-                                    
-                                    <div class="form-check mb-3">
-                                        <input class="form-check-input" type="checkbox" id="terms" name="terms" required>
-                                        <label class="form-check-label" for="terms">
-                                            J'accepte les <a href="<?php echo SITE_URL; ?>/terms" target="_blank">conditions d'utilisation</a> *
-                                        </label>
-                                    </div>
-                                    
-                                    <div class="form-check mb-3">
-                                        <input class="form-check-input" type="checkbox" id="copyright" name="copyright" required>
-                                        <label class="form-check-label" for="copyright">
-                                            Je confirme être le propriétaire des droits de cette œuvre *
-                                        </label>
-                                    </div>
-                                    
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="newsletter" name="newsletter" checked>
-                                        <label class="form-check-label" for="newsletter">
-                                            Recevoir des notifications sur les performances de mon titre
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Summary -->
-                            <div class="upload-summary mb-4">
-                                <h5>Résumé de l'upload</h5>
-                                <div class="summary-content">
-                                    <p><strong>Titre:</strong> <span id="summaryTitle">-</span></p>
-                                    <p><strong>Artiste:</strong> <span id="summaryArtist">-</span></p>
-                                    <p><strong>Genre:</strong> <span id="summaryGenre">-</span></p>
-                                    <p><strong>Distribution:</strong> <span id="summaryDistribution">Gratuit</span></p>
-                                </div>
-                            </div>
-
-                            <div class="d-flex justify-content-between">
-                                <button type="button" class="btn btn-secondary btn-lg" onclick="previousStep()">
-                                    <i class="fas fa-arrow-left me-2"></i>
-                                    Précédent
-                                </button>
-                                <button type="submit" class="btn btn-success btn-lg" id="submitBtn">
-                                    <i class="fas fa-cloud-upload-alt me-2"></i>
-                                    Publier le titre
-                                </button>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-            </div>
+<div class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 p-4" data-upload-modal>
+    <div class="w-full max-w-md rounded-3xl border border-white/10 bg-surface p-6 text-center shadow-elev-3">
+        <div class="mx-auto grid h-16 w-16 place-items-center rounded-full bg-accent/20 text-accent">
+            <i class="fas fa-cloud-arrow-up text-2xl"></i>
         </div>
-    </section>
-
-    <!-- Tips Section -->
-    <section class="py-5 bg-light">
-        <div class="container">
-            <h3 class="text-center mb-5">Conseils pour un upload réussi</h3>
-            <div class="row g-4">
-                <div class="col-md-4">
-                    <div class="tip-card">
-                        <div class="tip-icon">
-                            <i class="fas fa-music text-primary"></i>
-                        </div>
-                        <h5>Qualité Audio</h5>
-                        <p>Utilisez des fichiers audio de haute qualité (320kbps minimum) pour une meilleure expérience d'écoute.</p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="tip-card">
-                        <div class="tip-icon">
-                            <i class="fas fa-image text-info"></i>
-                        </div>
-                        <h5>Image Attractive</h5>
-                        <p>Une belle pochette attire plus d'auditeurs. Utilisez des images de haute résolution et visuellement accrocheuses.</p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="tip-card">
-                        <div class="tip-icon">
-                            <i class="fas fa-tags text-success"></i>
-                        </div>
-                        <h5>Métadonnées Complètes</h5>
-                        <p>Remplissez toutes les informations pour améliorer la découvrabilité de votre musique.</p>
-                    </div>
-                </div>
-            </div>
+        <h4 class="mt-4 text-lg font-semibold text-text">Upload en cours...</h4>
+        <p class="mt-2 text-sm text-muted">Veuillez ne pas fermer cette fenetre.</p>
+        <div class="mt-6 h-3 w-full rounded-full bg-white/10">
+            <div class="h-3 w-0 rounded-full bg-accent transition-all duration-300" data-progress-bar></div>
         </div>
-    </section>
-</div>
-
-<!-- Upload Progress Modal -->
-<div class="modal fade" id="uploadProgressModal" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-body text-center p-5">
-                <div class="upload-progress-icon mb-4">
-                    <i class="fas fa-cloud-upload-alt fa-4x text-primary"></i>
-                </div>
-                <h4 class="mb-3">Upload en cours...</h4>
-                <div class="progress mb-3" style="height: 25px;">
-                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
-                         role="progressbar" style="width: 0%">0%</div>
-                </div>
-                <p class="text-muted mb-0">Veuillez ne pas fermer cette fenêtre</p>
-            </div>
-        </div>
+        <p class="mt-3 text-xs text-muted" data-progress-text>0%</p>
     </div>
 </div>
 
-<style>
-.upload-hero {
-    position: relative;
-    overflow: hidden;
-}
-
-.upload-stats {
-    display: flex;
-    gap: 2rem;
-    justify-content: flex-end;
-}
-
-.upload-stats .stat-item {
-    text-align: center;
-}
-
-.upload-stats h3 {
-    font-size: 2rem;
-    font-weight: bold;
-    margin-bottom: 0.5rem;
-}
-
-.upload-stats p {
-    font-size: 0.9rem;
-    opacity: 0.9;
-    margin: 0;
-}
-
-.upload-steps {
-    display: flex;
-    justify-content: space-between;
-    position: relative;
-}
-
-.upload-steps::before {
-    content: '';
-    position: absolute;
-    top: 20px;
-    left: 50px;
-    right: 50px;
-    height: 2px;
-    background: #e0e0e0;
-    z-index: 0;
-}
-
-.step {
-    position: relative;
-    text-align: center;
-    z-index: 1;
-}
-
-.step-number {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: #e0e0e0;
-    color: #666;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto 0.5rem;
-    font-weight: bold;
-    transition: all 0.3s ease;
-}
-
-.step.active .step-number {
-    background: #007bff;
-    color: white;
-}
-
-.step.completed .step-number {
-    background: #28a745;
-    color: white;
-}
-
-.step-label {
-    font-size: 0.9rem;
-    color: #666;
-}
-
-.step.active .step-label {
-    color: #007bff;
-    font-weight: 600;
-}
-
-.form-step {
-    display: none;
-}
-
-.form-step.active {
-    display: block;
-}
-
-.file-upload-zone {
-    border: 2px dashed #dee2e6;
-    border-radius: 10px;
-    padding: 3rem;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    position: relative;
-}
-
-.file-upload-zone:hover {
-    border-color: #007bff;
-    background: #f8f9fa;
-}
-
-.file-upload-zone.dragover {
-    border-color: #007bff;
-    background: #e7f3ff;
-}
-
-.file-upload-zone.has-file {
-    border-style: solid;
-    border-color: #28a745;
-    background: #f8fff9;
-}
-
-.upload-icon {
-    margin-bottom: 1rem;
-}
-
-.file-info {
-    margin-top: 1rem;
-    padding: 1rem;
-    background: white;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.file-info .file-name {
-    flex: 1;
-    text-align: left;
-    font-weight: 500;
-}
-
-.preview-image {
-    width: 80px;
-    height: 80px;
-    object-fit: cover;
-    border-radius: 8px;
-}
-
-.price-input {
-    max-width: 300px;
-}
-
-.upload-summary {
-    background: #f8f9fa;
-    padding: 1.5rem;
-    border-radius: 10px;
-}
-
-.tip-card {
-    text-align: center;
-    padding: 2rem;
-    background: white;
-    border-radius: 10px;
-    height: 100%;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.08);
-    transition: transform 0.3s ease;
-}
-
-.tip-card:hover {
-    transform: translateY(-5px);
-}
-
-.tip-icon {
-    font-size: 2.5rem;
-    margin-bottom: 1rem;
-}
-
-.upload-progress-icon {
-    animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.1); opacity: 0.8; }
-    100% { transform: scale(1); opacity: 1; }
-}
-
-@media (max-width: 768px) {
-    .upload-stats {
-        justify-content: center;
-        gap: 3rem;
-        margin-top: 2rem;
-    }
-    
-    .upload-steps::before {
-        display: none;
-    }
-    
-    .file-upload-zone {
-        padding: 2rem;
-    }
-}
-</style>
-
-<script>
-let currentStep = 1;
-const totalSteps = 3;
-
-// Navigation entre étapes
-function nextStep() {
-    if (validateCurrentStep()) {
-        if (currentStep < totalSteps) {
-            showStep(currentStep + 1);
-        }
-    }
-}
-
-function previousStep() {
-    if (currentStep > 1) {
-        showStep(currentStep - 1);
-    }
-}
-
-function showStep(step) {
-    // Masquer l'étape actuelle
-    document.querySelector(`.form-step[data-step="${currentStep}"]`).classList.remove('active');
-    document.querySelector(`.step[data-step="${currentStep}"]`).classList.remove('active');
-    
-    // Marquer comme complété si on avance
-    if (step > currentStep) {
-        document.querySelector(`.step[data-step="${currentStep}"]`).classList.add('completed');
-    }
-    
-    // Afficher la nouvelle étape
-    currentStep = step;
-    document.querySelector(`.form-step[data-step="${currentStep}"]`).classList.add('active');
-    document.querySelector(`.step[data-step="${currentStep}"]`).classList.add('active');
-    
-    // Mettre à jour le résumé si on est à la dernière étape
-    if (currentStep === 3) {
-        updateSummary();
-    }
-}
-
-// Validation des étapes
-function validateCurrentStep() {
-    const form = document.getElementById('uploadForm');
-    const currentFields = form.querySelectorAll(`.form-step[data-step="${currentStep}"] [required]`);
-    
-    for (let field of currentFields) {
-        if (!field.value.trim()) {
-            field.classList.add('is-invalid');
-            field.focus();
-            return false;
-        }
-        field.classList.remove('is-invalid');
-    }
-    
-    return true;
-}
-
-// Mise à jour du résumé
-function updateSummary() {
-    document.getElementById('summaryTitle').textContent = document.getElementById('title').value || '-';
-    document.getElementById('summaryArtist').textContent = document.getElementById('artist').value || '-';
-    document.getElementById('summaryGenre').textContent = document.getElementById('genre').options[document.getElementById('genre').selectedIndex].text || '-';
-    
-    const distribution = document.querySelector('input[name="distribution"]:checked');
-    let distText = 'Gratuit';
-    if (distribution) {
-        if (distribution.value === 'premium') distText = 'Premium uniquement';
-        else if (distribution.value === 'paid') distText = `Payant (${document.getElementById('price').value || '0'} FCFA)`;
-    }
-    document.getElementById('summaryDistribution').textContent = distText;
-}
-
-// Gestion des fichiers
-document.addEventListener('DOMContentLoaded', function() {
-    // Audio file handling
-    const audioDropZone = document.getElementById('audioDropZone');
-    const audioFileInput = document.getElementById('audioFile');
-    
-    audioDropZone.addEventListener('click', () => audioFileInput.click());
-    
-    audioDropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        audioDropZone.classList.add('dragover');
-    });
-    
-    audioDropZone.addEventListener('dragleave', () => {
-        audioDropZone.classList.remove('dragover');
-    });
-    
-    audioDropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        audioDropZone.classList.remove('dragover');
-        
-        const files = e.dataTransfer.files;
-        if (files.length > 0 && files[0].type.startsWith('audio/')) {
-            handleAudioFile(files[0]);
-        }
-    });
-    
-    audioFileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-            handleAudioFile(e.target.files[0]);
-        }
-    });
-    
-    // Cover image handling
-    const coverDropZone = document.getElementById('coverDropZone');
-    const coverFileInput = document.getElementById('coverFile');
-    
-    coverDropZone.addEventListener('click', () => coverFileInput.click());
-    
-    coverDropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        coverDropZone.classList.add('dragover');
-    });
-    
-    coverDropZone.addEventListener('dragleave', () => {
-        coverDropZone.classList.remove('dragover');
-    });
-    
-    coverDropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        coverDropZone.classList.remove('dragover');
-        
-        const files = e.dataTransfer.files;
-        if (files.length > 0 && files[0].type.startsWith('image/')) {
-            handleCoverFile(files[0]);
-        }
-    });
-    
-    coverFileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-            handleCoverFile(e.target.files[0]);
-        }
-    });
-    
-    // Distribution type change
-    document.querySelectorAll('input[name="distribution"]').forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            const priceInput = document.querySelector('.price-input');
-            if (e.target.value === 'paid') {
-                priceInput.style.display = 'block';
-                document.getElementById('price').required = true;
-            } else {
-                priceInput.style.display = 'none';
-                document.getElementById('price').required = false;
-            }
-        });
-    });
-    
-    // Character counter for description
-    const description = document.getElementById('description');
-    const charCounter = description.nextElementSibling;
-    description.addEventListener('input', () => {
-        charCounter.textContent = `${description.value.length}/1000 caractères`;
-    });
-    
-    // Form submission
-    document.getElementById('uploadForm').addEventListener('submit', handleUpload);
-});
-
-function handleAudioFile(file) {
-    const audioDropZone = document.getElementById('audioDropZone');
-    const fileInfo = audioDropZone.querySelector('.file-info');
-    const fileName = fileInfo.querySelector('.file-name');
-    
-    // Validation
-    if (file.size > 50 * 1024 * 1024) { // 50MB
-        alert('Le fichier audio ne doit pas dépasser 50MB');
-        return;
-    }
-    
-    fileName.textContent = file.name;
-    fileInfo.style.display = 'flex';
-    audioDropZone.classList.add('has-file');
-    audioDropZone.querySelector('.upload-icon').style.display = 'none';
-    audioDropZone.querySelector('h5').style.display = 'none';
-    audioDropZone.querySelector('p').style.display = 'none';
-    audioDropZone.querySelector('small').style.display = 'none';
-}
-
-function handleCoverFile(file) {
-    const coverDropZone = document.getElementById('coverDropZone');
-    const fileInfo = coverDropZone.querySelector('.file-info');
-    const preview = fileInfo.querySelector('.preview-image');
-    
-    // Validation
-    if (file.size > 5 * 1024 * 1024) { // 5MB
-        alert('L\'image ne doit pas dépasser 5MB');
-        return;
-    }
-    
-    // Preview
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        preview.src = e.target.result;
-        fileInfo.style.display = 'flex';
-        coverDropZone.classList.add('has-file');
-        coverDropZone.querySelector('.upload-icon').style.display = 'none';
-        coverDropZone.querySelector('h5').style.display = 'none';
-        coverDropZone.querySelector('p').style.display = 'none';
-        coverDropZone.querySelector('small').style.display = 'none';
-    };
-    reader.readAsDataURL(file);
-}
-
-function removeFile(type) {
-    if (type === 'audio') {
-        const audioDropZone = document.getElementById('audioDropZone');
-        const fileInput = document.getElementById('audioFile');
-        
-        fileInput.value = '';
-        audioDropZone.classList.remove('has-file');
-        audioDropZone.querySelector('.file-info').style.display = 'none';
-        audioDropZone.querySelector('.upload-icon').style.display = 'block';
-        audioDropZone.querySelector('h5').style.display = 'block';
-        audioDropZone.querySelector('p').style.display = 'block';
-        audioDropZone.querySelector('small').style.display = 'block';
-    } else if (type === 'cover') {
-        const coverDropZone = document.getElementById('coverDropZone');
-        const fileInput = document.getElementById('coverFile');
-        
-        fileInput.value = '';
-        coverDropZone.classList.remove('has-file');
-        coverDropZone.querySelector('.file-info').style.display = 'none';
-        coverDropZone.querySelector('.upload-icon').style.display = 'block';
-        coverDropZone.querySelector('h5').style.display = 'block';
-        coverDropZone.querySelector('p').style.display = 'block';
-        coverDropZone.querySelector('small').style.display = 'block';
-    }
-}
-
-function handleUpload(e) {
-    e.preventDefault();
-    
-    if (!validateCurrentStep()) {
-        return;
-    }
-    
-    // Afficher le modal de progression
-    const modal = new bootstrap.Modal(document.getElementById('uploadProgressModal'));
-    modal.show();
-    
-    const progressBar = document.querySelector('.progress-bar');
-    let progress = 0;
-    
-    // Simulation de l'upload
-    const uploadInterval = setInterval(() => {
-        progress += Math.random() * 15;
-        if (progress > 100) progress = 100;
-        
-        progressBar.style.width = progress + '%';
-        progressBar.textContent = Math.round(progress) + '%';
-        
-        if (progress >= 100) {
-            clearInterval(uploadInterval);
-            
-            // Succès après 1 seconde
-            setTimeout(() => {
-                modal.hide();
-                
-                // Notification de succès
-                const notification = document.createElement('div');
-                notification.innerHTML = `
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <i class="fas fa-check-circle" style="font-size: 24px;"></i>
-                        <div>
-                            <div><strong>Upload réussi !</strong></div>
-                            <small>Votre titre est maintenant en ligne</small>
-                        </div>
-                    </div>
-                `;
-                notification.style.cssText = `
-                    position: fixed; 
-                    top: 20px; 
-                    right: 20px; 
-                    background: #28a745; 
-                    color: white; 
-                    padding: 15px 20px; 
-                    border-radius: 8px; 
-                    z-index: 10000;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                    max-width: 300px;
-                `;
-                document.body.appendChild(notification);
-                
-                // Redirection après 3 secondes
-                setTimeout(() => {
-                    window.location.href = '<?php echo SITE_URL; ?>/artist-dashboard.php';
-                }, 3000);
-            }, 1000);
-        }
-    }, 500);
-}
-</script>
-
-<?php include 'includes/footer.php'; ?>
+<?php include 'includes/footer-tailwind.php'; ?>

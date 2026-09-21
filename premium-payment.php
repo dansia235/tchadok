@@ -1,20 +1,22 @@
 <?php
 /**
  * Paiement Premium - Tchadok Platform
- * Page de souscription et paiement pour l'abonnement Premium
+ * Migration Tailwind (progressive)
  */
 
 require_once 'includes/functions.php';
 require_once 'includes/auth.php';
 
-// Vérifier si l'utilisateur est connecté
+// Verifier si l'utilisateur est connecte
 if (!isLoggedIn()) {
     header('Location: ' . SITE_URL . '/login.php?redirect=premium-payment');
     exit();
 }
 
 $pageTitle = 'Paiement Premium';
-$pageDescription = 'Souscrivez à l\'abonnement Premium';
+$pageDescription = 'Souscrivez a l\'abonnement Premium';
+$hideTopNav = true;
+$hideFooter = true;
 
 $user = getCurrentUser();
 $success = '';
@@ -32,11 +34,11 @@ $plans = [
         'name' => 'Annuel',
         'price' => 25000,
         'duration' => 'an',
-        'savings' => 5000 // Économie par rapport au mensuel
+        'savings' => 5000
     ]
 ];
 
-// Récupérer le plan sélectionné
+// Recuperer le plan selectionne
 $selectedPlan = isset($_GET['plan']) && isset($plans[$_GET['plan']]) ? $_GET['plan'] : 'monthly';
 
 // Traiter le paiement
@@ -45,15 +47,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $paymentMethod = sanitizeInput($_POST['payment_method'] ?? '');
     $phoneNumber = sanitizeInput($_POST['phone_number'] ?? '');
 
-    // Validation
     if (!isset($plans[$planType])) {
         $error = 'Plan d\'abonnement invalide.';
     } elseif (empty($paymentMethod)) {
-        $error = 'Veuillez sélectionner une méthode de paiement.';
+        $error = 'Veuillez selectionner une methode de paiement.';
     } elseif (empty($phoneNumber)) {
-        $error = 'Veuillez entrer votre numéro de téléphone.';
+        $error = 'Veuillez entrer votre numero de telephone.';
     } elseif (!preg_match('/^[0-9]{8,10}$/', str_replace(' ', '', $phoneNumber))) {
-        $error = 'Numéro de téléphone invalide.';
+        $error = 'Numero de telephone invalide.';
     } else {
         try {
             $dbInstance = TchadokDatabase::getInstance();
@@ -65,7 +66,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $db->beginTransaction();
 
-            // Créer la transaction de paiement
             $stmt = $db->prepare("
                 INSERT INTO payment_transactions (user_id, amount, currency, payment_method, transaction_id, phone_number, status, created_at)
                 VALUES (?, ?, 'XAF', ?, ?, ?, 'pending', NOW())
@@ -81,13 +81,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $transactionDbId = $db->lastInsertId();
 
-            // Calculer les dates d'abonnement
             $startDate = date('Y-m-d H:i:s');
             $endDate = $planType === 'monthly'
                 ? date('Y-m-d H:i:s', strtotime('+1 month'))
                 : date('Y-m-d H:i:s', strtotime('+1 year'));
 
-            // Créer l'abonnement
             $stmt = $db->prepare("
                 INSERT INTO subscriptions (user_id, plan_type, amount, currency, payment_method, transaction_id, status, start_date, end_date, created_at)
                 VALUES (?, ?, ?, 'XAF', ?, ?, 'pending', ?, ?, NOW())
@@ -105,32 +103,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $subscriptionId = $db->lastInsertId();
 
-            // Mettre à jour la transaction avec l'ID de l'abonnement
             $stmt = $db->prepare("UPDATE payment_transactions SET subscription_id = ? WHERE id = ?");
             $stmt->execute([$subscriptionId, $transactionDbId]);
 
-            // SIMULATION: Activer immédiatement l'abonnement (en production, attendre la confirmation du paiement)
-            $stmt = $db->prepare("UPDATE subscriptions SET status = 'active' WHERE id = ?");
-            $stmt->execute([$subscriptionId]);
-
-            $stmt = $db->prepare("UPDATE payment_transactions SET status = 'success' WHERE id = ?");
-            $stmt->execute([$transactionDbId]);
-
-            // Mettre à jour le statut premium de l'utilisateur
-            $stmt = $db->prepare("UPDATE users SET premium_status = 1, updated_at = NOW() WHERE id = ?");
-            $stmt->execute([$userId]);
-
             $db->commit();
 
-            $_SESSION['user_data']['premium_status'] = 1;
+            $success = 'Votre demande de paiement a ete enregistree. Vous recevrez une confirmation des que la transaction sera validee.';
 
-            $success = '✅ Paiement effectué avec succès ! Votre abonnement Premium est maintenant actif.';
-
-            // Redirection après 3 secondes
             header('refresh:3;url=' . SITE_URL . '/user-dashboard.php');
-
         } catch (Exception $e) {
-            if ($db->inTransaction()) {
+            if (isset($db) && $db && $db->inTransaction()) {
                 $db->rollBack();
             }
             $error = 'Une erreur est survenue lors du traitement du paiement: ' . $e->getMessage();
@@ -138,27 +120,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-include 'includes/header.php';
+$additionalJS = [
+    SITE_URL . '/assets/js/premium-payment.js'
+];
+
+include 'includes/header-tailwind.php';
 ?>
 
-<div class="payment-container">
-    <!-- Header -->
-    <section class="page-header">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col-lg-12">
-                    <div class="d-flex align-items-center">
-                        <a href="<?php echo SITE_URL; ?>/premium.php" class="btn btn-outline-secondary me-3">
-                            <i class="fas fa-arrow-left"></i>
-                        </a>
-                        <div class="header-icon-lg">
-                            <i class="fas fa-crown"></i>
+<main class="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(47,109,224,0.18),transparent_28%),radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_24%),#0B0F17] pb-16 pt-8">
+    <section>
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="rounded-3xl border border-white/10 bg-surface/75 p-6 shadow-elev-2 sm:p-8">
+                <div class="flex flex-wrap items-center gap-4">
+                    <a href="<?php echo SITE_URL; ?>/premium.php" class="grid h-11 w-11 place-items-center rounded-2xl border border-white/10 bg-white/5 text-text hover:bg-white/10">
+                        <i class="fas fa-arrow-left"></i>
+                    </a>
+                    <div class="flex flex-wrap items-center gap-4">
+                        <div class="grid h-14 w-14 place-items-center rounded-2xl bg-amber-400/20 text-amber-300">
+                            <i class="fas fa-crown text-2xl"></i>
                         </div>
                         <div>
-                            <h1 class="mb-2">Paiement Premium</h1>
-                            <p class="text-muted mb-0">
-                                <i class="fas fa-user me-2"></i>
-                                <?php echo htmlspecialchars($user['first_name'] . ' ' . $user['last_name']); ?>
+                            <p class="text-xs uppercase tracking-[0.2em] text-muted">Premium</p>
+                            <h1 class="mt-1 text-3xl font-display font-bold text-text">Paiement Premium</h1>
+                            <p class="mt-2 text-sm text-muted">
+                                <i class="fas fa-user mr-2"></i>
+                                <?php echo htmlspecialchars(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? '')); ?>
                             </p>
                         </div>
                     </div>
@@ -167,611 +153,197 @@ include 'includes/header.php';
         </div>
     </section>
 
-    <!-- Contenu -->
-    <section class="payment-content py-5">
-        <div class="container">
-            <div class="row">
-                <!-- Formulaire de Paiement -->
-                <div class="col-lg-8">
-                    <div class="payment-card">
+    <section class="mt-8">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="grid gap-6 lg:grid-cols-3">
+                <div class="space-y-6 lg:col-span-2">
+                    <div class="rounded-3xl border border-white/10 bg-surface/75 p-6 shadow-elev-2 sm:p-8">
                         <?php if ($success): ?>
-                            <div class="alert alert-success alert-modern mb-4">
-                                <i class="fas fa-check-circle me-2"></i>
-                                <?php echo $success; ?>
-                                <div class="mt-3">
-                                    <div class="spinner-border spinner-border-sm me-2" role="status">
-                                        <span class="visually-hidden">Loading...</span>
+                            <div class="alert alert-success">
+                                <i class="fas fa-check-circle mt-0.5"></i>
+                                <div>
+                                    <p><?php echo $success; ?></p>
+                                    <div class="mt-3 flex items-center gap-2 text-xs text-emerald-100/80">
+                                        <span class="inline-flex h-4 w-4 items-center justify-center">
+                                            <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                                            </svg>
+                                        </span>
+                                        Redirection vers votre dashboard...
                                     </div>
-                                    Redirection vers votre dashboard...
                                 </div>
                             </div>
                         <?php endif; ?>
 
                         <?php if ($error): ?>
-                            <div class="alert alert-danger alert-modern mb-4">
-                                <i class="fas fa-exclamation-circle me-2"></i>
-                                <?php echo $error; ?>
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-circle mt-0.5"></i>
+                                <span><?php echo $error; ?></span>
                             </div>
                         <?php endif; ?>
 
                         <?php if (!$success): ?>
-                            <form method="POST" action="" id="paymentForm">
-                                <input type="hidden" name="plan_type" value="<?php echo htmlspecialchars($selectedPlan); ?>">
+                            <form method="POST" action="" id="paymentForm" class="space-y-8">
+                                <input type="hidden" name="plan_type" value="<?php echo htmlspecialchars($selectedPlan); ?>" data-plan-input>
 
-                                <!-- Sélection du Plan -->
-                                <div class="section-title">
-                                    <h4><i class="fas fa-star me-2"></i>Choisissez Votre Plan</h4>
+                                <div>
+                                    <h2 class="text-lg font-semibold text-text">Choisissez votre plan</h2>
+                                    <p class="mt-2 text-sm text-muted">Selectionnez le rythme qui vous convient.</p>
                                 </div>
 
-                                <div class="plans-selection">
+                                <div class="grid gap-4 sm:grid-cols-2">
                                     <?php foreach ($plans as $key => $plan): ?>
-                                        <div class="plan-option <?php echo $key === $selectedPlan ? 'selected' : ''; ?>">
+                                        <label class="block">
                                             <input type="radio"
                                                    id="plan_<?php echo $key; ?>"
                                                    name="plan_type"
                                                    value="<?php echo $key; ?>"
-                                                   <?php echo $key === $selectedPlan ? 'checked' : ''; ?>
-                                                   onchange="updatePlanSelection('<?php echo $key; ?>')">
-                                            <label for="plan_<?php echo $key; ?>">
-                                                <div class="plan-header">
-                                                    <h5><?php echo $plan['name']; ?></h5>
+                                                   class="peer sr-only"
+                                                   data-plan-radio
+                                                   <?php echo $key === $selectedPlan ? 'checked' : ''; ?>>
+                                            <div class="flex h-full flex-col justify-between rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:border-white/20 peer-checked:border-amber-400/60 peer-checked:bg-amber-400/10">
+                                                <div class="flex items-center justify-between">
+                                                    <h3 class="text-sm font-semibold text-text"><?php echo $plan['name']; ?></h3>
                                                     <?php if ($plan['savings']): ?>
-                                                        <span class="badge bg-success">
-                                                            Économisez <?php echo number_format($plan['savings'], 0, ',', ' '); ?> XAF
+                                                        <span class="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-200">
+                                                            Economisez <?php echo number_format($plan['savings'], 0, ',', ' '); ?> XAF
                                                         </span>
                                                     <?php endif; ?>
                                                 </div>
-                                                <div class="plan-price">
-                                                    <span class="amount"><?php echo number_format($plan['price'], 0, ',', ' '); ?></span>
-                                                    <span class="currency">XAF</span>
-                                                    <span class="period">/ <?php echo $plan['duration']; ?></span>
+                                                <div class="mt-4 flex items-baseline gap-2">
+                                                    <span class="text-2xl font-semibold text-text"><?php echo number_format($plan['price'], 0, ',', ' '); ?></span>
+                                                    <span class="text-xs text-muted">XAF / <?php echo $plan['duration']; ?></span>
                                                 </div>
-                                            </label>
-                                        </div>
+                                            </div>
+                                        </label>
                                     <?php endforeach; ?>
                                 </div>
 
-                                <!-- Méthode de Paiement -->
-                                <div class="section-title mt-5">
-                                    <h4><i class="fas fa-credit-card me-2"></i>Méthode de Paiement</h4>
+                                <div>
+                                    <h2 class="text-lg font-semibold text-text">Methode de paiement</h2>
+                                    <p class="mt-2 text-sm text-muted">Choisissez votre canal prefere.</p>
                                 </div>
 
-                                <div class="payment-methods">
-                                    <div class="payment-method-option">
-                                        <input type="radio" id="airtel" name="payment_method" value="airtel_money" required>
-                                        <label for="airtel">
-                                            <div class="method-logo airtel">
-                                                <i class="fas fa-mobile-alt"></i>
-                                            </div>
-                                            <div class="method-info">
-                                                <strong>Airtel Money</strong>
-                                                <small>Paiement mobile sécurisé</small>
-                                            </div>
-                                        </label>
-                                    </div>
-
-                                    <div class="payment-method-option">
-                                        <input type="radio" id="moov" name="payment_method" value="moov_money" required>
-                                        <label for="moov">
-                                            <div class="method-logo moov">
-                                                <i class="fas fa-mobile-alt"></i>
-                                            </div>
-                                            <div class="method-info">
-                                                <strong>Moov Money</strong>
-                                                <small>Paiement mobile sécurisé</small>
+                                <div class="grid gap-3 sm:grid-cols-2">
+                                    <?php
+                                        $methods = [
+                                            ['value' => 'airtel_money', 'label' => 'Airtel Money', 'note' => 'Paiement mobile securise', 'color' => 'bg-rose-500/20 text-rose-200', 'icon' => 'fa-mobile-alt'],
+                                            ['value' => 'moov_money', 'label' => 'Moov Money', 'note' => 'Paiement mobile securise', 'color' => 'bg-sky-500/20 text-sky-200', 'icon' => 'fa-mobile-alt'],
+                                            ['value' => 'salam_pay', 'label' => 'Salam Pay', 'note' => 'Paiement mobile securise', 'color' => 'bg-emerald-500/20 text-emerald-200', 'icon' => 'fa-mobile-alt'],
+                                            ['value' => 'credit_card', 'label' => 'Carte bancaire', 'note' => 'Visa, Mastercard', 'color' => 'bg-white/10 text-text', 'icon' => 'fa-credit-card']
+                                        ];
+                                    ?>
+                                    <?php foreach ($methods as $method): ?>
+                                        <label class="block">
+                                            <input type="radio" name="payment_method" value="<?php echo $method['value']; ?>" class="peer sr-only" required>
+                                            <div class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:border-white/20 peer-checked:border-accent peer-checked:bg-accent/10">
+                                                <span class="grid h-11 w-11 place-items-center rounded-xl <?php echo $method['color']; ?>">
+                                                    <i class="fas <?php echo $method['icon']; ?>"></i>
+                                                </span>
+                                                <div>
+                                                    <p class="text-sm font-semibold text-text"><?php echo $method['label']; ?></p>
+                                                    <p class="text-xs text-muted"><?php echo $method['note']; ?></p>
+                                                </div>
                                             </div>
                                         </label>
-                                    </div>
-
-                                    <div class="payment-method-option">
-                                        <input type="radio" id="salam" name="payment_method" value="salam_pay" required>
-                                        <label for="salam">
-                                            <div class="method-logo salam">
-                                                <i class="fas fa-mobile-alt"></i>
-                                            </div>
-                                            <div class="method-info">
-                                                <strong>Salam Pay</strong>
-                                                <small>Paiement mobile sécurisé</small>
-                                            </div>
-                                        </label>
-                                    </div>
-
-                                    <div class="payment-method-option">
-                                        <input type="radio" id="card" name="payment_method" value="credit_card" required>
-                                        <label for="card">
-                                            <div class="method-logo card">
-                                                <i class="fas fa-credit-card"></i>
-                                            </div>
-                                            <div class="method-info">
-                                                <strong>Carte Bancaire</strong>
-                                                <small>Visa, Mastercard</small>
-                                            </div>
-                                        </label>
-                                    </div>
+                                    <?php endforeach; ?>
                                 </div>
 
-                                <!-- Numéro de Téléphone -->
-                                <div class="section-title mt-5">
-                                    <h4><i class="fas fa-phone me-2"></i>Informations de Contact</h4>
+                                <div>
+                                    <h2 class="text-lg font-semibold text-text">Informations de contact</h2>
+                                    <p class="mt-2 text-sm text-muted">Le numero utilise pour confirmer le paiement.</p>
                                 </div>
 
-                                <div class="form-group mb-4">
-                                    <label for="phone_number" class="form-label">
-                                        Numéro de Téléphone *
-                                    </label>
-                                    <div class="phone-input-wrapper">
-                                        <span class="phone-prefix">+235</span>
+                                <div>
+                                    <label for="phone_number" class="text-sm font-semibold text-text">Numero de telephone *</label>
+                                    <div class="mt-2 flex">
+                                        <span class="inline-flex items-center rounded-l-2xl border border-white/10 bg-white/5 px-4 text-sm font-semibold text-text">+235</span>
                                         <input type="tel"
-                                               class="form-control form-control-modern phone-input"
+                                               class="w-full rounded-r-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/60"
                                                id="phone_number"
                                                name="phone_number"
                                                placeholder="XX XX XX XX"
+                                               data-phone-input
                                                required>
                                     </div>
-                                    <small class="text-muted">
-                                        Vous recevrez une notification de paiement sur ce numéro
-                                    </small>
+                                    <p class="mt-2 text-xs text-muted">Vous recevrez une notification de paiement sur ce numero.</p>
                                 </div>
 
-                                <!-- Conditions -->
-                                <div class="form-check mb-4">
-                                    <input class="form-check-input" type="checkbox" id="terms" required>
-                                    <label class="form-check-label" for="terms">
-                                        J'accepte les <a href="#" class="text-primary">conditions d'utilisation</a>
-                                        et la <a href="#" class="text-primary">politique de confidentialité</a>
-                                    </label>
-                                </div>
+                                <label class="flex items-start gap-3 text-xs text-muted">
+                                    <input class="mt-1 h-4 w-4 rounded border-white/20 bg-bg text-accent focus:ring-accent/60" type="checkbox" id="terms" required>
+                                    <span>J'accepte les conditions d'utilisation et la politique de confidentialite.</span>
+                                </label>
 
-                                <!-- Bouton de Paiement -->
-                                <button type="submit" class="btn btn-premium btn-lg w-100">
-                                    <i class="fas fa-lock me-2"></i>
+                                <button type="submit" class="flex w-full items-center justify-center gap-2 rounded-full bg-amber-400 px-6 py-3 text-sm font-semibold text-bg shadow-elev-1 hover:shadow-elev-2">
+                                    <i class="fas fa-lock"></i>
                                     Payer <?php echo number_format($plans[$selectedPlan]['price'], 0, ',', ' '); ?> XAF
                                 </button>
 
-                                <div class="text-center mt-3">
-                                    <small class="text-muted">
-                                        <i class="fas fa-shield-alt me-1"></i>
-                                        Paiement sécurisé et crypté
-                                    </small>
-                                </div>
+                                <p class="text-center text-xs text-muted">
+                                    <i class="fas fa-shield-alt mr-1"></i>
+                                    Paiement securise et chiffre
+                                </p>
                             </form>
                         <?php endif; ?>
                     </div>
                 </div>
 
-                <!-- Récapitulatif -->
-                <div class="col-lg-4">
-                    <div class="summary-card">
-                        <h5 class="mb-4">
-                            <i class="fas fa-receipt me-2"></i>
-                            Récapitulatif
-                        </h5>
-
-                        <div class="summary-item">
-                            <span>Plan sélectionné</span>
-                            <strong><?php echo $plans[$selectedPlan]['name']; ?></strong>
+                <div class="space-y-6">
+                    <div class="rounded-3xl border border-white/10 bg-surface/75 p-6 shadow-elev-2 lg:sticky lg:top-8">
+                        <h2 class="text-base font-semibold text-text">Recapitulatif</h2>
+                        <div class="mt-4 space-y-3 text-sm">
+                            <div class="flex items-center justify-between">
+                                <span class="text-muted">Plan selectionne</span>
+                                <span class="font-semibold text-text"><?php echo $plans[$selectedPlan]['name']; ?></span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-muted">Prix</span>
+                                <span class="font-semibold text-text"><?php echo number_format($plans[$selectedPlan]['price'], 0, ',', ' '); ?> XAF</span>
+                            </div>
+                            <div class="h-px bg-white/10"></div>
+                            <div class="flex items-center justify-between text-base">
+                                <span class="text-muted">Total a payer</span>
+                                <span class="font-semibold text-accent"><?php echo number_format($plans[$selectedPlan]['price'], 0, ',', ' '); ?> XAF</span>
+                            </div>
                         </div>
 
-                        <div class="summary-item">
-                            <span>Prix</span>
-                            <strong><?php echo number_format($plans[$selectedPlan]['price'], 0, ',', ' '); ?> XAF</strong>
-                        </div>
-
-                        <div class="summary-divider"></div>
-
-                        <div class="summary-item total">
-                            <span>Total à payer</span>
-                            <strong class="text-primary">
-                                <?php echo number_format($plans[$selectedPlan]['price'], 0, ',', ' '); ?> XAF
-                            </strong>
-                        </div>
-
-                        <div class="premium-features mt-4">
-                            <h6 class="mb-3">Avantages Premium</h6>
-                            <ul class="features-list">
-                                <li><i class="fas fa-check-circle text-success me-2"></i>Écoute illimitée</li>
-                                <li><i class="fas fa-check-circle text-success me-2"></i>Sans publicité</li>
-                                <li><i class="fas fa-check-circle text-success me-2"></i>Qualité audio HD</li>
-                                <li><i class="fas fa-check-circle text-success me-2"></i>Téléchargement offline</li>
-                                <li><i class="fas fa-check-circle text-success me-2"></i>Accès anticipé</li>
-                                <li><i class="fas fa-check-circle text-success me-2"></i>Support prioritaire</li>
+                        <div class="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+                            <h3 class="text-sm font-semibold text-text">Avantages Premium</h3>
+                            <ul class="mt-3 space-y-2 text-xs text-muted">
+                                <li class="flex items-center gap-2"><i class="fas fa-check-circle text-emerald-300"></i> Ecoute illimitee</li>
+                                <li class="flex items-center gap-2"><i class="fas fa-check-circle text-emerald-300"></i> Sans publicite</li>
+                                <li class="flex items-center gap-2"><i class="fas fa-check-circle text-emerald-300"></i> Qualite audio HD</li>
+                                <li class="flex items-center gap-2"><i class="fas fa-check-circle text-emerald-300"></i> Telechargement offline</li>
+                                <li class="flex items-center gap-2"><i class="fas fa-check-circle text-emerald-300"></i> Acces anticipe</li>
+                                <li class="flex items-center gap-2"><i class="fas fa-check-circle text-emerald-300"></i> Support prioritaire</li>
                             </ul>
                         </div>
+
+                        <a href="<?php echo SITE_URL; ?>/wallet.php" class="mt-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-text hover:bg-white/10">
+                            <span>Verifier mon portefeuille</span>
+                            <i class="fas fa-arrow-right text-muted"></i>
+                        </a>
                     </div>
 
-                    <div class="security-info mt-4">
-                        <div class="info-item">
-                            <i class="fas fa-lock text-success"></i>
-                            <small>Paiement 100% sécurisé</small>
+                    <div class="rounded-3xl border border-white/10 bg-surface/75 p-6 text-xs text-muted shadow-elev-1">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-lock text-emerald-300"></i>
+                            Paiement 100% securise
                         </div>
-                        <div class="info-item">
-                            <i class="fas fa-redo text-primary"></i>
-                            <small>Renouvellement automatique</small>
+                        <div class="mt-3 flex items-center gap-2">
+                            <i class="fas fa-redo text-accent"></i>
+                            Renouvellement automatique
                         </div>
-                        <div class="info-item">
-                            <i class="fas fa-times-circle text-danger"></i>
-                            <small>Annulation à tout moment</small>
+                        <div class="mt-3 flex items-center gap-2">
+                            <i class="fas fa-times-circle text-rose-300"></i>
+                            Annulation a tout moment
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </section>
-</div>
+</main>
 
-<style>
-:root {
-    --bleu-tchadien: #0066CC;
-    --jaune-solaire: #FFD700;
-    --rouge-terre: #CC3333;
-    --vert-savane: #228B22;
-    --gris-harmattan: #2C3E50;
-}
-
-.payment-container {
-    background: #f5f7fa;
-    min-height: 100vh;
-    padding-bottom: 3rem;
-}
-
-/* Page Header */
-.page-header {
-    background: white;
-    padding: 2rem 0;
-    margin-bottom: 2rem;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-    margin-top: 80px;
-}
-
-.header-icon-lg {
-    width: 70px;
-    height: 70px;
-    background: linear-gradient(135deg, var(--jaune-solaire), #FFC700);
-    border-radius: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--bleu-tchadien);
-    font-size: 2rem;
-    margin-right: 1.5rem;
-    box-shadow: 0 5px 20px rgba(255, 215, 0, 0.4);
-}
-
-.page-header h1 {
-    color: var(--gris-harmattan);
-    font-weight: 700;
-    font-size: 2rem;
-}
-
-/* Payment Card */
-.payment-card {
-    background: white;
-    padding: 3rem;
-    border-radius: 20px;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
-}
-
-.section-title {
-    margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
-    border-bottom: 2px solid #f0f0f0;
-}
-
-.section-title h4 {
-    color: var(--gris-harmattan);
-    font-weight: 600;
-    margin: 0;
-}
-
-/* Plans Selection */
-.plans-selection {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1.5rem;
-}
-
-.plan-option {
-    position: relative;
-}
-
-.plan-option input[type="radio"] {
-    display: none;
-}
-
-.plan-option label {
-    display: block;
-    padding: 2rem 1.5rem;
-    border: 3px solid #e9ecef;
-    border-radius: 15px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    margin: 0;
-    height: 100%;
-}
-
-.plan-option input[type="radio"]:checked + label,
-.plan-option.selected label {
-    border-color: var(--jaune-solaire);
-    background: rgba(255, 215, 0, 0.05);
-    box-shadow: 0 5px 20px rgba(255, 215, 0, 0.3);
-}
-
-.plan-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-}
-
-.plan-header h5 {
-    margin: 0;
-    color: var(--gris-harmattan);
-    font-weight: 600;
-}
-
-.plan-price {
-    display: flex;
-    align-items: baseline;
-    gap: 0.5rem;
-}
-
-.plan-price .amount {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--bleu-tchadien);
-}
-
-.plan-price .currency {
-    font-size: 1.2rem;
-    font-weight: 600;
-    color: #6c757d;
-}
-
-.plan-price .period {
-    font-size: 1rem;
-    color: #6c757d;
-}
-
-/* Payment Methods */
-.payment-methods {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
-}
-
-.payment-method-option {
-    position: relative;
-}
-
-.payment-method-option input[type="radio"] {
-    display: none;
-}
-
-.payment-method-option label {
-    display: flex;
-    align-items: center;
-    padding: 1.25rem;
-    border: 2px solid #e9ecef;
-    border-radius: 12px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    margin: 0;
-}
-
-.payment-method-option input[type="radio"]:checked + label {
-    border-color: var(--bleu-tchadien);
-    background: rgba(0, 102, 204, 0.05);
-}
-
-.method-logo {
-    width: 50px;
-    height: 50px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    margin-right: 1rem;
-    color: white;
-}
-
-.method-logo.airtel {
-    background: linear-gradient(135deg, #ED1C24, #C1121F);
-}
-
-.method-logo.moov {
-    background: linear-gradient(135deg, #009FE3, #0077B6);
-}
-
-.method-logo.salam {
-    background: linear-gradient(135deg, #00A651, #008741);
-}
-
-.method-logo.card {
-    background: linear-gradient(135deg, var(--gris-harmattan), #1a252f);
-}
-
-.method-info strong {
-    display: block;
-    color: var(--gris-harmattan);
-    font-size: 1rem;
-}
-
-.method-info small {
-    display: block;
-    color: #6c757d;
-    font-size: 0.85rem;
-}
-
-/* Phone Input */
-.phone-input-wrapper {
-    display: flex;
-    align-items: center;
-}
-
-.phone-prefix {
-    padding: 0.875rem 1rem;
-    background: #e9ecef;
-    border: 2px solid #e9ecef;
-    border-right: none;
-    border-radius: 12px 0 0 12px;
-    font-weight: 600;
-    color: var(--gris-harmattan);
-}
-
-.phone-input {
-    border-radius: 0 12px 12px 0 !important;
-    border-left: none !important;
-}
-
-/* Form Controls */
-.form-control-modern {
-    border: 2px solid #e9ecef;
-    border-radius: 12px;
-    padding: 0.875rem 1.25rem;
-    font-size: 1rem;
-    transition: all 0.3s ease;
-}
-
-.form-control-modern:focus {
-    border-color: var(--bleu-tchadien);
-    box-shadow: 0 0 0 0.2rem rgba(0, 102, 204, 0.1);
-}
-
-/* Premium Button */
-.btn-premium {
-    background: linear-gradient(135deg, var(--jaune-solaire), #FFC700);
-    color: var(--bleu-tchadien);
-    border: none;
-    font-weight: 700;
-    padding: 1.25rem 2rem;
-    border-radius: 12px;
-    box-shadow: 0 8px 25px rgba(255, 215, 0, 0.4);
-    transition: all 0.3s ease;
-}
-
-.btn-premium:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 35px rgba(255, 215, 0, 0.6);
-    color: var(--bleu-tchadien);
-}
-
-/* Summary Card */
-.summary-card {
-    background: white;
-    padding: 2rem;
-    border-radius: 20px;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
-    position: sticky;
-    top: 100px;
-}
-
-.summary-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem 0;
-}
-
-.summary-item span {
-    color: #6c757d;
-}
-
-.summary-item strong {
-    color: var(--gris-harmattan);
-}
-
-.summary-item.total {
-    font-size: 1.2rem;
-}
-
-.summary-divider {
-    height: 2px;
-    background: #f0f0f0;
-    margin: 1rem 0;
-}
-
-/* Features List */
-.features-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-.features-list li {
-    padding: 0.5rem 0;
-    color: var(--gris-harmattan);
-}
-
-/* Security Info */
-.security-info {
-    background: white;
-    padding: 1.5rem;
-    border-radius: 15px;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
-}
-
-.info-item {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 0;
-}
-
-.info-item i {
-    font-size: 1.2rem;
-}
-
-/* Alerts */
-.alert-modern {
-    border-radius: 12px;
-    border: none;
-    padding: 1.25rem;
-}
-
-/* Responsive */
-@media (max-width: 991px) {
-    .page-header {
-        margin-top: 70px;
-    }
-
-    .payment-card {
-        padding: 2rem;
-    }
-
-    .plans-selection,
-    .payment-methods {
-        grid-template-columns: 1fr;
-    }
-
-    .summary-card {
-        position: relative;
-        top: 0;
-        margin-top: 2rem;
-    }
-}
-</style>
-
-<script>
-function updatePlanSelection(planType) {
-    document.querySelector('input[name="plan_type"]').value = planType;
-
-    // Mettre à jour l'affichage
-    document.querySelectorAll('.plan-option').forEach(option => {
-        option.classList.remove('selected');
-    });
-    document.querySelector('#plan_' + planType).closest('.plan-option').classList.add('selected');
-
-    // Rediriger pour mettre à jour le récapitulatif
-    window.location.href = '<?php echo SITE_URL; ?>/premium-payment.php?plan=' + planType;
-}
-
-// Formater le numéro de téléphone
-document.getElementById('phone_number')?.addEventListener('input', function(e) {
-    let value = e.target.value.replace(/\s/g, '');
-    let formattedValue = value.match(/.{1,2}/g)?.join(' ') || value;
-    e.target.value = formattedValue;
-});
-</script>
-
-<?php include 'includes/footer.php'; ?>
+<?php include 'includes/footer-tailwind.php'; ?>

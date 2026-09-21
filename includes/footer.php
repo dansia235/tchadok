@@ -22,11 +22,11 @@
                 <div class="col-lg-2 col-md-6 mb-4">
                     <h5>Plateforme</h5>
                     <ul class="list-unstyled">
-                        <li><a href="<?php echo SITE_URL; ?>/#decouvrir" class="text-white-50">Découvrir</a></li>
+                        <li><a href="<?php echo SITE_URL; ?>/decouvrir.php" class="text-white-50">Découvrir</a></li>
                         <li><a href="<?php echo SITE_URL; ?>/artists.php" class="text-white-50">Artistes</a></li>
                         <li><a href="<?php echo SITE_URL; ?>/albums.php" class="text-white-50">Albums</a></li>
                         <li><a href="<?php echo SITE_URL; ?>/genres.php" class="text-white-50">Genres</a></li>
-                        <li><a href="<?php echo SITE_URL; ?>/#radio" class="text-white-50">Radio Live</a></li>
+                        <li><a href="<?php echo SITE_URL; ?>/radio-live.php" class="text-white-50">Radio Live</a></li>
                     </ul>
                 </div>
                 
@@ -71,8 +71,6 @@
 
     <!-- Scripts -->
     <!-- jQuery déjà chargé dans header.php -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
     <!-- Custom JavaScript -->
     <script src="<?php echo SITE_URL; ?>/assets/js/main.js"></script>
     
@@ -81,55 +79,5 @@
             <script src="<?php echo $js; ?>"></script>
         <?php endforeach; ?>
     <?php endif; ?>
-
-    <style>
-        /* Footer styles from tchadok-homepage.html */
-        footer {
-            background: #2C3E50;
-            color: white;
-            padding: 3rem 0 2rem;
-            margin-top: 5rem;
-        }
-        
-        .footer-logo {
-            font-size: 2rem;
-            font-weight: 900;
-            color: #FFD700;
-            margin-bottom: 1rem;
-        }
-        
-        .social-icons a {
-            color: white;
-            font-size: 1.5rem;
-            margin: 0 0.5rem;
-            transition: all 0.3s ease;
-        }
-        
-        .social-icons a:hover {
-            color: #FFD700;
-            transform: translateY(-3px);
-        }
-        
-        footer h5 {
-            color: white;
-            font-weight: 600;
-            margin-bottom: 1rem;
-        }
-        
-        footer .list-unstyled li {
-            margin-bottom: 0.5rem;
-        }
-        
-        footer .text-white-50 {
-            color: rgba(255, 255, 255, 0.6) !important;
-            text-decoration: none;
-            transition: color 0.3s ease;
-        }
-        
-        footer .text-white-50:hover {
-            color: #FFD700 !important;
-        }
-    </style>
-
 </body>
 </html>

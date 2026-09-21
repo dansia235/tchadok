@@ -1,0 +1,75 @@
+.editor-block {
+    margin-top: 0.25rem;
+}
+
+.editor-wrapper {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 1rem;
+    overflow: hidden;
+    background: #ffffff;
+}
+
+.editor-wrapper .tox-tinymce {
+    border: none !important;
+    border-radius: 0 !important;
+}
+
+.editor-toolbar-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    background: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    font-size: 0.85rem;
+    color: #495057;
+}
+
+.editor-shortcuts {
+    display: flex;
+    gap: 15px;
+}
+
+.editor-shortcuts span {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.editor-shortcuts kbd {
+    background: #e9ecef;
+    color: #212529;
+    border-radius: 4px;
+    border: 1px solid #ced4da;
+    padding: 2px 6px;
+    font-size: 0.78rem;
+    font-family: "Consolas", "Menlo", monospace;
+}
+
+.tox .tox-collection__item-label h2,
+.tox .tox-collection__item-label h3,
+.tox .tox-collection__item-label h4 {
+    margin: 0 !important;
+}
+
+.tox .tox-pop {
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15) !important;
+    border-radius: 8px !important;
+}
+
+.tox.tox-tinymce--fullscreen {
+    z-index: 9999 !important;
+}
+
+@media (max-width: 768px) {
+    .editor-toolbar-info {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+    }
+
+    .editor-shortcuts {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+}

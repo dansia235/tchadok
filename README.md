@@ -245,7 +245,6 @@ tchadok/
 - 📅 Métaverse musical tchadien
 
 ## 🔧 Installation & Configuration
-
 ### Prérequis
 - **Serveur** : Apache 2.4+ ou Nginx 1.18+
 - **PHP** : Version 8.1 ou supérieure

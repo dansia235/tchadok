@@ -1,18 +1,19 @@
 <?php
 /**
  * Page de recherche - Tchadok Platform
+ * Migration Tailwind (progressive)
  */
 
 require_once 'includes/functions.php';
 require_once 'includes/auth.php';
+require_once 'assets/images/placeholders.php';
 
 $query = $_GET['q'] ?? '';
 $filter = $_GET['filter'] ?? 'all'; // all, tracks, artists, albums
 
-$pageTitle = !empty($query) ? 'Résultats pour "' . htmlspecialchars($query) . '"' : 'Recherche';
-$pageDescription = 'Recherchez vos artistes, titres et albums tchadiens préférés sur Tchadok.';
+$pageTitle = !empty($query) ? 'Resultats pour "' . htmlspecialchars($query) . '"' : 'Recherche';
+$pageDescription = 'Recherchez vos artistes, titres et albums preferes sur Tchadok.';
 
-// Simuler des résultats de recherche
 $searchResults = [
     'tracks' => [],
     'artists' => [],
@@ -20,357 +21,244 @@ $searchResults = [
 ];
 
 if (!empty($query)) {
-    // Simulation de résultats de titres
-    for ($i = 1; $i <= 8; $i++) {
-        if (stripos("Titre Tchadien $i", $query) !== false || $query === '*') {
-            $searchResults['tracks'][] = [
-                'id' => $i,
-                'title' => "Titre Tchadien $i",
-                'artist_name' => "Artiste " . rand(1, 5),
-                'album_cover' => 'assets/images/default-cover.jpg',
-                'duration' => rand(180, 300),
-                'total_streams' => rand(1000, 50000),
-                'is_free' => rand(0, 1),
-                'price' => rand(500, 2000)
-            ];
-        }
-    }
-    
-    // Simulation de résultats d'artistes
-    for ($i = 1; $i <= 6; $i++) {
-        if (stripos("Artiste $i", $query) !== false || $query === '*') {
-            $searchResults['artists'][] = [
-                'id' => $i,
-                'stage_name' => "Artiste Tchadien $i",
-                'profile_image' => 'assets/images/default-avatar.png',
-                'verified' => $i <= 3,
-                'total_streams' => rand(10000, 100000),
-                'track_count' => rand(5, 25)
-            ];
-        }
-    }
-    
-    // Simulation de résultats d'albums
-    for ($i = 1; $i <= 4; $i++) {
-        if (stripos("Album $i", $query) !== false || $query === '*') {
-            $searchResults['albums'][] = [
-                'id' => $i,
-                'title' => "Album Tchadien $i",
-                'artist_name' => "Artiste " . rand(1, 5),
-                'album_cover' => 'assets/images/default-cover.jpg',
-                'release_date' => date('Y-m-d', strtotime('-' . rand(30, 365) . ' days')),
-                'track_count' => rand(8, 15)
-            ];
-        }
-    }
+    $searchResults = searchContent($query, 20);
 }
 
 $totalResults = count($searchResults['tracks']) + count($searchResults['artists']) + count($searchResults['albums']);
 
-include 'includes/header.php';
+include 'includes/header-tailwind.php';
 ?>
 
-<div class="container py-4">
-    <div class="row">
-        <div class="col-12">
-            <!-- Header de recherche -->
-            <div class="search-header mb-4">
-                <div class="row align-items-center">
-                    <div class="col-lg-8">
-                        <?php if (!empty($query)): ?>
-                            <h1 class="h3 mb-2">
-                                Résultats pour <span class="text-primary">"<?php echo htmlspecialchars($query); ?>"</span>
-                            </h1>
-                            <p class="text-muted mb-0">
-                                <?php echo $totalResults; ?> résultat<?php echo $totalResults > 1 ? 's' : ''; ?> trouvé<?php echo $totalResults > 1 ? 's' : ''; ?>
-                            </p>
+<main class="pt-20 pb-16">
+    <section class="relative overflow-hidden bg-bg py-14">
+        <div class="absolute inset-0 bg-gradient-to-br from-accent/25 via-bg to-amber-400/10"></div>
+        <div class="absolute -left-24 top-10 h-64 w-64 rounded-full bg-accent/20 blur-3xl"></div>
+        <div class="absolute right-0 bottom-0 h-72 w-72 rounded-full bg-amber-400/15 blur-3xl"></div>
+
+        <div class="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="grid gap-8 lg:grid-cols-2 lg:items-center">
+                <div>
+                    <div class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-text">
+                        <i class="fas fa-search text-accent"></i>
+                        Recherche
+                    </div>
+                    <?php if (!empty($query)): ?>
+                        <h1 class="mt-5 text-3xl font-display font-bold text-text sm:text-4xl">Resultats pour "<?php echo htmlspecialchars($query); ?>"</h1>
+                        <p class="mt-3 text-sm text-muted"><?php echo $totalResults; ?> resultat<?php echo $totalResults > 1 ? 's' : ''; ?> trouves.</p>
+                    <?php else: ?>
+                        <h1 class="mt-5 text-3xl font-display font-bold text-text sm:text-4xl">Recherche musicale</h1>
+                        <p class="mt-3 text-sm text-muted">Explorez les rythmes et les talents du Tchad.</p>
+                    <?php endif; ?>
+                </div>
+                <div class="rounded-3xl border border-white/10 bg-surface/70 p-4 shadow-elev-2">
+                    <form method="GET" class="flex items-center gap-3">
+                        <div class="flex flex-1 items-center gap-3 rounded-2xl border border-white/10 bg-bg px-4 py-3">
+                            <i class="fas fa-search text-muted"></i>
+                            <input type="text" name="q" class="w-full bg-transparent text-sm text-text placeholder:text-muted focus:outline-none"
+                                   placeholder="Titres, artistes, albums..."
+                                   value="<?php echo htmlspecialchars($query); ?>"
+                                   autocomplete="off">
+                        </div>
+                        <button type="submit" class="rounded-2xl bg-accent px-5 py-3 text-sm font-semibold text-white shadow-elev-1 hover:shadow-elev-2">
+                            Rechercher
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-10">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <?php if (!empty($query)): ?>
+                <div class="flex flex-wrap gap-3">
+                    <?php
+                        $filters = [
+                            'all' => 'Tout',
+                            'tracks' => 'Titres',
+                            'artists' => 'Artistes',
+                            'albums' => 'Albums'
+                        ];
+                    ?>
+                    <?php foreach ($filters as $key => $label): ?>
+                        <?php
+                            $count = $key === 'all' ? $totalResults : count($searchResults[$key]);
+                            $active = $filter === $key;
+                        ?>
+                        <a href="?q=<?php echo urlencode($query); ?>&filter=<?php echo $key; ?>"
+                           class="rounded-full border border-white/10 px-4 py-2 text-xs font-semibold <?php echo $active ? 'bg-accent text-white' : 'bg-white/5 text-text hover:bg-white/10'; ?>">
+                            <?php echo $label; ?> (<?php echo $count; ?>)
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+
+                <?php if ($totalResults > 0): ?>
+                    <?php if (($filter === 'all' || $filter === 'tracks') && !empty($searchResults['tracks'])): ?>
+                        <section class="mt-10">
+                            <div class="flex items-center justify-between">
+                                <h2 class="text-lg font-semibold text-text">Titres</h2>
+                                <button class="text-xs font-semibold text-accent">Tout voir</button>
+                            </div>
+                            <div class="mt-4 grid gap-4 lg:grid-cols-2">
+                                <?php foreach ($searchResults['tracks'] as $track): ?>
+                                    <?php
+                                        $trackTitle = $track['title'] ?? 'Titre';
+                                        $trackArtist = $track['artist'] ?? 'Artiste';
+                                        $coverHtml = '';
+                                        if (!empty($track['album_cover'])) {
+                                            $coverPath = $track['album_cover'];
+                                            $coverUrl = (str_starts_with($coverPath, 'http://') || str_starts_with($coverPath, 'https://'))
+                                                ? $coverPath
+                                                : SITE_URL . '/' . ltrim($coverPath, '/');
+                                            $coverHtml = '<img src="' . htmlspecialchars($coverUrl) . '" alt="' . htmlspecialchars($trackTitle) . '" class="h-full w-full object-cover">';
+                                        } else {
+                                            $coverHtml = createTrackCover($trackTitle, $trackArtist, '#2F6DE0', '', 120);
+                                            $coverHtml = str_replace('class="img-fluid"', 'class="h-full w-full object-cover"', $coverHtml);
+                                        }
+                                    ?>
+                                    <div class="group flex items-center gap-4 rounded-3xl border border-white/10 bg-surface/60 p-4 shadow-elev-1">
+                                        <div class="relative h-14 w-14 overflow-hidden rounded-2xl">
+                                            <?php echo $coverHtml; ?>
+                                            <button class="absolute inset-0 flex items-center justify-center bg-black/50 text-white opacity-0 transition group-hover:opacity-100" type="button">
+                                                <i class="fas fa-play"></i>
+                                            </button>
+                                        </div>
+                                        <div class="min-w-0 flex-1">
+                                            <h3 class="truncate text-sm font-semibold text-text"><?php echo htmlspecialchars($trackTitle); ?></h3>
+                                            <p class="truncate text-xs text-muted"><?php echo htmlspecialchars($trackArtist); ?></p>
+                                        </div>
+                                        <div class="hidden text-xs text-muted sm:block">
+                                            <?php echo formatDuration($track['duration'] ?? 0); ?>
+                                        </div>
+                                        <div class="flex items-center gap-2 text-muted">
+                                            <button class="grid h-8 w-8 place-items-center rounded-full border border-white/10 bg-white/5 hover:bg-white/10" type="button">
+                                                <i class="far fa-heart"></i>
+                                            </button>
+                                            <button class="grid h-8 w-8 place-items-center rounded-full border border-white/10 bg-white/5 hover:bg-white/10" type="button">
+                                                <i class="fas fa-ellipsis-v"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </section>
+                    <?php endif; ?>
+
+                    <?php if (($filter === 'all' || $filter === 'artists') && !empty($searchResults['artists'])): ?>
+                        <section class="mt-12">
+                            <h2 class="text-lg font-semibold text-text">Artistes</h2>
+                            <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                                <?php foreach ($searchResults['artists'] as $artist): ?>
+                                    <?php
+                                        $artistName = $artist['name'] ?? 'Artiste';
+                                        $artistAvatar = '';
+                                        if (!empty($artist['profile_image'])) {
+                                            $avatarPath = $artist['profile_image'];
+                                            $avatarUrl = (str_starts_with($avatarPath, 'http://') || str_starts_with($avatarPath, 'https://'))
+                                                ? $avatarPath
+                                                : SITE_URL . '/' . ltrim($avatarPath, '/');
+                                            $artistAvatar = '<img src="' . htmlspecialchars($avatarUrl) . '" alt="' . htmlspecialchars($artistName) . '" class="h-20 w-20 rounded-full object-cover">';
+                                        } else {
+                                            $artistAvatar = createArtistAvatar($artistName, 160, '#2F6DE0');
+                                            $artistAvatar = str_replace('class=\"img-fluid rounded-circle\"', 'class=\"h-20 w-20 rounded-full object-cover\"', $artistAvatar);
+                                        }
+                                    ?>
+                                    <div class="rounded-3xl border border-white/10 bg-surface/60 p-4 text-center shadow-elev-1">
+                                        <div class="relative mx-auto h-20 w-20">
+                                            <?php echo $artistAvatar; ?>
+                                            <?php if (!empty($artist['verified'])): ?>
+                                                <span class="absolute -bottom-1 -right-1 grid h-6 w-6 place-items-center rounded-full bg-accent text-white">
+                                                    <i class="fas fa-check text-xs"></i>
+                                                </span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <h3 class="mt-4 text-sm font-semibold text-text"><?php echo htmlspecialchars($artistName); ?></h3>
+                                        <p class="text-xs text-muted">Artiste</p>
+                                        <button class="mt-3 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-text hover:bg-white/10" type="button">
+                                            Voir profil
+                                        </button>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </section>
+                    <?php endif; ?>
+
+                    <?php if (($filter === 'all' || $filter === 'albums') && !empty($searchResults['albums'])): ?>
+                        <section class="mt-12">
+                            <h2 class="text-lg font-semibold text-text">Albums</h2>
+                            <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                                <?php foreach ($searchResults['albums'] as $album): ?>
+                                    <?php
+                                        $albumTitle = $album['title'] ?? 'Album';
+                                        $albumArtist = $album['artist'] ?? 'Artiste';
+                                        $albumCover = '';
+                                        if (!empty($album['cover_image'])) {
+                                            $coverPath = $album['cover_image'];
+                                            $coverUrl = (str_starts_with($coverPath, 'http://') || str_starts_with($coverPath, 'https://'))
+                                                ? $coverPath
+                                                : SITE_URL . '/' . ltrim($coverPath, '/');
+                                            $albumCover = '<img src="' . htmlspecialchars($coverUrl) . '" alt="' . htmlspecialchars($albumTitle) . '" class="h-44 w-full object-cover transition group-hover:scale-105">';
+                                        } else {
+                                            $albumCover = createAlbumCover($albumTitle, $albumArtist, 'Album', '#2F6DE0', 300);
+                                            $albumCover = str_replace('class=\"img-fluid\"', 'class=\"h-44 w-full object-cover transition group-hover:scale-105\"', $albumCover);
+                                        }
+                                    ?>
+                                    <article class="group rounded-3xl border border-white/10 bg-surface/60 shadow-elev-1">
+                                        <div class="relative overflow-hidden rounded-3xl">
+                                            <?php echo $albumCover; ?>
+                                            <button class="absolute bottom-3 right-3 grid h-10 w-10 place-items-center rounded-full bg-accent text-white shadow-elev-1" type="button">
+                                                <i class="fas fa-play"></i>
+                                            </button>
+                                        </div>
+                                        <div class="p-4">
+                                            <h3 class="truncate text-sm font-semibold text-text"><?php echo htmlspecialchars($albumTitle); ?></h3>
+                                            <p class="text-xs text-muted"><?php echo htmlspecialchars($albumArtist); ?></p>
+                                        </div>
+                                    </article>
+                                <?php endforeach; ?>
+                            </div>
+                        </section>
+                    <?php endif; ?>
+                <?php else: ?>
+                    <div class="mt-10 rounded-3xl border border-white/10 bg-surface/60 p-10 text-center">
+                        <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-white/5 text-muted">
+                            <i class="fas fa-search text-2xl"></i>
+                        </div>
+                        <h3 class="mt-4 text-lg font-semibold text-text">Aucun resultat trouve</h3>
+                        <p class="mt-2 text-sm text-muted">Essayez avec d autres mots cles ou explorez nos suggestions.</p>
+                    </div>
+                <?php endif; ?>
+            <?php else: ?>
+                <div class="mt-8">
+                    <h2 class="text-lg font-semibold text-text">Suggestions populaires</h2>
+                    <?php
+                        $suggestedGenres = array_slice(getGenres(), 0, 4);
+                    ?>
+                    <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <?php if (empty($suggestedGenres)): ?>
+                            <div class="col-span-full rounded-3xl border border-white/10 bg-surface/60 p-6 text-center text-muted">
+                                <i class="fas fa-search text-2xl"></i>
+                                <p class="mt-2 text-sm text-muted">Aucune suggestion disponible pour le moment.</p>
+                            </div>
                         <?php else: ?>
-                            <h1 class="h3 mb-2">Recherche Musicale</h1>
-                            <p class="text-muted mb-0">Découvrez la musique tchadienne</p>
+                            <?php foreach ($suggestedGenres as $genre): ?>
+                                <?php
+                                    $genreLabel = $genre['name_french'] ?? $genre['name'] ?? 'Genre';
+                                ?>
+                                <a href="?q=<?php echo urlencode($genreLabel); ?>" class="rounded-3xl border border-white/10 bg-surface/60 p-6 text-center shadow-elev-1">
+                                    <div class="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-accent/20 text-accent">
+                                        <i class="fas fa-music"></i>
+                                    </div>
+                                    <h3 class="mt-4 text-sm font-semibold text-text"><?php echo htmlspecialchars($genreLabel); ?></h3>
+                                    <p class="text-xs text-muted">Genre</p>
+                                </a>
+                            <?php endforeach; ?>
                         <?php endif; ?>
                     </div>
-                    <div class="col-lg-4">
-                        <!-- Formulaire de recherche amélioré -->
-                        <form method="GET" class="search-form">
-                            <div class="input-group">
-                                <input type="text" name="q" class="form-control" 
-                                       placeholder="Rechercher un titre, artiste, album..." 
-                                       value="<?php echo htmlspecialchars($query); ?>"
-                                       autocomplete="off">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-search"></i>
-                                </button>
-                            </div>
-                        </form>
-                    </div>
                 </div>
-            </div>
-            
-            <?php if (!empty($query)): ?>
-            <!-- Filtres -->
-            <div class="search-filters mb-4">
-                <div class="btn-group" role="group">
-                    <a href="?q=<?php echo urlencode($query); ?>&filter=all" 
-                       class="btn <?php echo $filter === 'all' ? 'btn-primary' : 'btn-outline-primary'; ?>">
-                        Tout (<?php echo $totalResults; ?>)
-                    </a>
-                    <a href="?q=<?php echo urlencode($query); ?>&filter=tracks" 
-                       class="btn <?php echo $filter === 'tracks' ? 'btn-primary' : 'btn-outline-primary'; ?>">
-                        Titres (<?php echo count($searchResults['tracks']); ?>)
-                    </a>
-                    <a href="?q=<?php echo urlencode($query); ?>&filter=artists" 
-                       class="btn <?php echo $filter === 'artists' ? 'btn-primary' : 'btn-outline-primary'; ?>">
-                        Artistes (<?php echo count($searchResults['artists']); ?>)
-                    </a>
-                    <a href="?q=<?php echo urlencode($query); ?>&filter=albums" 
-                       class="btn <?php echo $filter === 'albums' ? 'btn-primary' : 'btn-outline-primary'; ?>">
-                        Albums (<?php echo count($searchResults['albums']); ?>)
-                    </a>
-                </div>
-            </div>
-            
-            <!-- Résultats -->
-            <?php if ($totalResults > 0): ?>
-                
-                <!-- Titres -->
-                <?php if (($filter === 'all' || $filter === 'tracks') && !empty($searchResults['tracks'])): ?>
-                <section class="search-section mb-5">
-                    <h2 class="h4 mb-3">
-                        <i class="fas fa-music me-2"></i>Titres
-                    </h2>
-                    <div class="row g-3">
-                        <?php foreach ($searchResults['tracks'] as $track): ?>
-                        <div class="col-lg-6">
-                            <div class="card border-0 shadow-sm h-100">
-                                <div class="card-body">
-                                    <div class="row align-items-center">
-                                        <div class="col-auto">
-                                            <div class="position-relative">
-                                                <img src="<?php echo SITE_URL; ?>/<?php echo $track['album_cover']; ?>" 
-                                                     alt="<?php echo htmlspecialchars($track['title']); ?>" 
-                                                     class="rounded" style="width: 60px; height: 60px; object-fit: cover;">
-                                                <button class="btn btn-primary btn-sm position-absolute top-50 start-50 translate-middle"
-                                                        onclick="playTrack(<?php echo $track['id']; ?>)"
-                                                        style="width: 30px; height: 30px; padding: 0;">
-                                                    <i class="fas fa-play" style="font-size: 12px;"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div class="col">
-                                            <h6 class="mb-1"><?php echo htmlspecialchars($track['title']); ?></h6>
-                                            <p class="text-muted mb-1 small"><?php echo htmlspecialchars($track['artist_name']); ?></p>
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <small class="text-muted">
-                                                    <i class="fas fa-play me-1"></i>
-                                                    <?php echo formatNumber($track['total_streams']); ?>
-                                                </small>
-                                                <div class="d-flex gap-2">
-                                                    <button class="btn btn-outline-primary btn-sm"
-                                                            onclick="toggleFavorite(<?php echo $track['id']; ?>, 'track')"
-                                                            title="Favoris">
-                                                        <i class="fas fa-heart"></i>
-                                                    </button>
-                                                    <?php if (!$track['is_free']): ?>
-                                                    <button class="btn btn-warning btn-sm"
-                                                            onclick="downloadTrack(<?php echo $track['id']; ?>)"
-                                                            title="Acheter">
-                                                        <i class="fas fa-download"></i>
-                                                    </button>
-                                                    <?php endif; ?>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <?php endforeach; ?>
-                    </div>
-                </section>
-                <?php endif; ?>
-                
-                <!-- Artistes -->
-                <?php if (($filter === 'all' || $filter === 'artists') && !empty($searchResults['artists'])): ?>
-                <section class="search-section mb-5">
-                    <h2 class="h4 mb-3">
-                        <i class="fas fa-users me-2"></i>Artistes
-                    </h2>
-                    <div class="row g-3">
-                        <?php foreach ($searchResults['artists'] as $artist): ?>
-                        <div class="col-lg-3 col-md-4 col-sm-6">
-                            <div class="card border-0 shadow-sm text-center h-100">
-                                <div class="card-body">
-                                    <div class="position-relative d-inline-block mb-3">
-                                        <img src="<?php echo SITE_URL; ?>/<?php echo $artist['profile_image']; ?>" 
-                                             alt="<?php echo htmlspecialchars($artist['stage_name']); ?>" 
-                                             class="rounded-circle" style="width: 80px; height: 80px; object-fit: cover;">
-                                        <?php if ($artist['verified']): ?>
-                                        <i class="fas fa-check-circle text-primary position-absolute bottom-0 end-0"></i>
-                                        <?php endif; ?>
-                                    </div>
-                                    <h6 class="mb-2"><?php echo htmlspecialchars($artist['stage_name']); ?></h6>
-                                    <p class="text-muted small mb-2"><?php echo $artist['track_count']; ?> titre<?php echo $artist['track_count'] > 1 ? 's' : ''; ?></p>
-                                    <div class="d-flex justify-content-center gap-2">
-                                        <button class="btn btn-primary btn-sm"
-                                                onclick="playTrack(<?php echo $artist['id']; ?>)">
-                                            <i class="fas fa-play"></i>
-                                        </button>
-                                        <button class="btn btn-outline-secondary btn-sm"
-                                                onclick="toggleFavorite(<?php echo $artist['id']; ?>, 'artist')">
-                                            <i class="fas fa-heart"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <?php endforeach; ?>
-                    </div>
-                </section>
-                <?php endif; ?>
-                
-                <!-- Albums -->
-                <?php if (($filter === 'all' || $filter === 'albums') && !empty($searchResults['albums'])): ?>
-                <section class="search-section mb-5">
-                    <h2 class="h4 mb-3">
-                        <i class="fas fa-compact-disc me-2"></i>Albums
-                    </h2>
-                    <div class="row g-3">
-                        <?php foreach ($searchResults['albums'] as $album): ?>
-                        <div class="col-lg-3 col-md-4 col-sm-6">
-                            <div class="card border-0 shadow-sm h-100">
-                                <div class="position-relative">
-                                    <img src="<?php echo SITE_URL; ?>/<?php echo $album['album_cover']; ?>" 
-                                         alt="<?php echo htmlspecialchars($album['title']); ?>" 
-                                         class="card-img-top" style="height: 200px; object-fit: cover;">
-                                    <div class="position-absolute top-50 start-50 translate-middle">
-                                        <button class="btn btn-primary rounded-circle"
-                                                onclick="playTrack(<?php echo $album['id']; ?>)"
-                                                style="width: 50px; height: 50px;">
-                                            <i class="fas fa-play"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div class="card-body">
-                                    <h6 class="mb-1"><?php echo htmlspecialchars($album['title']); ?></h6>
-                                    <p class="text-muted small mb-2"><?php echo htmlspecialchars($album['artist_name']); ?></p>
-                                    <small class="text-muted">
-                                        <?php echo $album['track_count']; ?> titre<?php echo $album['track_count'] > 1 ? 's' : ''; ?> • 
-                                        <?php echo date('Y', strtotime($album['release_date'])); ?>
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-                        <?php endforeach; ?>
-                    </div>
-                </section>
-                <?php endif; ?>
-                
-            <?php else: ?>
-                <!-- Aucun résultat -->
-                <div class="text-center py-5">
-                    <i class="fas fa-search text-muted" style="font-size: 4rem; opacity: 0.3;"></i>
-                    <h3 class="mt-3">Aucun résultat trouvé</h3>
-                    <p class="text-muted">Essayez avec d'autres mots-clés ou explorez nos suggestions ci-dessous.</p>
-                </div>
-            <?php endif; ?>
-            
-            <?php else: ?>
-            <!-- Suggestions quand pas de recherche -->
-            <div class="suggestions">
-                <h2 class="h4 mb-4">Suggestions Populaires</h2>
-                <div class="row g-3">
-                    <div class="col-lg-3 col-md-6">
-                        <a href="?q=afrobeat" class="card text-decoration-none border-0 shadow-sm">
-                            <div class="card-body text-center">
-                                <i class="fas fa-music text-primary fs-2 mb-3"></i>
-                                <h6>Afrobeat</h6>
-                                <small class="text-muted">Genre populaire</small>
-                            </div>
-                        </a>
-                    </div>
-                    <div class="col-lg-3 col-md-6">
-                        <a href="?q=traditionnel" class="card text-decoration-none border-0 shadow-sm">
-                            <div class="card-body text-center">
-                                <i class="fas fa-drum text-warning fs-2 mb-3"></i>
-                                <h6>Traditionnel</h6>
-                                <small class="text-muted">Musique ancestrale</small>
-                            </div>
-                        </a>
-                    </div>
-                    <div class="col-lg-3 col-md-6">
-                        <a href="?q=hip-hop" class="card text-decoration-none border-0 shadow-sm">
-                            <div class="card-body text-center">
-                                <i class="fas fa-microphone text-success fs-2 mb-3"></i>
-                                <h6>Hip-Hop</h6>
-                                <small class="text-muted">Rap tchadien</small>
-                            </div>
-                        </a>
-                    </div>
-                    <div class="col-lg-3 col-md-6">
-                        <a href="?q=gospel" class="card text-decoration-none border-0 shadow-sm">
-                            <div class="card-body text-center">
-                                <i class="fas fa-cross text-info fs-2 mb-3"></i>
-                                <h6>Gospel</h6>
-                                <small class="text-muted">Musique spirituelle</small>
-                            </div>
-                        </a>
-                    </div>
-                </div>
-            </div>
             <?php endif; ?>
         </div>
-    </div>
-</div>
+    </section>
+</main>
 
-<style>
-.search-form .input-group {
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.search-form .form-control {
-    border: none;
-    padding: 12px 16px;
-}
-
-.search-form .btn {
-    border: none;
-    padding: 12px 20px;
-}
-
-.search-section {
-    position: relative;
-}
-
-.search-section h2 {
-    color: #333;
-    font-weight: 600;
-}
-
-.card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.15) !important;
-    transition: all 0.3s ease;
-}
-
-.suggestions .card:hover {
-    background-color: #f8f9fa;
-}
-
-.btn-group .btn {
-    border-radius: 0;
-}
-
-.btn-group .btn:first-child {
-    border-top-left-radius: 6px;
-    border-bottom-left-radius: 6px;
-}
-
-.btn-group .btn:last-child {
-    border-top-right-radius: 6px;
-    border-bottom-right-radius: 6px;
-}
-</style>
-
-<?php include 'includes/footer.php'; ?>
+<?php include 'includes/footer-tailwind.php'; ?>

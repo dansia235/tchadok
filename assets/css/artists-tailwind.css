@@ -1,0 +1,86 @@
+/* Artists page Tailwind extras */
+
+.filter-pill,
+.genre-pill,
+.view-btn {
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.filter-pill.is-active {
+    background: rgba(47, 109, 224, 0.2);
+    border-color: rgba(47, 109, 224, 0.4);
+    color: #ffffff;
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
+}
+
+.genre-pill.is-active {
+    background: rgba(255, 193, 7, 0.2);
+    border-color: rgba(255, 193, 7, 0.4);
+    color: #ffffff;
+}
+
+.view-btn.is-active {
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.artists-grid.is-list {
+    grid-template-columns: 1fr;
+}
+
+.artists-grid.is-list .artist-card {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+}
+
+.artists-grid.is-list .artist-media {
+    width: 180px;
+    flex: 0 0 180px;
+}
+
+.artists-grid.is-list .artist-body {
+    margin-top: 0;
+    flex: 1;
+}
+
+.tchadok-toast {
+    position: fixed;
+    top: 84px;
+    right: 20px;
+    max-width: 320px;
+    z-index: 50;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(20, 26, 38, 0.96);
+    color: #E6EAF2;
+    padding: 12px 16px;
+    font-size: 0.85rem;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+    animation: toast-in 0.3s ease;
+}
+
+.tchadok-toast.is-hiding {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+@keyframes toast-in {
+    from { transform: translateX(30px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@media (max-width: 768px) {
+    .artists-grid.is-list .artist-card {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .artists-grid.is-list .artist-media {
+        width: 100%;
+    }
+
+    .artists-grid.is-list .artist-body {
+        margin-top: 1rem;
+    }
+}

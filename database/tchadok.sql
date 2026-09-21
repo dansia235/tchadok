@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Nov 08, 2025 at 12:47 PM
+-- Generation Time: Jan 31, 2026 at 08:43 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -41,8 +41,7 @@ CREATE TABLE `admins` (
 --
 
 INSERT INTO `admins` (`id`, `user_id`, `role`, `permissions`, `last_access`, `created_at`) VALUES
-(1, 1, 'super_admin', '[\"all\"]', NULL, '2025-06-28 14:30:07'),
-(6, NULL, 'super_admin', '[\"all\"]', NULL, '2025-06-29 19:01:32');
+(1, 1, 'super_admin', '[\"all\"]', NULL, '2025-06-28 14:30:07');
 
 -- --------------------------------------------------------
 
@@ -109,9 +108,6 @@ CREATE TABLE `artists` (
 --
 -- Dumping data for table `artists`
 --
-
-INSERT INTO `artists` (`id`, `user_id`, `stage_name`, `real_name`, `bio`, `website`, `facebook`, `instagram`, `twitter`, `youtube`, `spotify`, `birth_date`, `birth_place`, `genres`, `profile_image`, `cover_image`, `verified`, `featured`, `total_streams`, `total_sales`, `total_earnings`, `commission_rate`, `is_active`, `created_at`, `updated_at`) VALUES
-(176, 1, 'Abakar Sultan', 'Abakar Sultan', 'Artiste Traditionnel originaire du Tchad, passionné par la fusion des rythmes traditionnels et modernes.', 'https://abakarsultan.td', '@abakarsultan', '@abakarsultan', '@abakarsultan', 'abakarsultan', 'abakarsultan', NULL, 'Kelo', 'Traditionnel', NULL, NULL, 0, 0, 4173541, 0.00, 0.00, 15.00, 1, '2025-06-29 20:02:05', '2025-06-29 20:02:05');
 
 -- --------------------------------------------------------
 
@@ -226,21 +222,89 @@ CREATE TABLE `genres` (
 -- Dumping data for table `genres`
 --
 
-INSERT INTO `genres` (`id`, `name`, `name_french`, `name_arabic`, `description`, `color`, `icon`, `is_active`, `created_at`) VALUES
-(1, 'Bikutsi', 'Bikutsi', 'بيكوتسي', 'Genre musical traditionnel du Cameroun populaire au Tchad', '#FF6B35', NULL, 1, '2025-06-28 14:30:07'),
-(2, 'Coupé-Décalé', 'Coupé-Décalé', 'كوبيه ديكاليه', 'Musique de danse ivoirienne très populaire', '#2ECC71', NULL, 1, '2025-06-28 14:30:07'),
-(3, 'Afrobeat', 'Afrobeat', 'أفروبيت', 'Fusion de jazz, funk et musiques traditionnelles africaines', '#3498DB', NULL, 1, '2025-06-28 14:30:07'),
-(4, 'Makossa', 'Makossa', 'ماكوسا', 'Genre camerounais influent en Afrique Centrale', '#E74C3C', NULL, 1, '2025-06-28 14:30:07'),
-(5, 'Zouk', 'Zouk', 'زوك', 'Musique des Antilles populaire en Afrique francophone', '#9B59B6', NULL, 1, '2025-06-28 14:30:07'),
-(6, 'Rap Tchadien', 'Rap Tchadien', 'راب تشادي', 'Hip-hop avec influences locales tchadiennes', '#34495E', NULL, 1, '2025-06-28 14:30:07'),
-(7, 'Sara Traditionnel', 'Sara Traditionnel', 'سارا تقليدي', 'Musique traditionnelle du peuple Sara', '#F39C12', NULL, 1, '2025-06-28 14:30:07'),
-(8, 'Kanem', 'Kanem', 'كانم', 'Musique traditionnelle de la région du Kanem', '#E67E22', NULL, 1, '2025-06-28 14:30:07'),
-(9, 'Gospel', 'Gospel', 'الإنجيل', 'Musique chrétienne spirituelle', '#27AE60', NULL, 1, '2025-06-28 14:30:07'),
-(10, 'Afro-Pop', 'Afro-Pop', 'أفرو بوب', 'Pop africaine moderne', '#8E44AD', NULL, 1, '2025-06-28 14:30:07'),
-(11, 'Reggae', 'Reggae', 'ريغي', 'Musique jamaïcaine populaire en Afrique', '#16A085', NULL, 1, '2025-06-28 14:30:07'),
-(12, 'Salsa', 'Salsa', 'سالسا', 'Musique latine dansante', '#D35400', NULL, 1, '2025-06-28 14:30:07');
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `podcasts`
+--
+
+CREATE TABLE `podcasts` (
+  `id` int(11) NOT NULL,
+  `title` varchar(200) NOT NULL,
+  `slug` varchar(200) NOT NULL,
+  `description` text DEFAULT NULL,
+  `host_name` varchar(100) DEFAULT NULL,
+  `category` varchar(50) DEFAULT NULL,
+  `cover_image` varchar(255) DEFAULT NULL,
+  `language` varchar(50) DEFAULT NULL,
+  `is_featured` tinyint(1) DEFAULT 0,
+  `status` enum('active','inactive','archived') DEFAULT 'active',
+  `total_episodes` int(11) DEFAULT 0,
+  `total_plays` bigint(20) DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
+
+--
+-- Table structure for table `podcast_episodes`
+--
+
+CREATE TABLE `podcast_episodes` (
+  `id` int(11) NOT NULL,
+  `podcast_id` int(11) NOT NULL,
+  `title` varchar(200) NOT NULL,
+  `description` text DEFAULT NULL,
+  `audio_file` varchar(255) NOT NULL,
+  `duration` int(11) DEFAULT 0,
+  `season_number` int(11) DEFAULT 1,
+  `episode_number` int(11) DEFAULT 1,
+  `release_date` date DEFAULT NULL,
+  `is_featured` tinyint(1) DEFAULT 0,
+  `status` enum('draft','published','archived') DEFAULT 'published',
+  `total_plays` bigint(20) DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `radio_shows`
+--
+
+CREATE TABLE `radio_shows` (
+  `id` int(11) NOT NULL,
+  `title` varchar(150) NOT NULL,
+  `description` text DEFAULT NULL,
+  `host_name` varchar(100) DEFAULT NULL,
+  `host_avatar` varchar(255) DEFAULT NULL,
+  `start_time` time DEFAULT NULL,
+  `end_time` time DEFAULT NULL,
+  `days_of_week` varchar(50) DEFAULT NULL,
+  `cover_image` varchar(255) DEFAULT NULL,
+  `is_featured` tinyint(1) DEFAULT 0,
+  `status` enum('active','inactive') DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `radio_live`
+--
+
+CREATE TABLE `radio_live` (
+  `id` int(11) NOT NULL,
+  `current_track_id` int(11) DEFAULT NULL,
+  `current_show_id` int(11) DEFAULT NULL,
+  `listeners_count` int(11) DEFAULT 0,
+  `stream_url` varchar(255) DEFAULT NULL,
+  `is_live` tinyint(1) DEFAULT 1,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Table structure for table `notifications`
@@ -537,6 +601,46 @@ CREATE TABLE `transactions` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `subscriptions`
+--
+
+CREATE TABLE `subscriptions` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `plan_type` enum('monthly','yearly') NOT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `currency` varchar(3) DEFAULT 'XAF',
+  `payment_method` varchar(50) DEFAULT NULL,
+  `transaction_id` varchar(100) DEFAULT NULL,
+  `status` enum('pending','active','cancelled','expired','failed') DEFAULT 'pending',
+  `start_date` datetime DEFAULT NULL,
+  `end_date` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `payment_transactions`
+--
+
+CREATE TABLE `payment_transactions` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `subscription_id` int(11) DEFAULT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `currency` varchar(3) DEFAULT 'XAF',
+  `payment_method` varchar(50) DEFAULT NULL,
+  `transaction_id` varchar(100) DEFAULT NULL,
+  `phone_number` varchar(30) DEFAULT NULL,
+  `status` enum('pending','processing','success','failed','cancelled') DEFAULT 'pending',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `users`
 --
 
@@ -575,7 +679,8 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `username`, `email`, `password`, `password_hash`, `first_name`, `last_name`, `phone`, `country`, `city`, `profile_image`, `date_of_birth`, `gender`, `preferred_language`, `premium_status`, `premium_expires_at`, `wallet_balance`, `loyalty_points`, `email_verified`, `verification_token`, `reset_token`, `reset_expires`, `remember_token`, `is_active`, `last_login`, `created_at`, `updated_at`) VALUES
-(1, 'admin', 'admin@tchadok.td', '$2y$10$4OSzjPSWVxBpRK1KqRJu7eO.x0qZ0HQaF4Xt9aNQkclBD5lm0Cfyq', '$2y$10$iVi.d8k4JCuA7.2qioEI6uQVCDOdiCsKEMHP8LxZUruUkDgY8iBoi', 'Admin', 'Tchadok', '+235 XX XX XX XX', 'Tchad', 'N\'Djamena', NULL, NULL, NULL, 'fr', 0, NULL, 0.00, 0, 1, NULL, NULL, NULL, NULL, 1, NULL, '2025-06-28 14:30:07', '2025-06-29 19:01:31');
+(1, 'admin', 'admin@tchadok.td', '$2y$12$44Eg1vk9c72lCYqRWv9SG.NbUOZOigietSixa3vQOULB2sBy6bgHq', '$2y$12$44Eg1vk9c72lCYqRWv9SG.NbUOZOigietSixa3vQOULB2sBy6bgHq', 'Admin', 'Tchadok', '+235 XX XX XX XX', 'Tchad', 'N\'Djamena', NULL, NULL, NULL, 'fr', 0, NULL, 0.00, 0, 1, NULL, NULL, NULL, NULL, 1, NULL, '2025-06-28 14:30:07', '2025-06-28 14:30:07'),
+(2, 'user_demo', 'user@tchadok.td', '$2y$12$44Eg1vk9c72lCYqRWv9SG.NbUOZOigietSixa3vQOULB2sBy6bgHq', '$2y$12$44Eg1vk9c72lCYqRWv9SG.NbUOZOigietSixa3vQOULB2sBy6bgHq', 'Utilisateur', 'Demo', NULL, 'Tchad', 'N\'Djamena', NULL, NULL, NULL, 'fr', 0, NULL, 0.00, 0, 1, NULL, NULL, NULL, NULL, 1, NULL, '2025-11-08 12:13:35', '2025-11-08 12:13:35');
 
 -- --------------------------------------------------------
 
@@ -592,6 +697,11 @@ CREATE TABLE `user_sessions` (
   `last_activity` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `user_sessions`
+--
+
 
 -- --------------------------------------------------------
 
@@ -684,6 +794,34 @@ ALTER TABLE `genres`
   ADD UNIQUE KEY `name` (`name`);
 
 --
+-- Indexes for table `podcasts`
+--
+ALTER TABLE `podcasts`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `slug` (`slug`);
+
+--
+-- Indexes for table `podcast_episodes`
+--
+ALTER TABLE `podcast_episodes`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_podcast_id` (`podcast_id`);
+
+--
+-- Indexes for table `radio_shows`
+--
+ALTER TABLE `radio_shows`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `radio_live`
+--
+ALTER TABLE `radio_live`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_radio_track` (`current_track_id`),
+  ADD KEY `idx_radio_show` (`current_show_id`);
+
+--
 -- Indexes for table `notifications`
 --
 ALTER TABLE `notifications`
@@ -767,6 +905,23 @@ ALTER TABLE `transactions`
   ADD KEY `artist_id` (`artist_id`);
 
 --
+-- Indexes for table `subscriptions`
+--
+ALTER TABLE `subscriptions`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `user_id` (`user_id`),
+  ADD KEY `transaction_id` (`transaction_id`);
+
+--
+-- Indexes for table `payment_transactions`
+--
+ALTER TABLE `payment_transactions`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `user_id` (`user_id`),
+  ADD KEY `subscription_id` (`subscription_id`),
+  ADD KEY `transaction_id` (`transaction_id`);
+
+--
 -- Indexes for table `users`
 --
 ALTER TABLE `users`
@@ -789,7 +944,7 @@ ALTER TABLE `user_sessions`
 -- AUTO_INCREMENT for table `admins`
 --
 ALTER TABLE `admins`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `albums`
@@ -801,7 +956,7 @@ ALTER TABLE `albums`
 -- AUTO_INCREMENT for table `artists`
 --
 ALTER TABLE `artists`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=177;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `blog_comments`
@@ -837,7 +992,31 @@ ALTER TABLE `follows`
 -- AUTO_INCREMENT for table `genres`
 --
 ALTER TABLE `genres`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=50;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `podcasts`
+--
+ALTER TABLE `podcasts`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `podcast_episodes`
+--
+ALTER TABLE `podcast_episodes`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `radio_shows`
+--
+ALTER TABLE `radio_shows`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `radio_live`
+--
+ALTER TABLE `radio_live`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `notifications`
@@ -900,10 +1079,22 @@ ALTER TABLE `transactions`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `subscriptions`
+--
+ALTER TABLE `subscriptions`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `payment_transactions`
+--
+ALTER TABLE `payment_transactions`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- Constraints for dumped tables
@@ -961,6 +1152,19 @@ ALTER TABLE `notifications`
   ADD CONSTRAINT `notifications_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
 --
+-- Constraints for table `podcast_episodes`
+--
+ALTER TABLE `podcast_episodes`
+  ADD CONSTRAINT `podcast_episodes_ibfk_1` FOREIGN KEY (`podcast_id`) REFERENCES `podcasts` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `radio_live`
+--
+ALTER TABLE `radio_live`
+  ADD CONSTRAINT `radio_live_ibfk_1` FOREIGN KEY (`current_track_id`) REFERENCES `tracks` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `radio_live_ibfk_2` FOREIGN KEY (`current_show_id`) REFERENCES `radio_shows` (`id`) ON DELETE SET NULL;
+
+--
 -- Constraints for table `playlists`
 --
 ALTER TABLE `playlists`
@@ -1015,6 +1219,19 @@ ALTER TABLE `track_comments`
 ALTER TABLE `transactions`
   ADD CONSTRAINT `transactions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `transactions_ibfk_2` FOREIGN KEY (`artist_id`) REFERENCES `artists` (`id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `subscriptions`
+--
+ALTER TABLE `subscriptions`
+  ADD CONSTRAINT `subscriptions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `payment_transactions`
+--
+ALTER TABLE `payment_transactions`
+  ADD CONSTRAINT `payment_transactions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `payment_transactions_ibfk_2` FOREIGN KEY (`subscription_id`) REFERENCES `subscriptions` (`id`) ON DELETE SET NULL;
 
 --
 -- Constraints for table `user_sessions`

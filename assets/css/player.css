@@ -1,0 +1,115 @@
+/* Modern Floating Player - Tchadok Heritage */
+.audio-player {
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    background-color: rgba(255, 255, 255, 0.7) !important;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 24px;
+    margin: 0 20px 20px 20px;
+    width: calc(100% - 40px) !important;
+    height: 90px !important;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
+    transition: all var(--transition-normal);
+}
+
+/* On hover, slightly lift the player */
+.audio-player:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.18);
+    background-color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.audio-player .btn-link {
+    color: var(--dark-color) !important;
+    border: none;
+    text-decoration: none;
+    font-size: 1.1rem;
+    transition: all var(--transition-fast);
+}
+
+.audio-player .btn-link:hover {
+    color: var(--primary-color) !important;
+    transform: scale(1.15);
+}
+
+/* Modern Play/Pause Button */
+#playPauseBtn {
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--gradient-primary);
+    border: none;
+    box-shadow: 0 8px 20px rgba(0, 91, 181, 0.3);
+    transition: all var(--transition-normal);
+}
+
+#playPauseBtn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 10px 25px rgba(0, 91, 181, 0.4);
+}
+
+/* Progress Bar Styling */
+.audio-player .progress {
+    height: 6px !important;
+    border-radius: 10px;
+    background-color: rgba(0, 0, 0, 0.05);
+    cursor: pointer;
+    overflow: visible;
+}
+
+.audio-player .progress-bar {
+    background: var(--gradient-primary);
+    border-radius: 10px;
+    position: relative;
+}
+
+/* Custom Knob for progress bar */
+.audio-player .progress-bar::after {
+    content: '';
+    position: absolute;
+    right: -6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    background: white;
+    border: 3px solid var(--primary-color);
+    border-radius: 50%;
+    box-shadow: var(--shadow-sm);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.audio-player:hover .progress-bar::after {
+    opacity: 1;
+}
+
+/* Volume Slider */
+.audio-player .form-range::-webkit-slider-thumb {
+    background: var(--primary-color);
+    box-shadow: var(--shadow-sm);
+}
+
+.audio-player .form-range::-moz-range-thumb {
+    background: var(--primary-color);
+}
+
+/* Mobile Adjustments */
+@media (max-width: 768px) {
+    .audio-player {
+        margin: 0 10px 10px 10px;
+        width: calc(100% - 20px) !important;
+        height: 80px !important;
+        border-radius: 18px;
+    }
+
+    .audio-player .col-4 {
+        padding: 0 8px;
+    }
+    
+    .track-info-mini {
+        max-width: 120px;
+    }
+}

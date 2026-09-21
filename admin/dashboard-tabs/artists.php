@@ -1,14 +1,13 @@
 <?php
 // Gestion des artistes
 if ($dbConnected) {
-    // Récupération des artistes avec leurs statistiques
     $page = (int)($_GET['page'] ?? 1);
     $limit = 8;
     $offset = ($page - 1) * $limit;
-    
+
     $search = $_GET['search'] ?? '';
     $whereClause = $search ? "WHERE a.stage_name LIKE '%$search%' OR a.real_name LIKE '%$search%' OR a.genres LIKE '%$search%'" : '';
-    
+
     $artists = $pdo->query("
         SELECT a.*, u.username, u.email, u.first_name, u.last_name,
                COUNT(DISTINCT al.id) as album_count,
@@ -23,19 +22,17 @@ if ($dbConnected) {
         ORDER BY a.total_streams DESC, a.created_at DESC
         LIMIT $limit OFFSET $offset
     ")->fetchAll();
-    
+
     $totalArtists = $pdo->query("SELECT COUNT(*) FROM artists a $whereClause")->fetchColumn();
     $totalPages = ceil($totalArtists / $limit);
-    
-    // Statistiques artistes
+
     $artistStats = [
         'total' => $pdo->query("SELECT COUNT(*) FROM artists")->fetchColumn(),
         'verified' => $pdo->query("SELECT COUNT(*) FROM artists WHERE verified = 1")->fetchColumn(),
         'active' => $pdo->query("SELECT COUNT(*) FROM artists WHERE is_active = 1")->fetchColumn(),
         'featured' => $pdo->query("SELECT COUNT(*) FROM artists WHERE featured = 1")->fetchColumn(),
     ];
-    
-    // Top genres
+
     $topGenres = $pdo->query("
         SELECT genres, COUNT(*) as count 
         FROM artists 
@@ -47,361 +44,175 @@ if ($dbConnected) {
 }
 ?>
 
-<div class="row mb-4">
-    <div class="col-12">
-        <h2 class="mb-0 d-flex align-items-center">
-            <i class="fas fa-microphone me-3 text-warning"></i>
-            Gestion des Artistes
-            <span class="badge bg-warning text-dark ms-3"><?php echo number_format($artistStats['total'] ?? 0); ?> artistes</span>
-        </h2>
-        <p class="text-muted">Gérer tous les artistes et leur contenu musical</p>
+<section class="space-y-6">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+            <h2 class="text-xl font-semibold text-text">Gestion des artistes</h2>
+            <p class="text-sm text-muted">Suivi des artistes, audiences et contenus.</p>
+        </div>
+        <button class="rounded-full bg-accent px-4 py-2 text-xs font-semibold text-white shadow-elev-1" data-modal-open="addArtistModal">
+            <i class="fas fa-microphone-alt"></i>
+            Nouvel artiste
+        </button>
     </div>
-</div>
 
-<!-- Statistiques artistes -->
-<div class="row g-4 mb-4">
-    <div class="col-xl-3 col-md-6">
-        <div class="stat-card text-center">
-            <i class="fas fa-microphone fa-2x text-warning mb-3"></i>
-            <div class="stat-number"><?php echo number_format($artistStats['total'] ?? 0); ?></div>
-            <h6 class="text-muted mb-0">Total Artistes</h6>
+    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div class="rounded-3xl border border-white/10 bg-surface/70 p-4">
+            <p class="text-xs uppercase tracking-[0.2em] text-muted">Total</p>
+            <p class="mt-3 text-2xl font-semibold text-text"><?php echo number_format($artistStats['total'] ?? 0); ?></p>
+            <p class="text-xs text-muted">Artistes</p>
+        </div>
+        <div class="rounded-3xl border border-white/10 bg-surface/70 p-4">
+            <p class="text-xs uppercase tracking-[0.2em] text-muted">Verifies</p>
+            <p class="mt-3 text-2xl font-semibold text-text"><?php echo number_format($artistStats['verified'] ?? 0); ?></p>
+            <p class="text-xs text-muted">Badges valides</p>
+        </div>
+        <div class="rounded-3xl border border-white/10 bg-surface/70 p-4">
+            <p class="text-xs uppercase tracking-[0.2em] text-muted">En vedette</p>
+            <p class="mt-3 text-2xl font-semibold text-text"><?php echo number_format($artistStats['featured'] ?? 0); ?></p>
+            <p class="text-xs text-muted">Selection maison</p>
+        </div>
+        <div class="rounded-3xl border border-white/10 bg-surface/70 p-4">
+            <p class="text-xs uppercase tracking-[0.2em] text-muted">Actifs</p>
+            <p class="mt-3 text-2xl font-semibold text-text"><?php echo number_format($artistStats['active'] ?? 0); ?></p>
+            <p class="text-xs text-muted">Avec contenu</p>
         </div>
     </div>
-    <div class="col-xl-3 col-md-6">
-        <div class="stat-card text-center">
-            <i class="fas fa-certificate fa-2x text-primary mb-3"></i>
-            <div class="stat-number"><?php echo number_format($artistStats['verified'] ?? 0); ?></div>
-            <h6 class="text-muted mb-0">Vérifiés</h6>
-        </div>
-    </div>
-    <div class="col-xl-3 col-md-6">
-        <div class="stat-card text-center">
-            <i class="fas fa-star fa-2x text-info mb-3"></i>
-            <div class="stat-number"><?php echo number_format($artistStats['featured'] ?? 0); ?></div>
-            <h6 class="text-muted mb-0">En Vedette</h6>
-        </div>
-    </div>
-    <div class="col-xl-3 col-md-6">
-        <div class="stat-card text-center">
-            <i class="fas fa-music fa-2x text-success mb-3"></i>
-            <div class="stat-number"><?php echo number_format($artistStats['active'] ?? 0); ?></div>
-            <h6 class="text-muted mb-0">Actifs</h6>
-        </div>
-    </div>
-</div>
 
-<!-- Barre d'outils -->
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="chart-card">
-            <div class="row align-items-center">
-                <div class="col-md-4">
-                    <form method="GET" class="d-flex">
-                        <input type="hidden" name="tab" value="artists">
-                        <div class="input-group">
-                            <input type="text" class="form-control" name="search" placeholder="Rechercher un artiste..." 
-                                   value="<?php echo htmlspecialchars($search); ?>">
-                            <button class="btn btn-admin" type="submit">
-                                <i class="fas fa-search"></i>
-                            </button>
+    <div class="rounded-3xl border border-white/10 bg-surface/60 p-4">
+        <form method="GET" class="flex flex-wrap items-center gap-3">
+            <input type="hidden" name="tab" value="artists">
+            <div class="flex flex-1 items-center gap-2 rounded-2xl border border-white/10 bg-bg px-4 py-2">
+                <i class="fas fa-search text-muted"></i>
+                <input type="text" class="w-full bg-transparent text-sm text-text placeholder:text-muted focus:outline-none" name="search" placeholder="Rechercher un artiste..." value="<?php echo htmlspecialchars($search); ?>">
+            </div>
+            <button type="submit" class="rounded-full bg-white/10 px-4 py-2 text-xs font-semibold text-text hover:bg-white/20">
+                Rechercher
+            </button>
+        </form>
+    </div>
+
+    <?php if (!empty($artists)): ?>
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <?php foreach ($artists as $artist): ?>
+                <div class="relative rounded-3xl border border-white/10 bg-surface/60 p-4 shadow-elev-1">
+                    <div class="absolute right-4 top-4 flex flex-col gap-2 text-xs">
+                        <?php if (!empty($artist['verified'])): ?>
+                            <span class="rounded-full border border-accent/30 bg-accent/10 px-2 py-1 text-accent">Verifie</span>
+                        <?php endif; ?>
+                        <?php if (!empty($artist['featured'])): ?>
+                            <span class="rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-1 text-amber-200">Vedette</span>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="flex flex-col items-center text-center">
+                        <div class="grid h-16 w-16 place-items-center rounded-full bg-accent/20 text-sm font-semibold text-accent">
+                            <?php echo strtoupper(substr($artist['stage_name'], 0, 2)); ?>
                         </div>
-                    </form>
+                        <h3 class="mt-3 text-sm font-semibold text-text"><?php echo htmlspecialchars($artist['stage_name']); ?></h3>
+                        <?php if (!empty($artist['real_name'])): ?>
+                            <p class="text-xs text-muted"><?php echo htmlspecialchars($artist['real_name']); ?></p>
+                        <?php endif; ?>
+                        <?php if (!empty($artist['genres'])): ?>
+                            <span class="mt-2 rounded-full border border-white/10 px-2 py-1 text-xs text-muted"><?php echo htmlspecialchars($artist['genres']); ?></span>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="mt-4 grid grid-cols-3 gap-2 text-center text-xs text-muted">
+                        <div>
+                            <p class="text-sm font-semibold text-text"><?php echo $artist['album_count']; ?></p>
+                            Albums
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-text"><?php echo $artist['track_count']; ?></p>
+                            Pistes
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-text"><?php echo number_format($artist['total_streams']); ?></p>
+                            Ecoutes
+                        </div>
+                    </div>
+
+                    <div class="mt-4 flex flex-wrap justify-center gap-2">
+                        <button class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-text" onclick="viewArtist(<?php echo $artist['id']; ?>)">
+                            Profil
+                        </button>
+                        <button class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-text" onclick="editArtist(<?php echo $artist['id']; ?>)">
+                            Modifier
+                        </button>
+                        <button class="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-text" onclick="manageMusic(<?php echo $artist['id']; ?>)">
+                            Musique
+                        </button>
+                    </div>
                 </div>
-                <div class="col-md-4">
-                    <!-- Filtres -->
-                    <select class="form-select" onchange="filterArtists(this.value)">
-                        <option value="">Tous les artistes</option>
-                        <option value="verified">Vérifiés seulement</option>
-                        <option value="featured">En vedette</option>
-                        <option value="top">Top streams</option>
-                    </select>
-                </div>
-                <div class="col-md-4 text-end">
-                    <button class="btn btn-success-admin" data-bs-toggle="modal" data-bs-target="#addArtistModal">
-                        <i class="fas fa-microphone-alt me-2"></i>
-                        Nouvel Artiste
-                    </button>
-                </div>
-            </div>
+            <?php endforeach; ?>
         </div>
-    </div>
-</div>
 
-<!-- Grille des artistes -->
-<?php if (!empty($artists)): ?>
-<div class="row g-4 mb-4">
-    <?php foreach ($artists as $artist): ?>
-    <div class="col-xl-3 col-lg-4 col-md-6">
-        <div class="chart-card artist-card" style="position: relative;">
-            <!-- Badge de statut -->
-            <div class="position-absolute top-0 end-0 p-2">
-                <?php if ($artist['verified']): ?>
-                    <span class="badge bg-primary">
-                        <i class="fas fa-check-circle"></i> Vérifié
-                    </span>
-                <?php endif; ?>
-                <?php if ($artist['featured']): ?>
-                    <span class="badge bg-warning text-dark">
-                        <i class="fas fa-star"></i> Vedette
-                    </span>
-                <?php endif; ?>
+        <?php if ($totalPages > 1): ?>
+            <div class="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs">
+                <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+                    <a class="rounded-full px-3 py-1 <?php echo $i === $page ? 'bg-accent text-white' : 'border border-white/10 text-muted hover:text-text'; ?>"
+                       href="?tab=artists&page=<?php echo $i; ?>&search=<?php echo urlencode($search); ?>">
+                        <?php echo $i; ?>
+                    </a>
+                <?php endfor; ?>
             </div>
-            
-            <!-- Avatar de l'artiste -->
-            <div class="text-center mb-3">
-                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%23<?php echo substr(md5($artist['stage_name']), 0, 6); ?>'/%3E%3Ctext x='50' y='60' text-anchor='middle' font-size='20' fill='white'%3E<?php echo strtoupper(substr($artist['stage_name'], 0, 2)); ?>%3C/text%3E%3C/svg%3E" 
-                     width="80" height="80" class="rounded-circle">
-            </div>
-            
-            <!-- Informations de l'artiste -->
-            <div class="text-center">
-                <h6 class="mb-1"><?php echo htmlspecialchars($artist['stage_name']); ?></h6>
-                <?php if ($artist['real_name']): ?>
-                <small class="text-muted d-block"><?php echo htmlspecialchars($artist['real_name']); ?></small>
-                <?php endif; ?>
-                
-                <!-- Genre -->
-                <?php if ($artist['genres']): ?>
-                <span class="badge bg-secondary mt-2"><?php echo htmlspecialchars($artist['genres']); ?></span>
-                <?php endif; ?>
-            </div>
-            
-            <!-- Statistiques -->
-            <div class="row text-center mt-3">
-                <div class="col-4">
-                    <div class="stat-mini">
-                        <div class="stat-number-mini"><?php echo $artist['album_count']; ?></div>
-                        <small class="text-muted">Albums</small>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="stat-mini">
-                        <div class="stat-number-mini"><?php echo $artist['track_count']; ?></div>
-                        <small class="text-muted">Pistes</small>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="stat-mini">
-                        <div class="stat-number-mini"><?php echo number_format($artist['total_streams']); ?></div>
-                        <small class="text-muted">Écoutes</small>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Actions -->
-            <div class="text-center mt-3">
-                <div class="btn-group btn-group-sm">
-                    <button class="btn btn-outline-primary" onclick="viewArtist(<?php echo $artist['id']; ?>)" title="Voir profil">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                    <button class="btn btn-outline-warning" onclick="editArtist(<?php echo $artist['id']; ?>)" title="Modifier">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="btn btn-outline-success" onclick="manageMusic(<?php echo $artist['id']; ?>)" title="Gérer musique">
-                        <i class="fas fa-music"></i>
-                    </button>
-                    <button class="btn btn-outline-info" onclick="viewStats(<?php echo $artist['id']; ?>)" title="Statistiques">
-                        <i class="fas fa-chart-bar"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <?php endforeach; ?>
-</div>
-
-<!-- Pagination -->
-<?php if ($totalPages > 1): ?>
-<nav class="mb-4">
-    <ul class="pagination justify-content-center">
-        <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-        <li class="page-item <?php echo $i === $page ? 'active' : ''; ?>">
-            <a class="page-link" href="?tab=artists&page=<?php echo $i; ?>&search=<?php echo urlencode($search); ?>">
-                <?php echo $i; ?>
-            </a>
-        </li>
-        <?php endfor; ?>
-    </ul>
-</nav>
-<?php endif; ?>
-
-<?php else: ?>
-<div class="row">
-    <div class="col-12">
-        <div class="chart-card text-center py-5">
-            <i class="fas fa-microphone fa-4x text-muted mb-3"></i>
-            <h5 class="text-muted">Aucun artiste trouvé</h5>
-            <p class="text-muted">Aucun artiste ne correspond à vos critères de recherche.</p>
-            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addArtistModal">
+        <?php endif; ?>
+    <?php else: ?>
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
+            <i class="fas fa-microphone text-3xl text-muted"></i>
+            <p class="mt-3 text-sm text-muted">Aucun artiste trouve.</p>
+            <button class="mt-4 rounded-full bg-accent px-4 py-2 text-xs font-semibold text-white" data-modal-open="addArtistModal">
                 Ajouter le premier artiste
             </button>
         </div>
-    </div>
-</div>
-<?php endif; ?>
+    <?php endif; ?>
 
-<!-- Genres populaires -->
-<div class="row">
-    <div class="col-12">
-        <div class="chart-card">
-            <h6 class="mb-4">
-                <i class="fas fa-tags me-2 text-success"></i>
-                Genres Populaires
-            </h6>
-            
-            <?php if (!empty($topGenres)): ?>
-            <div class="row">
+    <div class="rounded-3xl border border-white/10 bg-surface/60 p-4">
+        <h3 class="text-sm font-semibold text-text"><i class="fas fa-tags text-emerald-300"></i> Genres populaires</h3>
+        <?php if (!empty($topGenres)): ?>
+            <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 <?php foreach ($topGenres as $genre): ?>
-                <div class="col-md-2 col-6 mb-3">
-                    <div class="text-center">
-                        <div class="genre-circle mb-2" style="background: linear-gradient(135deg, #<?php echo substr(md5($genre['genres']), 0, 6); ?>, #<?php echo substr(md5($genre['genres']), 6, 6); ?>);">
-                            <span class="genre-count"><?php echo $genre['count']; ?></span>
-                        </div>
-                        <small class="text-muted"><?php echo htmlspecialchars($genre['genres']); ?></small>
+                    <div class="rounded-2xl border border-white/10 bg-white/5 p-3 text-center">
+                        <p class="text-sm font-semibold text-text"><?php echo htmlspecialchars($genre['genres']); ?></p>
+                        <p class="text-xs text-muted"><?php echo $genre['count']; ?> artistes</p>
                     </div>
-                </div>
                 <?php endforeach; ?>
             </div>
-            <?php else: ?>
-            <p class="text-muted">Aucun genre disponible</p>
-            <?php endif; ?>
-        </div>
+        <?php else: ?>
+            <p class="mt-3 text-sm text-muted">Aucun genre disponible.</p>
+        <?php endif; ?>
     </div>
-</div>
-
-<style>
-.artist-card {
-    transition: all 0.3s ease;
-    cursor: pointer;
-}
-
-.artist-card:hover {
-    transform: translateY(-5px);
-}
-
-.stat-mini {
-    padding: 0.5rem 0;
-}
-
-.stat-number-mini {
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: var(--accent-color);
-}
-
-.genre-circle {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-}
-
-.genre-count {
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: white;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-</style>
+</section>
 
 <script>
 function viewArtist(artistId) {
-    // Afficher le profil complet de l'artiste
     fetch(`../api/artist.php?action=get&id=${artistId}`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                showArtistProfile(data.artist);
+                var artist = data.artist;
+                var bodyHtml = `
+                    <div class="space-y-3 text-sm text-muted">
+                        <div class="text-text font-semibold">${artist.stage_name}</div>
+                        <div>${artist.real_name || ''}</div>
+                        <div>Genres: ${artist.genres || 'N/A'}</div>
+                        <div>${artist.bio || 'Aucune biographie'}</div>
+                    </div>
+                `;
+                showDetailModal('Profil artiste', bodyHtml, '');
             }
         });
 }
 
 function editArtist(artistId) {
-    // Ouvrir le modal d'édition
-    const modal = new bootstrap.Modal(document.getElementById('editArtistModal'));
-    modal.show();
-    loadArtistForEdit(artistId);
+    AdminModal.open('editArtistModal');
+    if (typeof loadArtistForEdit === 'function') {
+        loadArtistForEdit(artistId);
+    }
 }
 
 function manageMusic(artistId) {
-    // Rediriger vers la gestion de la musique
     window.location.href = `?tab=music&artist=${artistId}`;
-}
-
-function viewStats(artistId) {
-    // Afficher les statistiques détaillées
-    fetch(`../api/artist.php?action=stats&id=${artistId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showArtistStats(data.stats);
-            }
-        });
-}
-
-function filterArtists(filter) {
-    const currentUrl = new URL(window.location);
-    if (filter) {
-        currentUrl.searchParams.set('filter', filter);
-    } else {
-        currentUrl.searchParams.delete('filter');
-    }
-    currentUrl.searchParams.set('page', '1');
-    window.location.href = currentUrl.toString();
-}
-
-function showArtistProfile(artist) {
-    // Créer et afficher un modal avec le profil complet
-    const modalHtml = `
-        <div class="modal fade" id="artistProfileModal" tabindex="-1">
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Profil - ${artist.stage_name}</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="row">
-                            <div class="col-md-4 text-center">
-                                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%23${artist.stage_name.substring(0,6)}'/%3E%3Ctext x='50' y='60' text-anchor='middle' font-size='20' fill='white'%3E${artist.stage_name.substring(0,2).toUpperCase()}%3C/text%3E%3C/svg%3E" 
-                                     width="120" height="120" class="rounded-circle mb-3">
-                                <h5>${artist.stage_name}</h5>
-                                <p class="text-muted">${artist.real_name || ''}</p>
-                            </div>
-                            <div class="col-md-8">
-                                <h6>Informations</h6>
-                                <p><strong>Genre:</strong> ${artist.genres || 'N/A'}</p>
-                                <p><strong>Bio:</strong> ${artist.bio || 'Aucune biographie'}</p>
-                                <p><strong>Membre depuis:</strong> ${new Date(artist.created_at).toLocaleDateString()}</p>
-                                
-                                <h6 class="mt-4">Réseaux sociaux</h6>
-                                <div class="d-flex gap-2">
-                                    ${artist.website ? `<a href="${artist.website}" class="btn btn-sm btn-outline-primary" target="_blank"><i class="fas fa-globe"></i></a>` : ''}
-                                    ${artist.facebook ? `<a href="${artist.facebook}" class="btn btn-sm btn-outline-primary" target="_blank"><i class="fab fa-facebook"></i></a>` : ''}
-                                    ${artist.instagram ? `<a href="${artist.instagram}" class="btn btn-sm btn-outline-primary" target="_blank"><i class="fab fa-instagram"></i></a>` : ''}
-                                    ${artist.twitter ? `<a href="${artist.twitter}" class="btn btn-sm btn-outline-primary" target="_blank"><i class="fab fa-twitter"></i></a>` : ''}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // Supprimer l'ancien modal s'il existe
-    const existingModal = document.getElementById('artistProfileModal');
-    if (existingModal) {
-        existingModal.remove();
-    }
-    
-    // Ajouter le nouveau modal
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-    const modal = new bootstrap.Modal(document.getElementById('artistProfileModal'));
-    modal.show();
 }
 </script>

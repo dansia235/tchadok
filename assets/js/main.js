@@ -116,53 +116,64 @@
     }
     
     /**
-     * Jouer un titre (version démo)
+     * Jouer un titre (version dynamique)
      */
-    window.playTrack = function(trackId, playlist = null) {
+    window.playTrack = async function(trackId, playlist = null) {
         try {
-            // Version démo - affiche une notification
-            showNotification(`🎵 Lecture du titre #${trackId}<br><small>Fonctionnalité de lecture en cours de développement</small>`, 'info', 3000);
-            
-            // Simulation d'un lecteur audio
-            console.log(`🎵 Playing track ${trackId}`);
-            
-            // Si pas connecté, proposer la connexion
-            if (!window.TCHADOK || !TCHADOK.IS_LOGGED_IN) {
-                setTimeout(() => {
-                    if (confirm('Connectez-vous pour accéder à toutes les fonctionnalités !')) {
-                        window.location.href = `${TCHADOK.SITE_URL}/login-new.php`;
-                    }
-                }, 1000);
-                return;
+            const id = parseInt(trackId, 10);
+            if (Number.isNaN(id)) return;
+
+            if (Array.isArray(playlist)) {
+                currentPlaylist = playlist;
+                currentTrackIndex = playlist.findIndex((item) => (typeof item === 'object' ? item.id : item) == id);
+                if (currentTrackIndex < 0) currentTrackIndex = 0;
+            } else {
+                currentPlaylist = [];
+                currentTrackIndex = 0;
             }
-            
+
+            const track = await fetchTrackData(id, 'resolve');
+            loadTrack(track);
         } catch (error) {
             console.error('Erreur dans playTrack:', error);
-            showNotification('Erreur lors de la lecture', 'error');
+            showNotification(error.message || 'Erreur lors de la lecture', 'error');
         }
     };
     
     /**
-     * Ajouter/Retirer des favoris (version démo)
+     * Ajouter/Retirer des favoris (version dynamique)
      */
-    window.toggleFavorite = function(itemId, type = 'track') {
+    window.toggleFavorite = async function(itemId, type = 'track') {
         try {
-            const isFavorite = Math.random() > 0.5; // Simulation
-            const message = isFavorite 
-                ? `❤️ Ajouté aux favoris`
-                : `💔 Retiré des favoris`;
-            
-            showNotification(message, 'success', 2000);
-            
-            // Mettre à jour l'icône si elle existe
-            const button = document.querySelector(`[onclick*="toggleFavorite(${itemId}"]`);
+            if (!window.TCHADOK || !TCHADOK.IS_LOGGED_IN) {
+                showNotification('Connectez-vous pour utiliser les favoris', 'warning', 2500);
+                return;
+            }
+
+            const response = await fetch(`${TCHADOK.SITE_URL}/api/playlists.php`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': TCHADOK.CSRF_TOKEN
+                },
+                body: JSON.stringify({
+                    action: 'toggle_favorite',
+                    item_id: itemId,
+                    item_type: type
+                })
+            });
+            const payload = await response.json();
+            const isFavorite = payload?.data?.is_favorite;
+
+            showNotification(isFavorite ? 'Ajouté aux favoris' : 'Retiré des favoris', 'success', 2000);
+
+            const button = document.querySelector(`[data-favorite-id="${itemId}"]`);
             if (button) {
                 const icon = button.querySelector('i');
                 if (icon) {
-                    icon.className = isFavorite ? 'fas fa-heart text-danger' : 'fas fa-heart';
+                    icon.className = isFavorite ? 'fas fa-heart text-danger' : 'far fa-heart';
                 }
             }
-            
         } catch (error) {
             console.error('Erreur dans toggleFavorite:', error);
             showNotification('Erreur lors de l\'ajout aux favoris', 'error');
@@ -170,15 +181,52 @@
     };
     
     /**
-     * Ajouter à une playlist (version démo)
+     * Ajouter à une playlist (version dynamique)
      */
-    window.addToPlaylist = function(itemId) {
+    window.addToPlaylist = async function(itemId) {
         try {
-            const playlists = ['Ma Playlist', 'Favoris Tchadiens', 'Découvertes', 'Workout'];
-            const randomPlaylist = playlists[Math.floor(Math.random() * playlists.length)];
-            
-            showNotification(`📝 Ajouté à "${randomPlaylist}"<br><small>Fonctionnalité de playlist en cours de développement</small>`, 'success', 3000);
-            
+            if (!window.TCHADOK || !TCHADOK.IS_LOGGED_IN) {
+                showNotification('Connectez-vous pour gerer vos playlists', 'warning', 2500);
+                return;
+            }
+
+            const listResponse = await fetch(`${TCHADOK.SITE_URL}/api/playlists.php?action=list`);
+            const listPayload = await listResponse.json();
+            const playlists = listPayload?.data?.playlists || [];
+
+            let playlistId = null;
+            if (playlists.length) {
+                const names = playlists.map((p) => p.name).join(', ');
+                const chosen = window.prompt(`Ajouter a quelle playlist ?\nDisponible: ${names}`);
+                if (!chosen) return;
+                const match = playlists.find((p) => p.name.toLowerCase() === chosen.toLowerCase());
+                if (match) {
+                    playlistId = match.id;
+                } else {
+                    playlistId = await createPlaylist(chosen);
+                }
+            } else {
+                const name = window.prompt('Creez votre premiere playlist:');
+                if (!name) return;
+                playlistId = await createPlaylist(name);
+            }
+
+            if (!playlistId) return;
+
+            await fetch(`${TCHADOK.SITE_URL}/api/playlists.php`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': TCHADOK.CSRF_TOKEN
+                },
+                body: JSON.stringify({
+                    action: 'add_track',
+                    playlist_id: playlistId,
+                    track_id: itemId
+                })
+            });
+
+            showNotification('Titre ajouté à la playlist', 'success', 2500);
         } catch (error) {
             console.error('Erreur dans addToPlaylist:', error);
             showNotification('Erreur lors de l\'ajout à la playlist', 'error');
@@ -186,33 +234,26 @@
     };
     
     /**
-     * Télécharger un titre (version démo)
+     * Télécharger un titre (version dynamique)
      */
-    window.downloadTrack = function(trackId) {
+    window.downloadTrack = async function(trackId) {
         try {
-            // Vérifier si l'utilisateur est connecté
             if (!window.TCHADOK || !TCHADOK.IS_LOGGED_IN) {
-                showNotification('⚠️ Connexion requise<br><small>Connectez-vous pour télécharger</small>', 'warning', 3000);
-                setTimeout(() => {
-                    if (confirm('Connectez-vous pour télécharger ce titre !')) {
-                        window.location.href = `${TCHADOK.SITE_URL}/login-new.php`;
-                    }
-                }, 1500);
+                showNotification('Connexion requise pour télécharger', 'warning', 3000);
                 return;
             }
-            
-            // Simulation d'un achat/téléchargement
-            showNotification(`💰 Achat en cours...<br><small>Titre #${trackId}</small>`, 'info', 2000);
-            
-            setTimeout(() => {
-                const success = Math.random() > 0.3; // 70% de chance de succès
-                if (success) {
-                    showNotification(`✅ Achat réussi !<br><small>Téléchargement disponible dans "Mes Achats"</small>`, 'success', 4000);
-                } else {
-                    showNotification(`❌ Échec du paiement<br><small>Vérifiez votre solde ou méthode de paiement</small>`, 'error', 3000);
-                }
-            }, 2500);
-            
+
+            const track = await fetchTrackData(trackId, 'get');
+            const isFree = Number(track.is_free) === 1;
+            const isPremium = TCHADOK.IS_PREMIUM;
+
+            if (isFree || isPremium) {
+                const fileUrl = track.audio_file?.startsWith('http') ? track.audio_file : `${TCHADOK.SITE_URL}/${track.audio_file}`;
+                window.open(fileUrl, '_blank');
+                return;
+            }
+
+            showNotification('Achat requis pour télécharger ce titre', 'warning', 3000);
         } catch (error) {
             console.error('Erreur dans downloadTrack:', error);
             showNotification('Erreur lors du téléchargement', 'error');
@@ -222,6 +263,51 @@
     /**
      * Charger un titre dans le lecteur
      */
+    async function fetchTrackData(trackId, mode = 'resolve') {
+        const endpoint = `${TCHADOK.SITE_URL}/api/track.php?action=${encodeURIComponent(mode)}&id=${encodeURIComponent(trackId)}`;
+        const response = await fetch(endpoint);
+        const payload = await response.json();
+        if (!payload.success || !payload.data) {
+            throw new Error(payload.error?.message || 'Titre introuvable');
+        }
+        return payload.data;
+    }
+
+    async function createPlaylist(name) {
+        const response = await fetch(`${TCHADOK.SITE_URL}/api/playlists.php`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': TCHADOK.CSRF_TOKEN
+            },
+            body: JSON.stringify({ action: 'create', name })
+        });
+        const payload = await response.json();
+        if (!payload.success) {
+            throw new Error(payload.error?.message || 'Erreur');
+        }
+        return payload.data?.playlist_id;
+    }
+
+    function getPlayableSource(track) {
+        const isFree = Number(track.is_free) === 1;
+        const isPremium = TCHADOK.IS_PREMIUM;
+        const price = Number(track.price || 0);
+
+        if (isFree || isPremium) {
+            return track.audio_file || track.preview_file || null;
+        }
+        if (track.preview_file) {
+            return track.preview_file;
+        }
+        if (price > 0) {
+            showNotification('Titre payant. Achat requis.', 'warning');
+            return null;
+        }
+        showNotification('Titre reserve aux abonnes Premium.', 'warning');
+        return null;
+    }
+
     function loadTrack(track) {
         currentTrack = track;
         
@@ -233,7 +319,12 @@
         
         // Créer le nouvel élément audio
         currentAudio = new Audio();
-        currentAudio.src = `${TCHADOK.SITE_URL}/${track.audio_file}`;
+        const source = getPlayableSource(track);
+        if (!source) {
+            currentAudio = null;
+            return;
+        }
+        currentAudio.src = source.startsWith('http') ? source : `${TCHADOK.SITE_URL}/${source}`;
         currentAudio.preload = 'metadata';
         
         // Événements audio
@@ -658,6 +749,11 @@
         // Modifier la couleur selon le type
         toast.className = `toast ${getToastClass(type)}`;
         
+        if (typeof bootstrap === 'undefined' || !bootstrap.Toast) {
+            console.warn('Bootstrap Toast non disponible.');
+            return;
+        }
+
         const bsToast = new bootstrap.Toast(toast, {
             autohide: true,
             delay: duration
@@ -773,12 +869,13 @@
     
     function showLoginModal() {
         const loginModal = document.getElementById('loginModal');
-        if (loginModal) {
+        if (loginModal && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
             const modal = new bootstrap.Modal(loginModal);
             modal.show();
-        } else {
-            window.location.href = `${TCHADOK.SITE_URL}/login.php`;
+            return;
         }
+
+        window.location.href = `${TCHADOK.SITE_URL}/login.php`;
     }
     
     // Gestionnaires d'événements globaux

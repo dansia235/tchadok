@@ -1,0 +1,174 @@
+/* Modern Search Page Styles - Tchadok Heritage */
+
+.page-hero--search {
+    background: var(--gradient-primary);
+    padding: 4rem 0 3rem;
+    color: var(--light-color);
+}
+
+.search-form .input-group {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all var(--transition-normal);
+}
+
+.search-form .input-group:focus-within {
+    background: rgba(255, 255, 255, 0.25);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.search-form .form-control {
+    background: transparent;
+    border: none;
+    color: var(--light-color);
+    font-size: 1.1rem;
+    padding-left: 1.5rem;
+}
+
+.search-form .form-control::placeholder {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.search-form .btn-primary {
+    border-radius: 12px !important;
+    padding: 0.75rem 1.5rem;
+    background: var(--light-color);
+    color: var(--primary-color);
+    border: none;
+    font-weight: 700;
+}
+
+.search-form .btn-primary:hover {
+    background: var(--secondary-color);
+    color: var(--dark-color);
+}
+
+/* Search Filters */
+.search-filters .btn-group {
+    background: white;
+    padding: 5px;
+    border-radius: 14px;
+    box-shadow: var(--shadow-sm);
+}
+
+.search-filters .btn {
+    border-radius: 10px !important;
+    border: none;
+    padding: 0.6rem 1.25rem;
+    font-weight: 600;
+    transition: all var(--transition-fast);
+}
+
+.search-filters .btn-outline-primary {
+    color: var(--muted-color);
+}
+
+.search-filters .btn-outline-primary:hover {
+    background: var(--gris-clair);
+    color: var(--primary-color);
+}
+
+/* Track List Item (Modern Row) */
+.search-track-row {
+    background: white;
+    border-radius: 16px;
+    padding: 12px;
+    transition: all var(--transition-normal);
+    border: 1px solid transparent;
+}
+
+.search-track-row:hover {
+    transform: translateX(8px);
+    background: white;
+    border-color: rgba(0, 91, 181, 0.1);
+    box-shadow: var(--shadow-md);
+}
+
+.search-track-image {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+}
+
+/* Artist Circle Item */
+.search-artist-card {
+    background: white;
+    border-radius: 20px;
+    padding: 2rem 1rem;
+    text-align: center;
+    transition: all var(--transition-normal);
+}
+
+.search-artist-card:hover {
+    transform: translateY(-8px);
+    box-shadow: var(--shadow-lg);
+}
+
+.search-artist-image {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 50%;
+    margin-bottom: 1rem;
+    border: 4px solid var(--gris-clair);
+    transition: all var(--transition-normal);
+}
+
+.search-artist-card:hover .search-artist-image {
+    border-color: var(--primary-color);
+    transform: scale(1.05);
+}
+
+/* Album Card Modern */
+.search-album-card {
+    border-radius: 20px;
+    overflow: hidden;
+    background: white;
+    transition: all var(--transition-normal);
+}
+
+.search-album-card:hover {
+    transform: translateY(-8px);
+    box-shadow: var(--shadow-lg);
+}
+
+.search-album-card .card-img-top {
+    height: 200px;
+    object-fit: cover;
+}
+
+.search-album-card .play-btn-floating {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+    background: var(--primary-color);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s ease;
+}
+
+.search-album-card:hover .play-btn-floating {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Empty State */
+.search-empty-icon {
+    font-size: 5rem;
+    opacity: 0.1;
+    color: var(--primary-color);
+}

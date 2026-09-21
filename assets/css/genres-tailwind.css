@@ -1,0 +1,47 @@
+/* Genres page Tailwind extras */
+
+.tab-button {
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.tab-button.is-active {
+    background: rgba(47, 109, 224, 0.2);
+    border-color: rgba(47, 109, 224, 0.4);
+    color: #ffffff;
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
+}
+
+.genre-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.genre-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.35);
+}
+
+.tchadok-toast {
+    position: fixed;
+    top: 84px;
+    right: 20px;
+    max-width: 320px;
+    z-index: 50;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(20, 26, 38, 0.96);
+    color: #E6EAF2;
+    padding: 12px 16px;
+    font-size: 0.85rem;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+    animation: toast-in 0.3s ease;
+}
+
+.tchadok-toast.is-hiding {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+@keyframes toast-in {
+    from { transform: translateX(30px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}

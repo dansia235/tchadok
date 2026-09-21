@@ -4,92 +4,122 @@
  * Affiché uniquement si l'utilisateur écoute de la musique
  */
 
+require_once __DIR__ . '/database.php';
+
 // Vérifier s'il y a une session de lecture active
 $isPlaying = false;
 $currentTrack = null;
 
-// En développement, on peut simuler une session de lecture
 if (isset($_SESSION['current_track_id']) && !empty($_SESSION['current_track_id'])) {
-    $isPlaying = true;
-    // Récupérer les informations du titre en cours (simulation)
-    $currentTrack = [
-        'id' => $_SESSION['current_track_id'],
-        'title' => 'Titre en cours',
-        'artist' => 'Artiste Tchadien',
-        'album_cover' => 'assets/images/default-cover.jpg',
-        'duration' => '3:45'
-    ];
+    $dbInstance = TchadokDatabase::getInstance();
+    $db = $dbInstance->getConnection();
+
+    if ($db) {
+        $stmt = $db->prepare("
+            SELECT t.id, t.title, t.duration,
+                   ar.stage_name AS artist,
+                   al.cover_image AS album_cover
+            FROM tracks t
+            JOIN artists ar ON t.artist_id = ar.id
+            LEFT JOIN albums al ON t.album_id = al.id
+            WHERE t.id = ?
+            LIMIT 1
+        ");
+        $stmt->execute([$_SESSION['current_track_id']]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($row) {
+            $isPlaying = true;
+            $currentTrack = [
+                'id' => $row['id'],
+                'title' => $row['title'],
+                'artist' => $row['artist'],
+                'album_cover' => $row['album_cover'] ?: DEFAULT_COVER,
+                'duration' => formatDuration((int) $row['duration'])
+            ];
+        }
+    }
 }
 ?>
 
 <?php if ($isPlaying && $currentTrack): ?>
-<!-- Lecteur Audio Fixe -->
-<div id="audioPlayer" class="audio-player position-fixed bottom-0 start-0 end-0 bg-white border-top shadow-lg" style="z-index: 1040; height: 80px;">
+<!-- Lecteur Audio Flottant -->
+<div id="audioPlayer" class="audio-player position-fixed bottom-0 start-0 end-0 shadow-lg" style="z-index: 1040;">
     <div class="container-fluid h-100">
-        <div class="row h-100 align-items-center">
+        <div class="row h-100 align-items-center px-md-4">
             <!-- Info du titre -->
-            <div class="col-md-3 col-4">
+            <div class="col-md-3 col-3">
                 <div class="d-flex align-items-center">
-                    <img src="<?php echo SITE_URL; ?>/<?php echo $currentTrack['album_cover']; ?>" 
-                         alt="<?php echo htmlspecialchars($currentTrack['title']); ?>" 
-                         class="rounded me-3" 
-                         style="width: 50px; height: 50px; object-fit: cover;">
-                    <div class="d-none d-md-block">
-                        <div class="fw-semibold text-truncate" style="max-width: 150px;">
+                    <div class="position-relative me-3 d-none d-sm-block">
+                        <img src="<?php echo SITE_URL; ?>/<?php echo $currentTrack['album_cover']; ?>" 
+                             alt="<?php echo htmlspecialchars($currentTrack['title']); ?>" 
+                             class="rounded-circle shadow-sm" 
+                             style="width: 55px; height: 55px; object-fit: cover;">
+                        <div class="playing-indicator"></div>
+                    </div>
+                    <div class="text-truncate">
+                        <div class="fw-bold text-dark text-truncate mb-0" style="font-size: 0.95rem;">
                             <?php echo htmlspecialchars($currentTrack['title']); ?>
                         </div>
-                        <div class="text-muted small text-truncate" style="max-width: 150px;">
+                        <div class="text-muted small text-truncate">
                             <?php echo htmlspecialchars($currentTrack['artist']); ?>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <!-- Contrôles -->
-            <div class="col-md-6 col-4 text-center">
-                <div class="d-flex align-items-center justify-content-center gap-3">
-                    <button class="btn btn-link text-dark p-1" id="prevBtn" title="Précédent">
-                        <i class="fas fa-step-backward"></i>
+            <!-- Contrôles Centraux -->
+            <div class="col-md-6 col-6 text-center">
+                <div class="d-flex align-items-center justify-content-center gap-2 gap-md-4 mb-1">
+                    <button class="btn btn-link d-none d-md-inline-block" id="shuffleBtn" title="Aléatoire">
+                        <i class="fas fa-random small opacity-50"></i>
+                    </button>
+
+                    <button class="btn btn-link" id="prevBtn" title="Précédent">
+                        <i class="fas fa-backward-step"></i>
                     </button>
                     
-                    <button class="btn btn-primary rounded-circle p-2" id="playPauseBtn" title="Lecture/Pause">
+                    <button class="btn btn-primary rounded-circle shadow" id="playPauseBtn" title="Lecture/Pause">
                         <i class="fas fa-pause"></i>
                     </button>
                     
-                    <button class="btn btn-link text-dark p-1" id="nextBtn" title="Suivant">
-                        <i class="fas fa-step-forward"></i>
+                    <button class="btn btn-link" id="nextBtn" title="Suivant">
+                        <i class="fas fa-forward-step"></i>
+                    </button>
+
+                    <button class="btn btn-link d-none d-md-inline-block" id="repeatBtn" title="Répéter">
+                        <i class="fas fa-repeat small opacity-50"></i>
                     </button>
                 </div>
                 
-                <!-- Barre de progression -->
-                <div class="progress mt-2" style="height: 4px;">
-                    <div class="progress-bar bg-primary" role="progressbar" style="width: 45%"></div>
-                </div>
-                
-                <!-- Temps -->
-                <div class="d-flex justify-content-between small text-muted mt-1">
-                    <span id="currentTime">1:32</span>
-                    <span id="totalTime"><?php echo $currentTrack['duration']; ?></span>
+                <!-- Barre de progression immersive -->
+                <div class="d-flex align-items-center gap-2 px-md-5">
+                    <span class="small text-muted d-none d-md-inline" style="font-size: 0.75rem;">1:32</span>
+                    <div class="progress flex-grow-1">
+                        <div class="progress-bar" role="progressbar" style="width: 45%"></div>
+                    </div>
+                    <span class="small text-muted d-none d-md-inline" style="font-size: 0.75rem;"><?php echo $currentTrack['duration']; ?></span>
                 </div>
             </div>
             
-            <!-- Actions et volume -->
-            <div class="col-md-3 col-4">
-                <div class="d-flex align-items-center justify-content-end gap-2">
-                    <button class="btn btn-link text-dark p-1 d-none d-md-inline" id="favoriteBtn" title="Favoris">
-                        <i class="fas fa-heart"></i>
+            <!-- Actions Secondaires -->
+            <div class="col-md-3 col-3">
+                <div class="d-flex align-items-center justify-content-end gap-1 gap-md-3">
+                    <button class="btn btn-link d-none d-lg-inline-block" id="favoriteBtn" title="Favoris">
+                        <i class="fas fa-heart text-danger"></i>
                     </button>
                     
-                    <button class="btn btn-link text-dark p-1 d-none d-md-inline" id="volumeBtn" title="Volume">
-                        <i class="fas fa-volume-up"></i>
-                    </button>
-                    
-                    <div class="d-none d-lg-block" style="width: 80px;">
-                        <input type="range" class="form-range" min="0" max="100" value="80" id="volumeSlider">
+                    <div class="d-none d-md-flex align-items-center gap-2 volume-container">
+                        <button class="btn btn-link p-0" id="volumeBtn">
+                            <i class="fas fa-volume-up opacity-75"></i>
+                        </button>
+                        <div style="width: 80px;">
+                            <input type="range" class="form-range" min="0" max="100" value="80" id="volumeSlider">
+                        </div>
                     </div>
                     
-                    <button class="btn btn-link text-dark p-1" id="closePlayerBtn" title="Fermer">
-                        <i class="fas fa-times"></i>
+                    <button class="btn btn-link text-danger opacity-50" id="closePlayerBtn" title="Fermer">
+                        <i class="fas fa-times-circle"></i>
                     </button>
                 </div>
             </div>
@@ -175,39 +205,8 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<style>
-.audio-player {
-    backdrop-filter: blur(10px);
-    background-color: rgba(255, 255, 255, 0.95) !important;
-}
 
-.audio-player .btn-link {
-    border: none;
-    text-decoration: none;
-}
 
-.audio-player .btn-link:hover {
-    color: var(--primary-color) !important;
-}
-
-.audio-player .progress {
-    cursor: pointer;
-}
-
-.audio-player .form-range {
-    height: 4px;
-}
-
-@media (max-width: 768px) {
-    .audio-player {
-        height: 70px;
-    }
-    
-    .audio-player .col-4 {
-        padding: 0 5px;
-    }
-}
-</style>
 
 <?php endif; ?>
 

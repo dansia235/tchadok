@@ -1,0 +1,244 @@
+/* Home Page Styles - Modern Heritage P2 */
+
+/* Hero Section Modernisée */
+.hero-section {
+    background: radial-gradient(circle at 0% 0%, rgba(0, 91, 181, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 100% 100%, rgba(255, 193, 7, 0.1) 0%, transparent 50%),
+                var(--gris-clair);
+    min-height: 95vh;
+    display: flex;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+    padding-top: 80px;
+}
+
+/* Mesh Gradient Effect */
+.hero-section::before {
+    content: '';
+    position: absolute;
+    top: -20%;
+    right: -10%;
+    width: 60%;
+    height: 80%;
+    background: radial-gradient(circle, rgba(0, 91, 181, 0.08) 0%, transparent 70%);
+    filter: blur(80px);
+    z-index: 0;
+}
+
+.hero-content {
+    position: relative;
+    z-index: 2;
+}
+
+.hero-content h1 {
+    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    font-weight: 900;
+    line-height: 1.1;
+    color: var(--dark-color);
+    letter-spacing: -0.04em;
+    margin-bottom: 1.5rem;
+}
+
+.hero-content p {
+    font-size: clamp(1.1rem, 2vw, 1.4rem);
+    color: var(--muted-color);
+    max-width: 600px;
+    line-height: 1.6;
+    margin-bottom: 2.5rem;
+}
+
+/* Hero Visual Animation */
+.hero-visual-placeholder {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    perspective: 1000px;
+}
+
+.animated-logo {
+    filter: drop-shadow(0 20px 40px rgba(0, 91, 181, 0.2));
+    animation: logoFloat 6s ease-in-out infinite;
+}
+
+@keyframes logoFloat {
+    0%, 100% { transform: translateY(0) rotateX(0) rotateY(0); }
+    50% { transform: translateY(-30px) rotateX(10deg) rotateY(10deg); }
+}
+
+/* Radio Player Section Unified */
+.radio-player {
+    background: var(--dark-color);
+    background: linear-gradient(135deg, #1A202C 0%, #0F172A 100%);
+    color: white;
+    padding: 2.5rem;
+    border-radius: var(--border-radius-lg);
+    margin: -60px 0 4rem;
+    box-shadow: var(--shadow-xl);
+    position: relative;
+    z-index: 10;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.radio-visualizer {
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.bar {
+    width: 4px;
+    background: var(--secondary-color);
+    border-radius: 4px;
+    animation: dance 1.2s ease-in-out infinite;
+    opacity: 0.8;
+}
+
+@keyframes dance {
+    0%, 100% { height: 8px; opacity: 0.4; }
+    50% { height: 35px; opacity: 1; }
+}
+
+/* Section Header Styles */
+.section-header {
+    margin-bottom: 3.5rem;
+}
+
+.section-header h2 {
+    font-size: 2.25rem;
+    font-weight: 800;
+    margin-bottom: 0.75rem;
+    letter-spacing: -0.02em;
+}
+
+/* Music Card Standardized [P2] */
+.music-card {
+    background: white;
+    border-radius: var(--border-radius-lg);
+    overflow: hidden;
+    transition: all var(--transition-normal);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid rgba(0, 0, 0, 0.03);
+    height: 100%;
+}
+
+.music-card:hover {
+    transform: translateY(-10px);
+    box-shadow: var(--shadow-lg);
+}
+
+.music-card-img {
+    position: relative;
+    aspect-ratio: 1/1;
+    overflow: hidden;
+}
+
+.play-overlay {
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.music-card:hover .play-overlay {
+    opacity: 1;
+}
+
+.play-btn {
+    width: 54px;
+    height: 54px;
+    background: var(--light-color);
+    color: var(--primary-color);
+    border-radius: 50%;
+    box-shadow: var(--shadow-md);
+}
+
+/* Artist Card Unified */
+.artist-card {
+    text-align: center;
+    transition: all var(--transition-normal);
+}
+
+.artist-img {
+    width: 140px;
+    height: 140px;
+    margin: 0 auto 1.25rem;
+    border-radius: 50%;
+    overflow: hidden;
+    padding: 6px;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    box-shadow: var(--shadow-md);
+    transition: all var(--transition-normal);
+}
+
+.artist-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 4px solid white;
+}
+
+.artist-card:hover .artist-img {
+    transform: scale(1.08) rotate(3deg);
+    box-shadow: var(--shadow-lg);
+}
+
+/* Emission Card [P2] */
+.emission-card {
+    background: white;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    border-radius: var(--border-radius-lg);
+    padding: 2rem;
+    transition: all var(--transition-normal);
+    box-shadow: var(--shadow-sm);
+}
+
+.emission-card:hover {
+    background: var(--primary-color);
+    color: white;
+    transform: translateY(-8px);
+    box-shadow: 0 15px 35px rgba(0, 91, 181, 0.2);
+}
+
+.emission-card:hover .text-light,
+.emission-card:hover h4 {
+    color: white !important;
+}
+
+.emission-time {
+    background: var(--gris-clair);
+    color: var(--primary-color);
+    padding: 0.5rem 1rem;
+    border-radius: 50px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    margin-bottom: 1.5rem;
+    display: inline-block;
+}
+
+.emission-card:hover .emission-time {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+/* Responsive Fixes */
+@media (max-width: 991px) {
+    .hero-section {
+        min-height: auto;
+        padding: 6rem 0 4rem;
+        text-align: center;
+    }
+    
+    .hero-content p {
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    .radio-player {
+        margin-top: 2rem;
+    }
+}

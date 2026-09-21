@@ -1,0 +1,37 @@
+version: "3.9"
+
+services:
+  icecast:
+    build:
+      context: ./icecast
+    container_name: tchadok-icecast
+    restart: unless-stopped
+    ports:
+      - "${ICECAST_PORT:-8000}:8000"
+    environment:
+      - ICECAST_HOSTNAME=${RADIO_DOMAIN}
+      - ICECAST_SOURCE_PASSWORD=${ICECAST_SOURCE_PASSWORD}
+      - ICECAST_ADMIN_PASSWORD=${ICECAST_ADMIN_PASSWORD}
+      - ICECAST_RELAY_PASSWORD=${ICECAST_RELAY_PASSWORD}
+      - ICECAST_ADMIN_USER=${ICECAST_ADMIN_USER}
+
+  liquidsoap:
+    image: savonet/liquidsoap:v2.3.2
+    container_name: tchadok-liquidsoap
+    restart: unless-stopped
+    depends_on:
+      - icecast
+    environment:
+      - ICECAST_HOST=icecast
+      - ICECAST_PORT=8000
+      - ICECAST_SOURCE_PASSWORD=${ICECAST_SOURCE_PASSWORD}
+      - ICECAST_MOUNT=${ICECAST_MOUNT}
+      - LIQ_HARBOR_PASSWORD=${LIQ_HARBOR_PASSWORD}
+      - SITE_URL=${SITE_URL}
+    ports:
+      - "${LIQUIDSOAP_HARBOR_PORT:-9000}:9000"
+    volumes:
+      - ./liquidsoap/radio.liq:/opt/radio/radio.liq:ro
+      - ./liquidsoap/rotation.m3u:/opt/radio/rotation.m3u:ro
+      - ./media:/opt/radio/media:ro
+    command: ["liquidsoap", "/opt/radio/radio.liq"]

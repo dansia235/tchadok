@@ -204,6 +204,18 @@ tchadok/
 - `ENABLE_DEBUG_TOOLBAR` : Afficher la barre de debug
 - `ENABLE_QUERY_LOG` : Logger les requêtes SQL
 
+### Radio Engine (Icecast/Liquidsoap)
+- `RADIO_ENGINE_ENABLED` : Active l'integration moteur de stream
+- `RADIO_STREAM_PUBLIC_URL` : URL publique du flux (ex: `https://radio.tchadok.td/tchadok.mp3`)
+- `RADIO_STREAM_FALLBACK_URL` : fallback interne (par defaut `/api/radio/stream`)
+- `ICECAST_STATUS_URL` : endpoint status JSON Icecast (ex: `http://127.0.0.1:8000/status-json.xsl`)
+- `ICECAST_ADMIN_USER` : user admin Icecast
+- `ICECAST_ADMIN_PASSWORD` : mot de passe admin Icecast
+- `RADIO_ENGINE_MOUNT` : mount du flux principal (ex: `/tchadok.mp3`)
+- `RADIO_ENGINE_TIMEOUT` : timeout de lecture status (secondes)
+- `RADIO_ENGINE_PREFER_STREAM` : priorise l'URL du moteur sur l'URL en base
+- `RADIO_ENGINE_USE_STATUS_LISTENURL` : utilise `listenurl` Icecast (a activer si DNS public resolu)
+
 ## 🧪 Scripts de Test
 
 ### Créer des Comptes de Test
