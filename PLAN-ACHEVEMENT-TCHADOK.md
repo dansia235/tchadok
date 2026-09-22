@@ -701,7 +701,23 @@ Huit requêtes publiques incluent les contenus en `draft` : lignes 101, 269, 304
 
 ### SEC-10 — Durcir la session
 
-**Charge :** 4 h · **Fichiers :** `includes/functions.php`, `includes/auth.php`
+**Charge :** 4 h · **Fichiers :** `includes/functions.php`, `includes/auth.php` · **Statut :** fait le 22/09/2026
+
+> **Bilan.** Points 1 à 6 et 8 réalisés comme prévu : identifiant régénéré à la connexion (session vidée d'abord, jeton CSRF renouvelé) et à chaque changement de mot de passe ; `use_strict_mode`, cookies seuls, pas d'identifiant dans les URL ; cookie `TCHADOKSESSID` `HttpOnly`, `SameSite=Lax`, `Secure` selon `SESSION_SECURE`, sans date d'expiration ; inactivité limitée par `SESSION_LIFETIME` (30 min par défaut) et `ADMIN_SESSION_LIFETIME` (15 min par défaut ; 2 h dans `.env.local`), avec un message sur la page de connexion expliquant pourquoi la session a été fermée ; `user_sessions.data` n'est plus rempli.
+>
+> **Écart au plan (point 7) : un registre des sessions plutôt que `password_changed_at`.** `user_sessions` devient le registre de référence : chaque session authentifiée y a une ligne, contrôlée à chaque requête (une lecture par clé primaire ; `last_activity` réécrit au plus une fois par minute). Changer son mot de passe supprime les lignes des autres sessions, qui sont fermées à leur requête suivante. Ce choix évite une migration de schéma (la colonne `password_changed_at` prévue en `DATA-02` n'est plus nécessaire), permet la révocation **d'une** session, dont l'écran « Appareils connectés » de `SEC-11` a besoin, et fait qu'une déconnexion ferme réellement la session côté serveur. Si l'inscription au registre échoue à la connexion (table absente), la session fonctionne sans possibilité de révocation plutôt que de rendre la connexion impossible ; l'incident est journalisé.
+>
+> **Traité en plus :**
+> - **La page de réinitialisation du mot de passe administrateur s'effaçait elle-même.** `admin/reset-password.php` exécutait `@unlink(__FILE__)` après la première réinitialisation réussie : la page disparaissait, et le lien « mot de passe oublié » de la console menait ensuite à une 404 pour tous les administrateurs. Supprimé ; la réinitialisation ferme désormais toutes les sessions du compte.
+> - **Changer son mot de passe laissait « se souvenir de moi » actif** sur les autres appareils, qui étaient reconnectés aussitôt. Le jeton est maintenant invalidé en même temps que les sessions.
+> - **Plus de connexion automatique pour les administrateurs** : elle contournait le délai d'inactivité de 15 min. La case est ignorée pour eux, et `checkRememberMe()` refuse les comptes administrateurs.
+> - Le cookie `remember_token` avait `Secure` forcé à `false` : en production, il aurait circulé en clair sur toute requête HTTP. Il suit désormais `SESSION_SECURE`, avec `SameSite=Lax`.
+> - **Refus d'un non-administrateur sur la console** : `Auth::logout()` détruisait la session, si bien que le formulaire réaffiché portait un jeton CSRF qui n'était plus enregistré, et l'essai suivant était refusé (403). La déconnexion vide et régénère la session au lieu de la détruire.
+> - `login.php` : messages d'erreur et de succès désormais échappés.
+>
+> **Vérifié :** `tests/securite/sec10-session.ps1` (35 contrôles, dont un vrai délai d'inactivité de 60 s obtenu en abaissant temporairement `ADMIN_SESSION_LIFETIME`, et un scénario de fixation de session) ; suites `SEC-06` (39), `SEC-08` (36), `SEC-09` (64 + 17) toujours au vert ; 19 pages publiques en 200, aucune erreur PHP. La section « se souvenir de moi » de `sec09-csrf.ps1` utilise maintenant le compte mélomane, puisqu'un administrateur n'y a plus droit.
+>
+> **Reste pour `SEC-11` :** le déni de service de `checkRememberMe()` (un bcrypt par compte porteur d'un jeton, à chaque requête) n'est pas traité ici.
 
 `session_regenerate_id()` n'apparaît **nulle part** dans le projet : l'identifiant de session est conservé entre l'état anonyme et l'état administrateur (fixation de session). `startSecureSession()` force par ailleurs `cookie_secure = 1` inconditionnellement, ce qui casse la session sur tout environnement HTTP non-localhost.
 
@@ -1064,7 +1080,7 @@ La table `users` porte `password` **et** `password_hash`, toutes deux `NOT NULL`
 2. **Convergence** — pour chaque cas, décider explicitement quelle valeur fait foi. Si les deux colonnes portent des hash valides et distincts, **forcer une réinitialisation de mot de passe** pour ce compte plutôt que d'en choisir un arbitrairement.
 3. **Bascule** — faire porter tout le code sur `password_hash` uniquement (`includes/auth.php` l. 44-51, `includes/database.php` fonction `checkAdminCredentials`, `register.php`, `api/user.php`), puis retirer la colonne `password`.
 
-**Également :** ajouter `password_changed_at` (utilisé par `SEC-10`) et vérifier que `checkAdminCredentials()` contrôle bien `is_active`, ce qu'elle ne fait pas aujourd'hui.
+**Également :** vérifier que `checkAdminCredentials()` contrôle bien `is_active`, ce qu'elle ne fait pas aujourd'hui.
 
 **Critères d'acceptation :**
 - La colonne `password` n'existe plus.

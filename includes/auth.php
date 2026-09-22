@@ -68,24 +68,36 @@ class Auth {
      * Déconnexion
      */
     public function logout() {
-        if (isLoggedIn()) {
-            // Suppression de la session en base si elle existe
-            if (isset($_SESSION['session_id'])) {
-                try {
-                    $stmt = $this->db->prepare("DELETE FROM user_sessions WHERE id = ?");
-                    $stmt->execute([$_SESSION['session_id']]);
-                } catch (Exception $e) {
-                    // Ignorer l'erreur silencieusement
-                }
+        $userId = isLoggedIn() ? (int) $_SESSION['user_id'] : null;
+
+        try {
+            $this->db->prepare('DELETE FROM user_sessions WHERE id = ?')->execute([session_id()]);
+            if ($userId !== null) {
+                // Sans cela, checkRememberMe() reconnectait l'utilisateur.
+                $this->db->prepare('UPDATE users SET remember_token = NULL WHERE id = ?')->execute([$userId]);
             }
+        } catch (Exception $e) {
+            error_log('[Tchadok][session] ' . $e->getMessage());
         }
 
-        // Destruction de la session
-        session_destroy();
+        // SEC-10 : on vide la session et on emet un nouvel identifiant, au lieu
+        // de detruire la session sans en rouvrir une. L'appelant (admin/login.php
+        // notamment) continue d'afficher une page : sans session active, le
+        // jeton CSRF genere pour cette page n'etait stocke nulle part, et le
+        // formulaire suivant echouait.
+        $_SESSION = [];
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_regenerate_id(true);
+        }
 
-        // Suppression des cookies de connexion automatique
         if (isset($_COOKIE['remember_token'])) {
-            setcookie('remember_token', '', time() - 3600, '/');
+            setcookie('remember_token', '', [
+                'expires'  => time() - 3600,
+                'path'     => '/',
+                'secure'   => EnvLoader::bool('SESSION_SECURE', true),
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
         }
 
         return true;
@@ -95,13 +107,32 @@ class Auth {
      * Démarre une session utilisateur
      */
     private function startUserSession($user, $rememberMe = false) {
+        // SEC-10 : nouvel identifiant de session a la connexion.
+        // Sans cela, l'identifiant de l'etat anonyme etait conserve apres
+        // l'authentification : un attaquant qui l'avait obtenu (ou impose,
+        // avant le mode strict) heritait de la session connectee, y compris
+        // administrateur. Les donnees de l'ancienne session sont abandonnees.
+        $ancienId = session_id();
+        $_SESSION = [];
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_regenerate_id(true);
+        }
+        if ($ancienId !== '') {
+            try {
+                $this->db->prepare('DELETE FROM user_sessions WHERE id = ?')->execute([$ancienId]);
+            } catch (Exception $e) {
+                // Registre indisponible : sans consequence ici.
+            }
+        }
+
         // SEC-09 : nouveau jeton CSRF a la connexion. Un jeton obtenu avant
         // l'authentification ne doit pas rester valide apres.
-        // (La regeneration de l'identifiant de session releve de SEC-10.)
         if (class_exists('CsrfGuard')) {
             CsrfGuard::renouveler();
         }
 
+        $_SESSION['connexion_le'] = time();
+        $_SESSION['derniere_activite'] = time();
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['username'] = $user['username'];
         $_SESSION['email'] = $user['email'];
@@ -123,29 +154,64 @@ class Auth {
             $_SESSION['user_type'] = USER_TYPE_FAN;
         }
 
-        // Enregistrement de la session en base (si la table existe)
+        // Inscription au registre des sessions (SEC-10).
+        //
+        // Le registre fait foi : validerSessionCourante() ferme toute session
+        // qui n'y figure plus. La colonne data recevait auparavant la
+        // serialisation complete de $_SESSION, jeton CSRF compris ; elle ne
+        // recoit plus rien -- l'adresse, le navigateur et l'activite ont leurs
+        // propres colonnes.
         try {
             $sessionId = session_id();
             $stmt = $this->db->prepare(
                 "REPLACE INTO user_sessions (id, user_id, ip_address, user_agent, data, last_activity)
-                 VALUES (?, ?, ?, ?, ?, NOW())"
+                 VALUES (?, ?, ?, ?, NULL, NOW())"
             );
             $stmt->execute([
                 $sessionId,
                 $user['id'],
                 $this->getClientIP(),
-                $_SERVER['HTTP_USER_AGENT'] ?? '',
-                json_encode($_SESSION)
+                substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 500),
             ]);
             $_SESSION['session_id'] = $sessionId;
+            $_SESSION['session_enregistree'] = true;
+            $_SESSION['registre_maj'] = time();
+
+            // Nettoyage opportuniste des sessions abandonnees sans deconnexion.
+            $plusLongue = max(dureeSessionOrdinaire(), dureeSessionAdministration());
+            $this->db->prepare('DELETE FROM user_sessions WHERE last_activity < (NOW() - INTERVAL ? SECOND)')
+                     ->execute([$plusLongue]);
         } catch (Exception $e) {
-            // Si la table user_sessions n'existe pas, continuer sans erreur
+            // Registre indisponible : la session fonctionne, sans revocation
+            // possible. Signale pour que l'exploitant le sache.
+            error_log('[Tchadok][session] inscription au registre impossible : ' . $e->getMessage());
         }
 
-        // Cookie de connexion automatique si demandé
+        // Cookie de connexion automatique si demande.
+        //
+        // SEC-10 : jamais pour un administrateur. La connexion automatique
+        // contournerait le delai d'inactivite de l'administration : une
+        // session fermee apres 15 minutes serait rouverte d'elle-meme.
+        if ($rememberMe && !empty($user['admin_role'])) {
+            $rememberMe = false;
+            try {
+                $this->db->prepare('UPDATE users SET remember_token = NULL WHERE id = ?')->execute([$user['id']]);
+            } catch (Exception $e) {
+                // sans consequence
+            }
+        }
         if ($rememberMe) {
             $rememberToken = generateSecureToken();
-            setcookie('remember_token', $rememberToken, time() + (30 * 24 * 60 * 60), '/', '', false, true); // 30 jours
+            // SEC-10 : secure etait force a false -- le cookie de connexion
+            // automatique circulait donc aussi en HTTP clair en production.
+            // Il suit desormais SESSION_SECURE, avec SameSite=Lax.
+            setcookie('remember_token', $rememberToken, [
+                'expires'  => time() + (30 * 24 * 60 * 60),
+                'path'     => '/',
+                'secure'   => EnvLoader::bool('SESSION_SECURE', true),
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
 
             try {
                 $stmt = $this->db->prepare("UPDATE users SET remember_token = ? WHERE id = ?");
@@ -190,6 +256,11 @@ class Auth {
 
                 while ($user = $stmt->fetch(PDO::FETCH_ASSOC)) {
                     if (verifyPassword($token, $user['remember_token'])) {
+                        // SEC-10 : pas de connexion automatique pour un
+                        // administrateur (delai d'inactivite de 15 minutes).
+                        if (!empty($user['admin_role'])) {
+                            break;
+                        }
                         $this->startUserSession($user, true);
                         return true;
                     }

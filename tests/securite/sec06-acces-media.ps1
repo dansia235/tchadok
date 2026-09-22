@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Tests d'integration SEC-06 : controle d'acces aux fichiers audio.
 
@@ -60,7 +60,7 @@ function Verif([string]$libelle, [bool]$condition, [string]$detail = '') {
 
 function CookieSession($session) {
     if (-not $session) { return $null }
-    return ($session.Cookies.GetCookies("$base/") | Where-Object Name -eq 'PHPSESSID').Value
+    return ($session.Cookies.GetCookies("$base/") | Where-Object Name -eq 'TCHADOKSESSID').Value
 }
 
 function Requete([string]$url, $session = $null, [hashtable]$entetes = @{}) {
@@ -68,7 +68,7 @@ function Requete([string]$url, $session = $null, [hashtable]$entetes = @{}) {
     $tmpCorps   = [System.IO.Path]::GetTempFileName()
     $a = @('-s', '-D', $tmpEntetes, '-o', $tmpCorps, '-w', '%{http_code}|%{size_download}', '--max-time', '60')
     $c = CookieSession $session
-    if ($c) { $a += @('-b', "PHPSESSID=$c") }
+    if ($c) { $a += @('-b', "TCHADOKSESSID=$c") }
     foreach ($k in $entetes.Keys) { $a += @('-H', "${k}: $($entetes[$k])") }
     $a += $url
     $res = & curl.exe @a

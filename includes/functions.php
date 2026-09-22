@@ -16,21 +16,41 @@ require_once __DIR__ . '/environment-guard.php';
 require_once __DIR__ . '/database.php';
 
 /**
+ * Nom du cookie de session (SEC-10).
+ * "PHPSESSID", nom par defaut, annonce la technologie du serveur.
+ */
+const TCHADOK_SESSION_COOKIE = 'TCHADOKSESSID';
+
+/** Durees d'inactivite, en secondes (SEC-10). */
+function dureeSessionOrdinaire(): int
+{
+    return max(300, class_exists('EnvLoader') ? EnvLoader::int('SESSION_LIFETIME', 1800) : 1800);
+}
+
+function dureeSessionAdministration(): int
+{
+    return max(60, class_exists('EnvLoader') ? EnvLoader::int('ADMIN_SESSION_LIFETIME', 900) : 900);
+}
+
+/**
  * Démarre une session sécurisée
  *
- * SEC-10 (point 4, avance en SEC-06) : cookie_secure etait force a 1.
- * En HTTP, le cookie de session etait donc marque "Secure" et tout client
- * respectant ce drapeau -- Firefox, Safari, curl ; seul Chrome fait une
- * exception pour localhost -- ne le renvoyait jamais. Chaque requete
- * ouvrait une nouvelle session : la connexion etait impossible en local
- * avec ces navigateurs.
+ * SEC-10.
  *
- * Le reglage suit desormais SESSION_SECURE. Sans valeur, il reste a true :
- * en cas d'oubli, on echoue du cote sur. En production, la politique
- * (includes/production-secret-policy.php) impose SESSION_SECURE=true.
+ *  - cookie_secure suit SESSION_SECURE (avance en SEC-06) : force a 1, il
+ *    rendait la connexion impossible en HTTP avec Firefox, Safari ou curl.
+ *    Sans valeur, il reste a true : en cas d'oubli, on echoue du cote sur.
+ *  - use_strict_mode : un identifiant de session qui n'a pas ete emis par
+ *    le serveur est refuse, et remplace par un nouveau. Sans cela, un
+ *    attaquant pouvait imposer a sa victime un identifiant de son choix,
+ *    puis s'en servir une fois la victime connectee (fixation de session).
+ *  - cookie renomme, sans duree (supprime a la fermeture du navigateur).
+ *  - gc_maxlifetime aligne sur la plus longue duree d'inactivite : sinon le
+ *    ramasse-miettes de PHP pouvait supprimer une session encore valide.
  *
- * Le reste de SEC-10 (regeneration d'identifiant, mode strict, duree
- * d'inactivite distincte pour l'administration) reste a faire.
+ * La regeneration de l'identifiant a la connexion est faite dans
+ * Auth::startUserSession() ; la validation de chaque requete dans
+ * validerSessionCourante().
  */
 function startSecureSession() {
     if (session_status() === PHP_SESSION_NONE) {
@@ -40,12 +60,195 @@ function startSecureSession() {
             $samesite = 'Lax';
         }
 
-        ini_set('session.cookie_httponly', '1');
-        ini_set('session.cookie_secure', $secure ? '1' : '0');
-        ini_set('session.cookie_samesite', $samesite);
+        ini_set('session.use_strict_mode', '1');
         ini_set('session.use_only_cookies', '1');
+        ini_set('session.use_trans_sid', '0');
+        ini_set('session.gc_maxlifetime', (string) max(dureeSessionOrdinaire(), dureeSessionAdministration()));
+
+        session_name(TCHADOK_SESSION_COOKIE);
+        session_set_cookie_params([
+            'lifetime' => 0,
+            'path'     => '/',
+            'secure'   => $secure,
+            'httponly' => true,
+            'samesite' => $samesite,
+        ]);
         session_start();
     }
+}
+
+/**
+ * Valide la session d'un utilisateur connecte, a chaque requete (SEC-10).
+ *
+ * 1. Inactivite : au-dela de ADMIN_SESSION_LIFETIME pour un administrateur,
+ *    de SESSION_LIFETIME pour les autres, la session est fermee.
+ * 2. Registre : la table user_sessions fait foi. Une session qui n'y figure
+ *    plus -- mot de passe change depuis un autre appareil, revocation par
+ *    l'utilisateur ou un administrateur -- est fermee.
+ *
+ * Choix de conception : le plan prevoyait une colonne password_changed_at.
+ * Le registre user_sessions existant rend le meme service sans modification
+ * de schema, et permet en plus la revocation appareil par appareil (SEC-11).
+ */
+function validerSessionCourante(): void
+{
+    if (PHP_SAPI === 'cli' || !isLoggedIn()) {
+        return;
+    }
+
+    $maintenant = time();
+    $estAdmin = ($_SESSION['user_type'] ?? '') === USER_TYPE_ADMIN;
+    $duree = $estAdmin ? dureeSessionAdministration() : dureeSessionOrdinaire();
+    $derniere = (int) ($_SESSION['derniere_activite'] ?? $maintenant);
+
+    if ($maintenant - $derniere > $duree) {
+        terminerSessionCourante('inactivite');
+        return;
+    }
+
+    // Registre : uniquement si l'inscription a reussi a la connexion. Sinon
+    // (table absente, erreur ponctuelle), la session fonctionne sans cette
+    // capacite de revocation plutot que de rendre la connexion impossible.
+    if (!empty($_SESSION['session_enregistree'])) {
+        $db = TchadokDatabase::getInstance()->getConnection();
+        if ($db) {
+            try {
+                $stmt = $db->prepare('SELECT user_id FROM user_sessions WHERE id = ? LIMIT 1');
+                $stmt->execute([session_id()]);
+                $proprietaire = $stmt->fetchColumn();
+
+                if ($proprietaire === false || (int) $proprietaire !== (int) $_SESSION['user_id']) {
+                    terminerSessionCourante('revoquee');
+                    return;
+                }
+
+                // Mise a jour de l'activite en base au plus une fois par minute :
+                // une ecriture a chaque requete serait inutilement couteuse.
+                if ($maintenant - (int) ($_SESSION['registre_maj'] ?? 0) >= 60) {
+                    $db->prepare('UPDATE user_sessions SET last_activity = NOW() WHERE id = ?')
+                       ->execute([session_id()]);
+                    $_SESSION['registre_maj'] = $maintenant;
+                }
+            } catch (Throwable $e) {
+                // Base momentanement indisponible : on ne deconnecte pas tout le
+                // monde pour autant. Le reste du site echouera de toute facon.
+                error_log('[Tchadok][session] verification du registre impossible : ' . $e->getMessage());
+            }
+        }
+    }
+
+    $_SESSION['derniere_activite'] = $maintenant;
+}
+
+/**
+ * Ferme la session courante sans detruire le mecanisme de session : les
+ * donnees sont effacees, un nouvel identifiant est emis, et le motif est
+ * conserve pour que la page de connexion l'explique a l'utilisateur.
+ */
+function terminerSessionCourante(string $motif): void
+{
+    $ancienId = session_id();
+
+    $db = TchadokDatabase::getInstance()->getConnection();
+    if ($db && $ancienId !== '') {
+        try {
+            $db->prepare('DELETE FROM user_sessions WHERE id = ?')->execute([$ancienId]);
+        } catch (Throwable $e) {
+            error_log('[Tchadok][session] ' . $e->getMessage());
+        }
+    }
+
+    $_SESSION = [];
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_regenerate_id(true);
+    }
+    $_SESSION['fin_session'] = $motif;
+    error_log(sprintf('[Tchadok][session] session fermee (%s)', $motif));
+}
+
+/**
+ * Ferme les sessions d'un utilisateur ailleurs que sur l'appareil courant,
+ * et invalide sa connexion automatique. A appeler apres tout changement de
+ * mot de passe (SEC-10).
+ *
+ * @param bool $garderCourante false quand l'appelant n'est pas l'utilisateur
+ *                             lui-meme (reinitialisation par lien, admin)
+ */
+function revoquerSessionsUtilisateur(int $userId, bool $garderCourante = true): int
+{
+    $db = TchadokDatabase::getInstance()->getConnection();
+    if (!$db) {
+        return 0;
+    }
+
+    try {
+        if ($garderCourante && session_id() !== '') {
+            $stmt = $db->prepare('DELETE FROM user_sessions WHERE user_id = ? AND id <> ?');
+            $stmt->execute([$userId, session_id()]);
+        } else {
+            $stmt = $db->prepare('DELETE FROM user_sessions WHERE user_id = ?');
+            $stmt->execute([$userId]);
+        }
+        $nombre = $stmt->rowCount();
+
+        // Un cookie "se souvenir de moi" vole ne doit pas survivre au
+        // changement de mot de passe. La refonte du mecanisme releve de SEC-11.
+        $db->prepare('UPDATE users SET remember_token = NULL WHERE id = ?')->execute([$userId]);
+
+        error_log(sprintf('[Tchadok][session] %d session(s) revoquee(s) pour l\'utilisateur %d', $nombre, $userId));
+        return $nombre;
+    } catch (Throwable $e) {
+        error_log('[Tchadok][session] revocation impossible : ' . $e->getMessage());
+        return 0;
+    }
+}
+
+/**
+ * Emet un nouvel identifiant pour la session courante en conservant ses
+ * donnees, et reporte le changement dans le registre (SEC-10).
+ *
+ * A utiliser apres un changement de mot de passe ou de privilege : si
+ * l'ancien identifiant avait fuite, il ne sert plus a rien. Sans la mise a
+ * jour du registre, validerSessionCourante() fermerait la session a la
+ * requete suivante, l'identifiant n'y figurant plus.
+ */
+function renouvelerIdentifiantSession(): void
+{
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        return;
+    }
+    $ancienId = session_id();
+    session_regenerate_id(true);
+    $nouvelId = session_id();
+
+    if (!empty($_SESSION['session_enregistree'])) {
+        $db = TchadokDatabase::getInstance()->getConnection();
+        if ($db) {
+            try {
+                $db->prepare('UPDATE user_sessions SET id = ?, last_activity = NOW() WHERE id = ?')
+                   ->execute([$nouvelId, $ancienId]);
+                $_SESSION['session_id'] = $nouvelId;
+            } catch (Throwable $e) {
+                error_log('[Tchadok][session] ' . $e->getMessage());
+            }
+        }
+    }
+}
+
+/**
+ * Message a afficher sur la page de connexion apres une fermeture de
+ * session, puis efface (lecture unique). Null si rien a signaler.
+ */
+function messageFinSession(): ?string
+{
+    $motif = $_SESSION['fin_session'] ?? null;
+    unset($_SESSION['fin_session']);
+
+    return match ($motif) {
+        'inactivite' => 'Votre session a ete fermee apres une periode d\'inactivite. Reconnectez-vous pour continuer.',
+        'revoquee'   => 'Votre session a ete fermee : le mot de passe du compte a ete modifie, ou la session a ete revoquee.',
+        default      => null,
+    };
 }
 
 /**
@@ -532,6 +735,12 @@ function displayFlashMessages() {
 
 // Initialisation de la session
 startSecureSession();
+
+// SEC-10 : inactivite et registre des sessions. AVANT la garde CSRF : une
+// session fermee pour inactivite perd son jeton, et une requete envoyee
+// depuis un formulaire reste ouvert trop longtemps est alors refusee avec le
+// message "session expiree", qui est le bon.
+validerSessionCourante();
 
 // SEC-09 : verification CSRF de toute requete modifiante, AVANT l'execution
 // du point d'entree. Placee apres le demarrage de la session, qui porte le

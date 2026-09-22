@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Tests d'integration SEC-09 : protection CSRF centralisee.
 
@@ -151,16 +151,17 @@ Verif "Message 'trop volumineux'" ((Get-Content $tmp -Raw) -match 'volumineux') 
 [System.IO.File]::Delete($gros); [System.IO.File]::Delete($tmp)
 
 Write-Output "`n=== I. Deconnexion ==="
-function Connecter([bool]$souvenir) {
+function Connecter([bool]$souvenir, [string]$email = 'admin@tchadok.td') {
     $x = NouvelleSession
-    $champs = @("csrf_token=$($x.Jeton)", 'email=admin@tchadok.td', 'password=tchadok2026')
+    $champs = @("csrf_token=$($x.Jeton)", "email=$email", 'password=tchadok2026')
     if ($souvenir) { $champs += 'remember=1' }
     $null = Poster $x '/login.php' $champs
     # Recuperer le jeton renouvele apres connexion
     foreach ($l in (& curl.exe -s -c $x.Jar -b $x.Jar "$base/")) { if ($l -match 'name="csrf-token" content="([a-f0-9]+)"') { $x.Jeton = $matches[1]; break } }
     return $x
 }
-function EstConnecte($x) { return ((& curl.exe -s -o NUL -w '%{http_code}' -c $x.Jar -b $x.Jar "$base/admin-dashboard.php") -eq '200') }
+# admin-dashboard.php pour l'administrateur, settings.php pour un compte ordinaire
+function EstConnecte($x, [string]$page = '/admin-dashboard.php') { return ((& curl.exe -s -o NUL -w '%{http_code}' -c $x.Jar -b $x.Jar "$base$page") -eq '200') }
 
 $d = Connecter $false
 Verif "Prealable : connecte" (EstConnecte $d)
@@ -173,11 +174,12 @@ Verif "POST logout.php avec jeton -> redirection" ($r.Code -eq 302) $r.Code
 Verif "Apres deconnexion : plus connecte" (-not (EstConnecte $d))
 
 Write-Output "`n--- Se souvenir de moi ---"
-$m = Connecter $true
+# Compte ordinaire : depuis SEC-10, un administrateur n'a jamais de connexion automatique.
+$m = Connecter $true 'user@tchadok.td'
 $cookieSouvenir = (Get-Content $m.Jar | Where-Object { $_ -match 'remember_token' }) -ne $null
 Verif "Prealable : cookie remember_token pose" $cookieSouvenir
 $null = Poster $m '/logout.php' @("csrf_token=$($m.Jeton)")
-Verif "Apres deconnexion : pas de reconnexion automatique" (-not (EstConnecte $m))
+Verif "Apres deconnexion : pas de reconnexion automatique" (-not (EstConnecte $m '/settings.php'))
 $reste = (Get-Content $m.Jar | Where-Object { $_ -match 'remember_token\s+\S+' -and $_ -notmatch 'remember_token\s*$' })
 Verif "Cookie remember_token supprime" (-not $reste)
 

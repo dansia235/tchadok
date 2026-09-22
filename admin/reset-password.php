@@ -113,12 +113,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
                 $update->execute([$newHash, $newHash, $user['id']]);
 
+                // SEC-10 : toutes les sessions du compte sont fermees. La personne
+                // qui reinitialise n'est pas connectee : rien a conserver.
+                revoquerSessionsUtilisateur((int) $user['id'], false);
+
+                // Cette page se supprimait elle-meme ici (unlink(__FILE__)) apres
+                // chaque succes. Or admin/login.php n'affiche le lien "mot de passe
+                // oublie" que si ce fichier existe : apres UNE reinitialisation,
+                // plus aucun administrateur ne pouvait reinitialiser le sien.
+                // Supprimer un fichier de la racine web a l'execution est par
+                // ailleurs une pratique a proscrire. Retire.
                 $success = 'Mot de passe reinitialise avec succes. Vous pouvez vous connecter.';
-                if (@unlink(__FILE__)) {
-                    $success .= ' La page de reinitialisation a ete supprimee.';
-                } else {
-                    $success .= ' La page n\'a pas pu etre supprimee automatiquement.';
-                }
                 $mode = 'request';
                 $email = '';
                 $token = '';

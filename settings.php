@@ -88,7 +88,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
                 $stmt->execute([$newPasswordHash, $newPasswordHash, $userId]);
 
-                $success = 'Mot de passe modifie avec succes !';
+                // SEC-10 : les autres appareils sont deconnectes, et la session
+                // courante recoit un nouvel identifiant. Si le mot de passe est
+                // change parce qu'il a fuite, une session ouverte ailleurs par un
+                // tiers ne doit pas survivre au changement.
+                $revoquees = revoquerSessionsUtilisateur((int) $userId, true);
+                renouvelerIdentifiantSession();
+
+                $success = 'Mot de passe modifie avec succes !'
+                    . ($revoquees > 0 ? " {$revoquees} autre(s) session(s) ont ete fermee(s)." : '');
             }
         } catch (Exception $e) {
             $error = 'Une erreur est survenue lors de la modification du mot de passe.';

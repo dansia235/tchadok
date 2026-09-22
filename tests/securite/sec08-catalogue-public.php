@@ -194,7 +194,7 @@ try {
     $page = @file_get_contents($site . '/login.php', false, stream_context_create(['http' => ['timeout' => 15]]));
     $cookie = '';
     foreach ($http_response_header ?? [] as $entete) {
-        if (preg_match('/^Set-Cookie:\s*(PHPSESSID=[^;]+)/i', $entete, $m)) {
+        if (preg_match('/^Set-Cookie:\s*(TCHADOKSESSID=[^;]+)/i', $entete, $m)) {
             $cookie = $m[1];
         }
     }

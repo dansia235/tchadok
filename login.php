@@ -17,6 +17,8 @@ if (isLoggedIn()) {
 
 $error = '';
 $success = '';
+// SEC-10 : raison d'une fermeture de session (inactivite, revocation).
+$info = messageFinSession() ?? '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = sanitizeInput($_POST['email'] ?? '');
@@ -130,17 +132,24 @@ include 'includes/header-tailwind.php';
                             <p class="mt-2 text-sm text-muted">Accedez a votre univers musical tchadien.</p>
                         </div>
 
+                        <?php if ($info): ?>
+                            <div class="alert alert-info mt-6" role="status" data-fin-session>
+                                <i class="fas fa-clock mt-0.5" aria-hidden="true"></i>
+                                <span><?php echo htmlspecialchars($info, ENT_QUOTES, 'UTF-8'); ?></span>
+                            </div>
+                        <?php endif; ?>
+
                         <?php if ($error): ?>
-                            <div class="alert alert-danger mt-6">
-                                <i class="fas fa-exclamation-triangle mt-0.5"></i>
-                                <span><?php echo $error; ?></span>
+                            <div class="alert alert-danger mt-6" role="alert">
+                                <i class="fas fa-exclamation-triangle mt-0.5" aria-hidden="true"></i>
+                                <span><?php echo htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?></span>
                             </div>
                         <?php endif; ?>
 
                         <?php if ($success): ?>
-                            <div class="alert alert-success mt-6">
-                                <i class="fas fa-check-circle mt-0.5"></i>
-                                <span><?php echo $success; ?></span>
+                            <div class="alert alert-success mt-6" role="status">
+                                <i class="fas fa-check-circle mt-0.5" aria-hidden="true"></i>
+                                <span><?php echo htmlspecialchars($success, ENT_QUOTES, 'UTF-8'); ?></span>
                             </div>
                         <?php endif; ?>
 

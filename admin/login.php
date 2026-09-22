@@ -13,6 +13,9 @@ if (isLoggedIn() && isAdmin()) {
 }
 
 $error = '';
+// SEC-10 : raison d'une fermeture de session. Les sessions d'administration
+// sont fermees apres ADMIN_SESSION_LIFETIME d'inactivite (15 min en production).
+$info = messageFinSession() ?? '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? '');
@@ -59,6 +62,13 @@ include '../includes/header-tailwind.php';
                     <p class="text-sm text-muted">Acces reserve aux administrateurs</p>
                 </div>
             </div>
+
+            <?php if ($info): ?>
+                <div class="mt-6 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100" role="status" data-fin-session>
+                    <i class="fas fa-clock" aria-hidden="true"></i>
+                    <span class="ml-2"><?php echo htmlspecialchars($info, ENT_QUOTES, 'UTF-8'); ?></span>
+                </div>
+            <?php endif; ?>
 
             <?php if ($error): ?>
                 <div class="mt-6 rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">

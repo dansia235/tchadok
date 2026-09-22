@@ -100,8 +100,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             ");
                             $stmt->execute([$newPasswordHash, $newPasswordHash, $userId]);
 
+                            // SEC-10 : autres appareils deconnectes, nouvel
+                            // identifiant pour la session courante.
+                            $revoquees = revoquerSessionsUtilisateur((int) $userId, true);
+                            renouvelerIdentifiantSession();
+
                             $_SESSION['strong_password'] = true;
-                            $message = 'Mot de passe modifié avec succès';
+                            $message = 'Mot de passe modifié avec succès'
+                                . ($revoquees > 0 ? " ({$revoquees} autre(s) session(s) fermée(s))" : '');
                             $messageType = 'success';
                         }
                     } catch (Exception $e) {
