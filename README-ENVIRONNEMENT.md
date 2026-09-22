@@ -216,18 +216,24 @@ tchadok/
 - `RADIO_ENGINE_PREFER_STREAM` : priorise l'URL du moteur sur l'URL en base
 - `RADIO_ENGINE_USE_STATUS_LISTENURL` : utilise `listenurl` Icecast (a activer si DNS public resolu)
 
-## 🧪 Scripts de Test
+## 🧪 Comptes de test
 
-### Créer des Comptes de Test
+> **Modifié le 21/09/2026 (SEC-02).** La page web `admin/create-test-accounts.php`
+> a été supprimée, ainsi que les scripts `sql/create-test-accounts*.sql`.
+> Les comptes qu'ils créaient partageaient tous un mot de passe unique et
+> documenté comme public.
 
-**Uniquement en développement :**
-```
-http://localhost/tchadok/admin/create-test-accounts.php
-```
+La création d'un compte administrateur passera par une commande en ligne de
+commande (`scripts/create-admin.php`, tâche `SEC-05`), qui impose un mot de
+passe fort et refuse de s'exécuter via HTTP.
 
-Ce script vérifie que :
-- `APP_ENV=development`
-- `ENABLE_TEST_ACCOUNTS=true`
+Le jeu de démonstration sera fourni dans `database/seeds/demo.sql`, jamais
+importé en production.
+
+> Ce document décrit encore l'ancien mécanisme de configuration (fichier `.env`
+> unique). Il sera entièrement réécrit à la tâche `CFG-06`, après la mise en
+> place de `.env.local` / `.env.production`. En attendant, se reporter à
+> `docs/exploitation/pre-requis.md` pour l'installation locale.
 
 ## 🆘 Dépannage
 

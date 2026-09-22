@@ -76,10 +76,11 @@ if (!defined('SESSION_LIFETIME')) {
 }
 
 // Configuration email
-define('SMTP_HOST', 'smtp.gmail.com');
-define('SMTP_PORT', 587);
-define('SMTP_USERNAME', 'noreply@tchadok.td');
-define('SMTP_PASSWORD', 'your_email_password');
+// SEC-03 : les identifiants SMTP ne sont plus ecrits en dur ici.
+// Ils sont lus depuis le fichier d'environnement (MAIL_HOST, MAIL_PORT,
+// MAIL_USERNAME, MAIL_PASSWORD, MAIL_ENCRYPTION) par la couche d'envoi.
+// Ces constantes n'etaient utilisees par aucun fichier du projet :
+// sendEmail() s'appuie sur mail(), ce que QA-02 corrigera.
 
 // Réseaux sociaux officiels
 define('FACEBOOK_URL', 'https://facebook.com/TchadokOfficial');
@@ -105,8 +106,11 @@ define('SUPPORTED_LANGUAGES', [
 
 // Configuration sécurité
 define('BCRYPT_COST', 12);
-define('JWT_SECRET', 'tchadok_jwt_secret_key_2024');
-define('JWT_EXPIRE_TIME', 3600); // 1 heure
+// SEC-03 : JWT_SECRET etait ecrit en dur ('tchadok_jwt_secret_key_2024')
+// et versionne dans Git, donc public. La constante n'etait utilisee par
+// aucun fichier du projet : elle est supprimee plutot que deplacee.
+// Si une authentification par jeton est introduite plus tard, la cle
+// devra etre lue par env('JWT_SECRET') sans valeur de repli.
 
 // Messages flash
 define('FLASH_SUCCESS', 'success');

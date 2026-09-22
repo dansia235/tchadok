@@ -1883,22 +1883,42 @@ Table `daily_rollups`, portant les dimensions du baromètre : **date, titre, sor
 
 ---
 
-### STAT-06 — Réparer les compteurs dénormalisés
+### STAT-06 — Retirer les triggers et reconstruire les compteurs
 
-**Charge :** 1,5 j · **Dépend de :** `STAT-05`
+**Charge :** 2 j · **Dépend de :** `STAT-05`, `DATA-01`
 
-Recherche exhaustive : **zéro** écriture applicative sur `tracks.total_streams`, `tracks.total_sales`, `tracks.total_downloads`, `albums.total_streams`, `albums.total_sales`, `albums.total_tracks`, `albums.total_duration`, `artists.total_streams`, `artists.total_sales`, `artists.total_earnings`. Tous les KPI de tous les dashboards affichent donc 0, ou la valeur figée du dump.
+> **Tâche révisée le 21/09/2026.** Sa formulation initiale reposait sur un constat erroné de l'audit (« aucune écriture sur les compteurs »). La vérification faite lors de l'import local a montré que `database/tchadok.sql` installe **trois triggers** qui maintiennent une partie de ces colonnes. Le travail à faire change de nature : il ne s'agit pas d'ajouter une mise à jour manquante, mais de **remplacer une mise à jour non filtrée** par une chaîne contrôlable.
+
+**État réel :**
+
+| Colonne | Alimentée par |
+|---|---|
+| `tracks.total_streams`, `artists.total_streams`, `albums.total_streams` | trigger `update_stream_stats`, `AFTER INSERT ON streams` |
+| `tracks.total_sales`, `albums.total_sales`, `artists.total_sales` | trigger `update_purchase_stats`, `AFTER INSERT ON purchases` |
+| `albums.total_tracks` | trigger `update_album_tracks_count`, `AFTER INSERT ON tracks` |
+| `tracks.total_downloads`, `albums.total_duration`, `artists.total_earnings` | **rien** — toujours à 0 |
+
+**Défauts à corriger :**
+1. Les triggers incrémentent depuis la **donnée brute**, sans seuil de durée, sans déduplication, sans filtre anti-fraude. Le compteur public est donc directement piloté par `api/stream.php`, endpoint ouvert (P0-11).
+2. Ils ne se déclenchent qu'à l'`INSERT` : un achat `pending` incrémente les ventes, un paiement échoué ou remboursé ne les décrémente jamais, et retirer un titre d'un album laisse `total_tracks` faux.
+3. `artists.total_sales` accumule un **montant en FCFA** tandis que `tracks.total_sales` et `albums.total_sales` comptent des **unités**. Toute agrégation croisant ces colonnes est fausse.
+4. La logique vit dans la base : invisible depuis le code, hors des tests, hors de la revue, et **non reconstructible** après une correction de données.
 
 **À faire :**
-1. Mise à jour incrémentale de ces compteurs depuis les rollups, par tâche planifiée.
-2. `albums.total_tracks` et `total_duration` recalculés à l'ajout ou au retrait d'un titre.
-3. Commande de **reconstruction intégrale** (`scripts/rebuild-counters.php`) : ces colonnes sont un cache, jamais la source de vérité, et doivent être reconstructibles à tout moment.
-4. Contrôle de cohérence périodique comparant compteurs et rollups, avec alerte en cas de dérive.
+1. **Retirer les trois triggers** par migration (`DATA-01`), avec la section `-- DOWN` correspondante.
+2. Reprendre leur logique, explicitement, dans le recalcul depuis les rollups (`STAT-05`) : incrémental par tâche planifiée.
+3. Alimenter les trois colonnes orphelines (`total_downloads`, `total_duration`, `total_earnings`).
+4. Corriger la sémantique de `artists.total_sales` : soit la renommer en `total_revenue`, soit la faire compter des unités et déplacer le montant dans `total_earnings`. Migration de données à prévoir.
+5. Recalculer `albums.total_tracks` et `total_duration` à l'ajout **et au retrait** d'un titre.
+6. Commande de **reconstruction intégrale** (`scripts/rebuild-counters.php`), exécutable à tout moment sur n'importe quelle plage.
+7. Contrôle de cohérence périodique comparant compteurs et rollups, avec alerte en cas de dérive.
 
 **Critères d'acceptation :**
-- Après une écoute certifiée, le compteur du titre reflète la valeur attendue au prochain passage.
+- `SELECT COUNT(*) FROM information_schema.TRIGGERS` sur la base du projet retourne 0.
+- Une écoute non certifiée (moins de 30 s, ou en quarantaine) **n'incrémente aucun compteur public**.
+- Purger 1 000 écoutes frauduleuses et relancer le recalcul fait baisser les compteurs en conséquence — comportement impossible avec les triggers actuels.
+- Un remboursement décrémente les ventes.
 - La reconstruction intégrale donne exactement les mêmes valeurs que l'incrémental.
-- Le dashboard artiste affiche des chiffres non nuls sur un jeu de test.
 
 ---
 

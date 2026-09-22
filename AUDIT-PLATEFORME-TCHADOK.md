@@ -38,9 +38,14 @@ Conséquence : la plateforme **ne peut vendre ni un single, ni un maxi, ni un al
 
 ### 1.3. Le baromètre des écoutes est non fonctionnel et falsifiable
 
-- `tracks.total_streams`, `tracks.total_sales`, `albums.total_streams`, `artists.total_streams`, `artists.total_earnings` : **jamais incrémentés par le code**. Vérifié par recherche exhaustive — zéro occurrence d'écriture. Tous les KPI de tous les dashboards affichent donc 0, ou la valeur figée du dump SQL.
-- Les tables `charts` et `site_stats`, prévues pour les classements, ne sont **jamais alimentées**. Aucune page classement/baromètre n'existe.
-- `POST /api/stream.php` enregistre une écoute **sans authentification, sans CSRF, sans limitation de débit, avec `Access-Control-Allow-Origin: *`**, et accepte `duration`, `country` et `city` **fournis par le client**. Une boucle de trois lignes en JavaScript peut fabriquer un million d'écoutes attribuées à N'Djamena.
+> **Correction apportée le 21/09/2026.** La première version de cet audit affirmait que les compteurs n'étaient jamais incrémentés. C'était faux : l'analyse ne portait que sur le code PHP. Le dump `database/tchadok.sql` contient **trois triggers MySQL** (`update_stream_stats`, `update_purchase_stats`, `update_album_tracks_count`) qui maintiennent une partie de ces compteurs. Le constat est donc reformulé ci-dessous. La conclusion — l'appareil statistique n'est pas exploitable en l'état — est inchangée, mais pour d'autres raisons, et le correctif à apporter reste le même (§5.3).
+
+- **Les compteurs sont alimentés par des triggers, sur la donnée brute et sans aucun filtre.** `update_stream_stats` incrémente `tracks.total_streams`, `artists.total_streams` et `albums.total_streams` à **chaque** ligne insérée dans `streams` : pas de seuil de durée, pas de déduplication, pas de contrôle anti-fraude. Le compteur public est donc directement piloté par un endpoint ouvert (point suivant).
+- **Les compteurs ne savent que monter.** `update_purchase_stats` se déclenche sur `INSERT` quel que soit le `payment_status` : un achat inséré en `pending` incrémente immédiatement les ventes, et aucun trigger sur `UPDATE` ou `DELETE` ne corrige un paiement échoué ou remboursé. Même logique pour `update_album_tracks_count`, qui ne se déclenche pas au retrait d'un titre.
+- **Sémantiques incohérentes sous le même nom.** `tracks.total_sales` et `albums.total_sales` comptent des **unités vendues** ; `artists.total_sales` accumule un **montant en FCFA** (`total_sales + NEW.amount`). `artists.total_earnings` et `tracks.total_downloads`, eux, ne sont alimentés ni par trigger ni par le code.
+- **Les compteurs ne sont pas reconstructibles.** La logique vit dans la base, invisible depuis le code applicatif et non testable. Aucune commande ne permet de les recalculer après une correction de données.
+- Les tables `charts` et `site_stats`, prévues pour les classements, ne sont **jamais alimentées** — ni par le code, ni par trigger. Aucune page classement/baromètre n'existe.
+- `POST /api/stream.php` enregistre une écoute **sans authentification, sans CSRF, sans limitation de débit, avec `Access-Control-Allow-Origin: *`**, et accepte `duration`, `country` et `city` **fournis par le client**. Une boucle de trois lignes en JavaScript peut fabriquer un million d'écoutes attribuées à N'Djamena — et, par le trigger, **les inscrire directement dans les compteurs publics**.
 
 Un baromètre qui se prétend référence nationale et dont la métrique est forgeable en dix secondes perd toute valeur — commerciale, éditoriale et institutionnelle. C'est le risque le plus lourd pour la crédibilité du projet.
 
@@ -733,28 +738,40 @@ Aucun ordre d'application, aucun registre de migrations appliquées. Il est **im
 - `DECIMAL` pour tous les montants (jamais `FLOAT`) — correct.
 - `albums.type ENUM('album','ep','single','maxi_single')` : **le format de sortie demandé est déjà modélisé**.
 
-### 5.3. Compteurs agrégés jamais maintenus
+### 5.3. Compteurs agrégés : maintenus par triggers, sur la donnée brute
 
-Recherche exhaustive sur l'ensemble du projet : **zéro** écriture sur les colonnes suivantes.
+> **Section corrigée le 21/09/2026.** La version initiale concluait que les compteurs n'étaient jamais écrits. L'analyse ne portait que sur le code PHP et manquait les trois triggers MySQL du dump. Les faits sont rétablis ci-dessous.
+
+Le code PHP n'écrit effectivement **jamais** sur ces colonnes : les seuls `UPDATE` du projet concernent `artists.stage_name` et `albums.cover_image` (`upload.php` l. 88 et 146). Mais `database/tchadok.sql` installe **trois triggers** qui s'en chargent.
 
 | Colonne | Lue par | Écrite par |
 |---|---|---|
-| `tracks.total_streams` | admin-dashboard, artist-dashboard, decouvrir, index, genres, artists, albums, api/track | **jamais** |
-| `tracks.total_sales` | artist-dashboard, admin-dashboard | **jamais** |
+| `tracks.total_streams` | admin-dashboard, artist-dashboard, decouvrir, index, genres, artists, albums, api/track | trigger `update_stream_stats` (`AFTER INSERT ON streams`) |
+| `artists.total_streams` | admin-dashboard (classement), artists, decouvrir | trigger `update_stream_stats` |
+| `albums.total_streams` | artist-dashboard, albums | trigger `update_stream_stats` |
+| `tracks.total_sales` | artist-dashboard, admin-dashboard | trigger `update_purchase_stats` (`AFTER INSERT ON purchases`) — **table jamais alimentée** (§6.1) |
+| `albums.total_sales` | albums, artist-dashboard | trigger `update_purchase_stats` — idem |
+| `artists.total_sales` | dashboards | trigger `update_purchase_stats` — **accumule un montant, pas un décompte** |
+| `albums.total_tracks` | albums | trigger `update_album_tracks_count` (`AFTER INSERT ON tracks` uniquement) |
 | `tracks.total_downloads` | artist-dashboard | **jamais** |
-| `albums.total_streams` | artist-dashboard, albums | **jamais** |
-| `albums.total_sales`, `total_tracks`, `total_duration` | albums, artist-dashboard | **jamais** |
-| `artists.total_streams` | admin-dashboard (classement), artists, decouvrir | **jamais** |
-| `artists.total_sales`, `artists.total_earnings` | dashboards | **jamais** |
+| `albums.total_duration` | albums | **jamais** |
+| `artists.total_earnings` | dashboards | **jamais** |
 | `charts` (table entière) | — | **jamais** |
 | `site_stats` (table entière) | — | **jamais** |
 | `reports` (table entière) | — | **jamais** |
 
-Les seuls `UPDATE` sur ces tables concernent `artists.stage_name` et `albums.cover_image` (`upload.php` l. 88 et 146).
+**Ce qui fonctionne :** les écoutes enregistrées via `api/stream.php` remontent bien dans `tracks.total_streams`, `artists.total_streams` et `albums.total_streams`. Les dashboards ne sont donc pas figés à zéro — ils reflètent le contenu réel de la table `streams`.
 
-**Conséquence directe : tous les KPI de tous les dashboards affichent 0**, ou la valeur figée importée par le dump. Les « classements » du dashboard admin (`ORDER BY total_streams DESC`) trient une colonne constante. Les vues `top_tracks` et `top_artists` reposent sur les mêmes colonnes.
+**Ce qui ne fonctionne pas, et pourquoi c'est plus grave :**
 
-C'est le défaut fonctionnel n° 1 du projet : **l'ensemble de l'appareil statistique est une coquille vide.**
+1. **Aucun filtre entre la donnée brute et le compteur public.** Le trigger incrémente à chaque `INSERT` dans `streams`, sans seuil de durée, sans déduplication, sans contrôle d'origine. Or `api/stream.php` est ouvert, non authentifié et sans limitation de débit (P0-11). **La falsification n'affecte donc pas un journal technique : elle alimente directement le chiffre affiché publiquement.**
+2. **Les compteurs ne savent que monter.** `update_purchase_stats` se déclenche sur `INSERT` quel que soit le `payment_status`, et aucun trigger `UPDATE`/`DELETE` ne corrige un paiement échoué ou remboursé. `update_album_tracks_count` ne se déclenche pas au retrait d'un titre : retirer un titre d'un album laisse le décompte faux.
+3. **Sémantiques incohérentes sous le même nom.** `tracks.total_sales` et `albums.total_sales` comptent des unités vendues ; `artists.total_sales` accumule un montant en FCFA (`total_sales + NEW.amount`). Toute agrégation croisant ces colonnes produit un résultat faux.
+4. **Colonnes orphelines.** `tracks.total_downloads`, `albums.total_duration` et `artists.total_earnings` ne sont alimentées ni par trigger ni par le code. Elles sont affichées sur les dashboards et valent toujours 0.
+5. **Logique invisible et non reconstructible.** Elle vit dans la base, hors du code, hors des tests, hors de la revue. Aucune commande ne permet de recalculer les compteurs après une correction de données ou une purge d'écoutes frauduleuses.
+6. **Les classements reposent dessus.** `ORDER BY total_streams DESC` du dashboard admin, et les vues `top_tracks` et `top_artists`, trient des valeurs non filtrées et non corrigibles.
+
+Le défaut n'est donc pas l'absence de mesure, mais **l'absence de séparation entre la donnée brute et le fait certifié**. C'est exactement ce que corrige l'architecture proposée ci-dessous : les triggers doivent être retirés au profit d'une chaîne explicite, testable et reconstructible.
 
 **Correction — architecture de mesure recommandée :**
 
@@ -768,9 +785,11 @@ streams (brut, append-only)
 ```
 
 Règles :
+- **Retirer les trois triggers existants.** Ils court-circuitent toute cette chaîne en écrivant le compteur public directement depuis la donnée brute. Leur logique est reprise, explicitement, par l'étape de recalcul.
 - Les compteurs dénormalisés sont un **cache**, jamais la source de vérité. Ils doivent être reconstructibles intégralement par une commande.
 - Les agrégats journaliers (`daily_rollups`) portent les dimensions du baromètre : **date, titre, album, artiste, genre, catégorie, région/ville, source, type d'auditeur**.
 - Les tableaux de bord lisent les rollups, jamais la table `streams` brute.
+- Toute correction (levée de quarantaine, purge d'écoutes frauduleuses, remboursement) doit se propager aux compteurs par relance du recalcul — ce qu'un trigger `AFTER INSERT` ne permet structurellement pas.
 
 ### 5.4. Taxonomie des genres dédoublée
 
@@ -820,10 +839,10 @@ Cette section confronte l'ambition énoncée — *référence de la vente de mus
 | L'artiste peut ajouter des musiques | **Partiel** | Deux parcours divergents (`upload.php`, `artist-add-song.php`) ; durée saisie à la main ; publication par URL arbitraire (P1-8) ; pas de CSRF |
 | L'artiste choisit de vendre en single / maxi single / album | **Non** | `albums.type` existe en base, mais le champ n'est ni validé ni exploité ; **un titre seul n'a aucun format de sortie**, aucune règle de prix par format, aucun bundle |
 | L'artiste voit l'évolution de ses ventes | **Non** | `purchases` jamais alimentée ⇒ courbe vide |
-| L'artiste voit l'évolution de ses écoutes | **Non** | `total_streams` jamais incrémenté ⇒ valeur 0 ; `streams` non agrégée |
+| L'artiste voit l'évolution de ses écoutes | **Partiel** | Un total cumulé existe (maintenu par trigger, §5.3), mais **non filtré et falsifiable** ; aucune évolution dans le temps, `streams` n'est jamais agrégée |
 | L'artiste voit les montants encaissés par semaine / mois | **Non** | Un seul graphique, mensuel, sur 6 mois, alimenté par une table vide. Aucune granularité hebdomadaire, aucune vue trimestre/année, aucun cumul |
 | L'artiste peut retirer ses gains | **Non** | Aucune table, aucun écran, aucun flux |
-| L'admin voit le classement des vues | **Non** | `ORDER BY total_streams DESC` sur colonne constante ; table `charts` vide |
+| L'admin voit le classement des vues | **Non** | `ORDER BY total_streams DESC` trie une valeur non filtrée et non corrigible ; aucun arrêté de période, table `charts` vide |
 | L'admin voit le classement des ventes | **Non** | Aucun écran |
 | L'admin voit les statistiques des artistes par genre | **Non** | Écran mort (`dashboard-tabs/analytics.php`), et regroupement sur chaîne libre (§5.4) |
 | L'admin peut ajouter des genres | **Non** | Aucune interface. Seuls les **artistes** créent des genres, sans contrôle (P1-10) |
@@ -1118,7 +1137,7 @@ Cinq dashboards existent, dont deux morts. Comparaison de la coquille (chrome) u
 
 Il faut le dire : la **facture visuelle** des dashboards est bonne. Grille cohérente, `rounded-3xl` + `border-white/10` + `bg-surface/75` appliqués avec régularité, hiérarchie typographique lisible (`text-xs uppercase tracking-[0.2em]` pour les libellés, `text-3xl font-semibold` pour les valeurs), système d'ombres à trois niveaux (`elev-1/2/3`), en-tête collant avec transition. Le travail de direction artistique est réel et mérite d'être conservé.
 
-Ce qui manque n'est pas le style : c'est la **substance** (les chiffres sont à zéro, §5.3) et l'**architecture d'information** (pas de navigation, pas de profondeur, pas de filtres).
+Ce qui manque n'est pas le style : c'est la **fiabilité des chiffres** (compteurs non filtrés et non corrigibles, colonnes orphelines à 0, §5.3) et l'**architecture d'information** (pas de navigation, pas de profondeur, pas de filtres, pas d'export).
 
 ### 7.3. Défauts de conception analytique
 
@@ -1876,7 +1895,8 @@ S'y ajoutent `main.css` (34,4 Ko) et `player.css` (2,8 Ko), référencés unique
 
 | Constat | Commande |
 |---|---|
-| Compteurs jamais écrits | `Select-String -Path *.php,api\*.php,includes\*.php -Pattern "UPDATE tracks SET total_streams\|total_streams \+"` |
+| Compteurs jamais écrits **par le code PHP** | `Select-String -Path *.php,api\*.php,includes\*.php -Pattern "UPDATE tracks SET total_streams\|total_streams \+"` |
+| Compteurs écrits **par trigger** — le contrôle qui manquait à la v1 | `Select-String -Path database\tchadok.sql -Pattern "CREATE TRIGGER"` → 3 résultats. **Leçon de méthode : une recherche sur le code applicatif ne couvre pas la logique embarquée dans la base.** Tout audit doit inclure triggers, procédures stockées, vues et évènements |
 | CSRF manquant | Croiser `Pattern "REQUEST_METHOD.*POST"` et `Pattern "csrf"` |
 | Code mort | Croiser la liste des fichiers et les `include`/`require` effectifs |
 | CSS orphelin | Extraire `assets/css/*.css` des gabarits, comparer au contenu du répertoire |

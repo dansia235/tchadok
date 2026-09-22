@@ -11,6 +11,27 @@ class EnvLoader {
     private static $vars = [];
 
     /**
+     * SEC-03 : seules ces cles deviennent des constantes PHP globales.
+     *
+     * Auparavant, CHAQUE ligne du fichier d'environnement etait promue en
+     * constante : DB_PASSWORD, APP_KEY, SESSION_SECRET et
+     * ICECAST_ADMIN_PASSWORD etaient donc lisibles depuis n'importe quel
+     * point du code, et visibles dans un get_defined_constants() ou une
+     * trace d'erreur. Les secrets restent desormais accessibles
+     * uniquement via env().
+     *
+     * Verifie : aucune autre cle du fichier d'environnement n'est
+     * utilisee comme constante nue dans le projet.
+     */
+    private static $publicConstants = [
+        'APP_ENV',
+        'APP_DEBUG',
+        'APP_NAME',
+        'APP_TIMEZONE',
+        'APP_URL',
+    ];
+
+    /**
      * Charge le fichier .env
      */
     public static function load($path = null) {
@@ -55,8 +76,9 @@ class EnvLoader {
                 $_SERVER[$key] = $value;
                 self::$vars[$key] = $value;
 
-                // Définir aussi comme constante si pas déjà définie
-                if (!defined($key)) {
+                // SEC-03 : promotion en constante reservee a la liste blanche.
+                // Les secrets ne doivent jamais devenir des constantes globales.
+                if (in_array($key, self::$publicConstants, true) && !defined($key)) {
                     define($key, $value);
                 }
             }

@@ -71,7 +71,7 @@ $adminShellQuickLinks = [
         'label' => 'Securite',
         'icon' => 'user-shield',
         'icon_tone' => 'bg-slate-100 text-slate-700 dark:bg-slate-700/60 dark:text-slate-200',
-        'matches' => ['security-settings.php', 'execute-sql.php']
+        'matches' => ['security-settings.php']
     ]
 ];
 

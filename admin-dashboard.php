@@ -75,13 +75,6 @@ $admin_modules = [
         'href' => SITE_URL . '/admin-blog.php',
         'icon' => 'fa-newspaper',
         'accent' => 'text-sky-200'
-    ],
-    [
-        'title' => 'Maintenance',
-        'description' => 'Accéder aux outils techniques et de sécurité.',
-        'href' => SITE_URL . '/admin/execute-sql.php',
-        'icon' => 'fa-terminal',
-        'accent' => 'text-rose-200'
     ]
 ];
 
@@ -180,8 +173,7 @@ $adminModuleSnapshots = [
     'Radio' => number_format($stats['monthly_streams']) . ' streams / 30j',
     'Playlists' => number_format($stats['total_playlists']) . ' playlists',
     'Podcasts' => number_format($stats['total_podcasts']) . ' series',
-    'Blog' => 'studio editorial',
-    'Maintenance' => 'outils critiques'
+    'Blog' => 'studio editorial'
 ];
 
 $adminShellMetrics = [
@@ -653,13 +645,16 @@ include 'includes/header-tailwind.php';
                         <h3 class="text-lg font-semibold text-text">Règles de gouvernance</h3>
                         <div class="mt-4 space-y-3 text-sm text-muted">
                             <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-                                Les nouveaux comptes peuvent être créés comme fan, artiste ou administrateur.
+                                La création de comptes depuis l'administration est temporairement suspendue :
+                                l'API concernée est en cours de réécriture avec contrôle d'accès (SEC-01).
                             </div>
                             <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-                                Le mot de passe initial généré par la plateforme est <span class="font-semibold text-text">12345678</span>.
+                                Aucun mot de passe initial n'est attribué par la plateforme. À la réouverture,
+                                la création d'un compte enverra un lien d'invitation à usage unique.
                             </div>
                             <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-                                Le compte admin principal reste protégé contre la suppression.
+                                La promotion au rôle administrateur relèvera d'une action dédiée, réservée au
+                                super-administrateur et journalisée.
                             </div>
                         </div>
                     </div>
@@ -667,20 +662,12 @@ include 'includes/header-tailwind.php';
                     <div class="rounded-3xl border border-white/10 bg-surface/60 p-6 shadow-elev-1">
                         <h3 class="text-lg font-semibold text-text">Outils de plateforme</h3>
                         <div class="mt-4 space-y-2 text-sm">
-                            <a href="<?php echo SITE_URL; ?>/admin/update-passwords.php" class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-text hover:bg-white/10">
-                                <span><i class="fas fa-key text-amber-300"></i> Rotation mots de passe</span>
-                                <i class="fas fa-arrow-right text-xs text-muted"></i>
-                            </a>
                             <a href="<?php echo SITE_URL; ?>/security-settings.php" class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-text hover:bg-white/10">
                                 <span><i class="fas fa-user-shield text-sky-300"></i> Paramètres sécurité</span>
                                 <i class="fas fa-arrow-right text-xs text-muted"></i>
                             </a>
                             <a href="<?php echo SITE_URL; ?>/admin/reset-password.php" class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-text hover:bg-white/10">
                                 <span><i class="fas fa-unlock-keyhole text-accent"></i> Reset compte admin</span>
-                                <i class="fas fa-arrow-right text-xs text-muted"></i>
-                            </a>
-                            <a href="<?php echo SITE_URL; ?>/admin/execute-sql.php" class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-text hover:bg-white/10">
-                                <span><i class="fas fa-terminal text-rose-300"></i> Console SQL</span>
                                 <i class="fas fa-arrow-right text-xs text-muted"></i>
                             </a>
                         </div>

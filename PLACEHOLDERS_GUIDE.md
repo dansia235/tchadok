@@ -115,11 +115,10 @@ require_once 'assets/images/placeholders.php';
 # Test syntaxe PHP
 php -l assets/images/placeholders.php
 
-# Validation des fonctions
-php validate-placeholders.php
-
-# Test visuel (navigateur)
-http://localhost/tchadok/test-placeholders.php
+# Note (SEC-02, 21/09/2026) : validate-placeholders.php et
+# test-placeholders.php ont ete supprimes. C'etaient des pages de test
+# exposees en racine web, accessibles sans authentification.
+# Une verification equivalente sera reintroduite dans tests/ (tache QA-03).
 ```
 
 ### **Résultats de validation :**

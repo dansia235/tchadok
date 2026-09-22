@@ -535,12 +535,12 @@ include 'includes/header-tailwind.php';
                                 Centralisez ici les actions de sécurité avancée et de maintenance technique sans surcharger le header principal.
                             </p>
                             <div class="mt-4 space-y-3 text-sm">
-                                <a href="<?php echo SITE_URL; ?>/admin/execute-sql.php" class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-text hover:bg-white/10">
+                                <a href="<?php echo SITE_URL; ?>/admin/reset-password.php" class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-text hover:bg-white/10">
                                     <span class="inline-flex items-center gap-2">
-                                        <i class="fas fa-terminal text-rose-300"></i>
-                                        Console SQL
+                                        <i class="fas fa-unlock-keyhole text-accent"></i>
+                                        Réinitialiser un accès administrateur
                                     </span>
-                                    <span class="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted">Maintenance</span>
+                                    <i class="fas fa-arrow-right text-xs text-muted"></i>
                                 </a>
                                 <a href="<?php echo SITE_URL; ?>/admin-dashboard.php" class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-text hover:bg-white/10">
                                     <span class="inline-flex items-center gap-2">

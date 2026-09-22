@@ -14,10 +14,29 @@ class TchadokDatabase {
 
     private function __construct() {
         try {
-            $host = env('DB_HOST', 'localhost');
-            $database = env('DB_DATABASE', 'tchadok');
-            $username = env('DB_USERNAME', 'dansia');
-            $password = env('DB_PASSWORD', 'dansia');
+            // SEC-03 : aucune valeur de repli sur les identifiants.
+            // Auparavant env('DB_USERNAME', 'dansia') masquait l'absence de
+            // configuration et versionnait un identifiant dans le code.
+            // Une variable manquante doit echouer bruyamment, pas silencieusement.
+            $required = ['DB_DATABASE', 'DB_USERNAME', 'DB_PASSWORD'];
+            $missing = [];
+            foreach ($required as $key) {
+                if (env($key, null) === null || env($key, null) === '') {
+                    $missing[] = $key;
+                }
+            }
+            if ($missing) {
+                throw new RuntimeException(
+                    'Configuration de base de donnees incomplete. Variables manquantes : '
+                    . implode(', ', $missing)
+                    . '. Verifiez votre fichier d\'environnement.'
+                );
+            }
+
+            $host = env('DB_HOST', '127.0.0.1');
+            $database = env('DB_DATABASE');
+            $username = env('DB_USERNAME');
+            $password = env('DB_PASSWORD');
             $charset = env('DB_CHARSET', 'utf8mb4');
             $port = env('DB_PORT', '3306');
 
@@ -36,6 +55,9 @@ class TchadokDatabase {
             );
         } catch (PDOException $e) {
             error_log("Database connection failed: " . $e->getMessage());
+            $this->pdo = null;
+        } catch (RuntimeException $e) {
+            error_log("Database configuration error: " . $e->getMessage());
             $this->pdo = null;
         }
     }

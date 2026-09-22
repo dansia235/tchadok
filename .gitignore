@@ -2,23 +2,36 @@
 # .gitignore - Tchadok Platform
 # ================================================================
 
+# ----------------------------------------------------------------
 # Environnement et configuration sensible
+# Aucun fichier d'environnement reel n'est versionne : seuls les
+# modeles *.example le sont. Voir docs/exploitation/secrets.md
+# ----------------------------------------------------------------
 .env
 .env.local
+.env.production
 .env.*.local
 config.local.php
 
-# NE PAS ignorer les templates d'environnement
-!.env.production
-!.htaccess.production
+# Les modeles, eux, sont versionnes
+!.env.local.example
+!.env.production.example
 
 # Logs
 *.log
 logs/
 storage/logs/
 
+# Contenu de storage/ (la structure est conservee via .gitkeep)
+# Place APRES la regle "cache/" ci-dessus, sinon storage/cache serait ignore.
+storage/**
+!storage/
+!storage/*/
+!storage/**/.gitkeep
+
 # Cache et fichiers temporaires
 cache/
+!storage/cache/
 tmp/
 temp/
 *.tmp
