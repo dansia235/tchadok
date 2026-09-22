@@ -1,5 +1,8 @@
 # 🔧 Guide d'Importation des Comptes de Test
 
+> **22/09/2026 (SEC-05).** Les scripts de comptes de test (create-test-accounts*.sql, `import-test-accounts.sql`, `create-admin-account.sql`, `reset-admin-password.sql`) et `README-COMPTES-TEST.md` ont ete supprimes : ils creaient des comptes partageant un mot de passe documente comme public. Premier administrateur : `php scripts/create-admin.php`. Comptes de demonstration locaux : `database/seeds/demo.sql`. L'ensemble du repertoire `sql/` sera retire en CLEAN-04, au profit de `database/migrations/`.
+
+
 ## ❗ Problème Identifié
 
 La table `users` de votre base de données contient **DEUX colonnes de mot de passe** :

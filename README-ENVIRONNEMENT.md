@@ -117,25 +117,46 @@ fichier d'environnement réel, `.htaccess`, ou un motif de vrai secret. Voir
 
 ### 2.5. Comptes
 
-Le dump `database/tchadok.sql` livre encore deux comptes, `admin`
-(super-administrateur) et `user_demo`. Ils partagent un même hash, dont le
-mot de passe est documenté comme public. **Changez-le après l'import :**
+Depuis `SEC-05`, le dump `database/tchadok.sql` **ne contient plus aucun
+compte**. Deux façons d'en obtenir :
+
+**Jeu de démonstration (local uniquement)**
 
 ```
-php -r "echo password_hash('votre-mot-de-passe', PASSWORD_BCRYPT, ['cost'=>12]);"
+C:\xampp\mysql\bin\mysql.exe -u root tchadok_local < database\seeds\demo.sql
 ```
 
-```sql
-UPDATE users SET password = '<hash>', password_hash = '<hash>' WHERE id IN (1, 2);
+Crée `admin` (super-administrateur) et `user_demo`, mot de passe
+`tchadok2026`. Ce fichier ne doit **jamais** être importé en production :
+`env-switch production` refuse la bascule tant qu'il est présent sur le
+serveur.
+
+**Compte administrateur réel**
+
+```
+php scripts/create-admin.php
 ```
 
-Sur le poste de référence, les deux comptes utilisent le mot de passe local
-`tchadok2026`.
+Saisie masquée du mot de passe. En automatisation, le mot de passe est lu
+dans la variable `TCHADOK_ADMIN_PASSWORD` — jamais en argument, où il
+finirait dans l'historique du shell :
 
-> La tâche `SEC-05` retirera ces comptes du dump de référence et livrera
-> `scripts/create-admin.php`, commande en ligne de commande qui imposera un
-> mot de passe fort. **Ce dump ne doit pas être importé tel quel en
-> production** tant que `SEC-05` n'est pas fait.
+```
+set TCHADOK_ADMIN_PASSWORD=...
+php scripts/create-admin.php --username=alice --email=alice@tchadok.td --first-name=Alice --last-name=Doe
+```
+
+La politique de mot de passe suit l'environnement :
+
+| | Local | Production |
+|---|---|---|
+| Longueur minimale | 8 | 12 |
+| 3 familles de caractères sur 4 | avertissement | **exigé** |
+| Hors liste des mots de passe courants | avertissement | **exigé** |
+| Ne reprend pas l'identifiant ni l'adresse | avertissement | **exigé** |
+
+La commande refuse de s'exécuter par HTTP, et trace chaque création dans le
+journal applicatif, sans jamais y inscrire le mot de passe.
 
 ### 2.6. Vérification
 

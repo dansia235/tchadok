@@ -37,11 +37,10 @@ CREATE TABLE `admins` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `admins`
+-- Aucune donnee pour cette table dans le dump de reference (SEC-05).
+-- Premier administrateur : php scripts/create-admin.php
+-- Comptes de demonstration (local uniquement) : database/seeds/demo.sql
 --
-
-INSERT INTO `admins` (`id`, `user_id`, `role`, `permissions`, `last_access`, `created_at`) VALUES
-(1, 1, 'super_admin', '[\"all\"]', NULL, '2025-06-28 14:30:07');
 
 -- --------------------------------------------------------
 
@@ -675,12 +674,10 @@ CREATE TABLE `users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `users`
+-- Aucune donnee pour cette table dans le dump de reference (SEC-05).
+-- Premier administrateur : php scripts/create-admin.php
+-- Comptes de demonstration (local uniquement) : database/seeds/demo.sql
 --
-
-INSERT INTO `users` (`id`, `username`, `email`, `password`, `password_hash`, `first_name`, `last_name`, `phone`, `country`, `city`, `profile_image`, `date_of_birth`, `gender`, `preferred_language`, `premium_status`, `premium_expires_at`, `wallet_balance`, `loyalty_points`, `email_verified`, `verification_token`, `reset_token`, `reset_expires`, `remember_token`, `is_active`, `last_login`, `created_at`, `updated_at`) VALUES
-(1, 'admin', 'admin@tchadok.td', '$2y$12$44Eg1vk9c72lCYqRWv9SG.NbUOZOigietSixa3vQOULB2sBy6bgHq', '$2y$12$44Eg1vk9c72lCYqRWv9SG.NbUOZOigietSixa3vQOULB2sBy6bgHq', 'Admin', 'Tchadok', '+235 XX XX XX XX', 'Tchad', 'N\'Djamena', NULL, NULL, NULL, 'fr', 0, NULL, 0.00, 0, 1, NULL, NULL, NULL, NULL, 1, NULL, '2025-06-28 14:30:07', '2025-06-28 14:30:07'),
-(2, 'user_demo', 'user@tchadok.td', '$2y$12$44Eg1vk9c72lCYqRWv9SG.NbUOZOigietSixa3vQOULB2sBy6bgHq', '$2y$12$44Eg1vk9c72lCYqRWv9SG.NbUOZOigietSixa3vQOULB2sBy6bgHq', 'Utilisateur', 'Demo', NULL, 'Tchad', 'N\'Djamena', NULL, NULL, NULL, 'fr', 0, NULL, 0.00, 0, 1, NULL, NULL, NULL, NULL, 1, NULL, '2025-11-08 12:13:35', '2025-11-08 12:13:35');
 
 -- --------------------------------------------------------
 
@@ -944,7 +941,7 @@ ALTER TABLE `user_sessions`
 -- AUTO_INCREMENT for table `admins`
 --
 ALTER TABLE `admins`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `albums`
@@ -1094,7 +1091,7 @@ ALTER TABLE `payment_transactions`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- Constraints for dumped tables
