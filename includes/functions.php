@@ -17,12 +17,33 @@ require_once __DIR__ . '/database.php';
 
 /**
  * Démarre une session sécurisée
+ *
+ * SEC-10 (point 4, avance en SEC-06) : cookie_secure etait force a 1.
+ * En HTTP, le cookie de session etait donc marque "Secure" et tout client
+ * respectant ce drapeau -- Firefox, Safari, curl ; seul Chrome fait une
+ * exception pour localhost -- ne le renvoyait jamais. Chaque requete
+ * ouvrait une nouvelle session : la connexion etait impossible en local
+ * avec ces navigateurs.
+ *
+ * Le reglage suit desormais SESSION_SECURE. Sans valeur, il reste a true :
+ * en cas d'oubli, on echoue du cote sur. En production, la politique
+ * (includes/production-secret-policy.php) impose SESSION_SECURE=true.
+ *
+ * Le reste de SEC-10 (regeneration d'identifiant, mode strict, duree
+ * d'inactivite distincte pour l'administration) reste a faire.
  */
 function startSecureSession() {
     if (session_status() === PHP_SESSION_NONE) {
-        ini_set('session.cookie_httponly', 1);
-        ini_set('session.cookie_secure', 1);
-        ini_set('session.use_only_cookies', 1);
+        $secure = class_exists('EnvLoader') ? EnvLoader::bool('SESSION_SECURE', true) : true;
+        $samesite = class_exists('EnvLoader') ? (string) EnvLoader::get('SESSION_SAMESITE', 'Lax') : 'Lax';
+        if (!in_array($samesite, ['Lax', 'Strict', 'None'], true)) {
+            $samesite = 'Lax';
+        }
+
+        ini_set('session.cookie_httponly', '1');
+        ini_set('session.cookie_secure', $secure ? '1' : '0');
+        ini_set('session.cookie_samesite', $samesite);
+        ini_set('session.use_only_cookies', '1');
         session_start();
     }
 }
@@ -235,7 +256,10 @@ function uploadFile($file, $destination, $allowedTypes, $maxSize) {
         return ['success' => false, 'message' => 'Fichier trop volumineux'];
     }
     
-    $newFileName = uniqid() . '.' . $fileExt;
+    // SEC-06 : uniqid() derive de l'horloge (microsecondes) : les noms
+    // etaient previsibles et enumerables. 128 bits aleatoires a la place.
+    // La validation du contenu reel du fichier est traitee en SEC-17.
+    $newFileName = bin2hex(random_bytes(16)) . '.' . $fileExt;
     $uploadPath = $destination . $newFileName;
     
     if (!is_dir($destination)) {

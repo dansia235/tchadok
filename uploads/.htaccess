@@ -1,0 +1,11 @@
+# SEC-06 : aucun script ne doit s'executer depuis un repertoire de depot.
+# Un fichier .php depose par erreur -- ou par un attaquant ayant contourne
+# le controle d'extension -- serait sinon execute par le serveur.
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<FilesMatch "\.(php|phtml|php[0-9]|phar|pl|py|cgi|sh|asp|aspx|jsp)$">
+    Require all denied
+</FilesMatch>
+Options -Indexes -ExecCGI
+RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .php8 .phar

@@ -40,7 +40,7 @@ storage/logs/
 # Place APRES la regle "cache/" ci-dessus, sinon storage/cache serait ignore.
 storage/**
 !storage/
-!storage/*/
+!storage/**/
 !storage/**/.gitkeep
 
 # Cache et fichiers temporaires
@@ -55,10 +55,23 @@ temp/
 *~
 
 # Uploads et médias utilisateurs
+# Le CONTENU depose n'est jamais versionne. En revanche, les .htaccess qui
+# le protegent DOIVENT l'etre (SEC-06) : sans eux, un nouveau clone ou un
+# deploiement servirait l'audio en acces direct et executerait tout .php
+# depose.
 uploads/*
 !uploads/.gitkeep
+!uploads/.htaccess
+!uploads/*/
+uploads/*/*
+!uploads/*/.htaccess
+!uploads/*/.gitkeep
 storage/app/*
 !storage/app/.gitkeep
+
+# Protections de storage/ (meme raison)
+!storage/.htaccess
+!storage/**/.htaccess
 
 # Vendor et dépendances
 vendor/
@@ -110,6 +123,7 @@ backups/
 !database/tchadok.sql
 !database/migrations/*.sql
 !database/seeds/*.sql
+!tests/**/*.sql
 
 # Fichiers de session
 storage/sessions/

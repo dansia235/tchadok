@@ -1,0 +1,9 @@
+# SEC-06 : acces direct interdit.
+# Les fichiers de ce repertoire ne sont servis QUE par des controleurs dedies, apres
+# verification de la signature de l'URL et du droit d'acces.
+# Ce repertoire accueillera les pieces des dossiers artistes (MOD-06).
+Require all denied
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+Options -Indexes

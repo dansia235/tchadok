@@ -22,10 +22,31 @@ define('SITE_EMAIL', 'info@tchadok.td');
 define('SITE_PHONE', '+235 XX XX XX XX');
 
 // Chemins des dossiers
+//
+// SEC-06 : l'audio et les documents ne sont plus deposes sous uploads/,
+// servi directement par Apache, mais sous storage/uploads/, que les
+// .htaccess bloquent. L'audio n'est accessible que par media.php, apres
+// verification de la signature de l'URL et du droit d'acces.
+//
+// Les images (pochettes, avatars) restent publiques sous uploads/images :
+// les servir via PHP a chaque affichage serait couteux, pour un contenu
+// qui n'a pas a etre protege.
+//
+// Les titres deposes avant ce changement restent dans uploads/audio,
+// desormais interdit d'acces direct (uploads/audio/.htaccess) et toujours
+// servis par media.php.
 define('UPLOADS_PATH', 'uploads/');
-define('AUDIO_PATH', UPLOADS_PATH . 'audio/');
+define('PRIVATE_UPLOADS_PATH', 'storage/uploads/');
+define('AUDIO_PATH', PRIVATE_UPLOADS_PATH . 'audio/');
 define('IMAGES_PATH', UPLOADS_PATH . 'images/');
-define('DOCUMENTS_PATH', UPLOADS_PATH . 'documents/');
+define('DOCUMENTS_PATH', PRIVATE_UPLOADS_PATH . 'documents/');
+
+// Episodes de podcast : contenu gratuit et public par nature, sans rapport
+// avec le catalogue payant. Ils restent donc servis directement, depuis un
+// emplacement dedie ou l'execution de scripts est coupee (uploads/.htaccess).
+// Sans cette constante, ils auraient herite par defaut de AUDIO_PATH et du
+// controle d'acces des titres payants.
+define('PODCAST_AUDIO_PATH', UPLOADS_PATH . 'podcasts/');
 
 // Limites de fichiers
 define('MAX_AUDIO_SIZE', 50 * 1024 * 1024); // 50MB

@@ -94,14 +94,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!empty($_FILES['audio_file']['tmp_name'])) {
                 $upload = uploadFile(
                     $_FILES['audio_file'],
-                    __DIR__ . '/' . AUDIO_PATH,
+                    __DIR__ . '/' . PODCAST_AUDIO_PATH,
                     ALLOWED_AUDIO_TYPES,
                     MAX_AUDIO_SIZE
                 );
                 if (!$upload['success']) {
                     throw new Exception($upload['message']);
                 }
-                $audioPath = AUDIO_PATH . $upload['filename'];
+                $audioPath = PODCAST_AUDIO_PATH . $upload['filename'];
             }
             $audioUrl = trim($_POST['audio_file_url'] ?? '');
             if ($audioUrl) {

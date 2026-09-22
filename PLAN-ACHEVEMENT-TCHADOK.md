@@ -570,7 +570,17 @@ Le dump livre un `super_admin` (`admin@tchadok.td`) et un compte démo partagean
 
 ### SEC-06 — Protéger les fichiers déposés et couper l'accès libre au contenu payant
 
-**Charge :** 1 j · **Dépend de :** `CFG-04` · **Complété par :** `SHOP-05`
+**Charge :** 1 j · **Dépend de :** `CFG-04` · **Complété par :** `SHOP-05` · **Statut :** fait le 22/09/2026 (points 1 à 6), point 7 reporté
+
+> **Bilan du 22/09/2026.** La faille était plus nette encore que décrite : le contrôle d'accès était **entièrement fait dans le navigateur**. `assets/js/player.js` et `assets/js/main.js` décidaient eux-mêmes, à partir de `is_free` et d'un drapeau Premium, si un titre était lisible — alors que `api/track.php` leur renvoyait le chemin du fichier pour tous les titres. La décision est désormais prise côté serveur (`includes/media-access.php`), le client ne reçoit plus que des URL signées, liées à la session, émises uniquement si l'accès est accordé, et servies par `media.php` qui revérifie tout.
+>
+> **Réalisé :** interdiction d'accès direct (`uploads/audio/.htaccess`, `storage/.htaccess`) ; exécution de scripts coupée dans les dépôts (`uploads/.htaccess`) ; audio et documents déposés sous `storage/uploads/` ; épisodes de podcast placés explicitement dans un emplacement public dédié (`uploads/podcasts/`), car gratuits par nature ; `media.php` avec requêtes partielles, libération du verrou de session avant envoi, refus des URL externes et de la traversée de répertoire ; noms de fichiers en `random_bytes`. Statut Premium lu en base à chaque requête, expiration comprise.
+>
+> **Avancé depuis `SEC-10` :** `cookie_secure` suivait une valeur forcée à 1 — en HTTP, le cookie de session n'était jamais renvoyé par Firefox, Safari ou curl, rendant la connexion impossible en local. Il suit désormais `SESSION_SECURE`.
+>
+> **Vérifié :** `tests/securite/sec06-acces-media.ps1`, 39 contrôles, tous au vert.
+>
+> **Reporté :** point 7 (génération automatique de l'extrait de 30 s) — nécessite `ffmpeg`, absent du poste, et relève de `MOD-04`. En attendant, un titre payant sans extrait déposé manuellement n'est pas écoutable avant achat. `mod_xsendfile` étant absent de XAMPP, l'envoi se fait par PHP ; le chemin `X-Sendfile` est prêt (`MEDIA_SENDFILE=xsendfile`). Les quotas de téléchargement relèvent de `SHOP-04/05`.
 
 Les fichiers audio sont dans `uploads/audio/`, sous la racine web, servis directement par Apache. `api/track.php` renvoie le chemin de n'importe quel titre sans vérifier ni le prix ni un achat, avec `Access-Control-Allow-Origin: *`. **Tout le catalogue payant est actuellement gratuit.**
 

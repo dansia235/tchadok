@@ -244,16 +244,16 @@
             }
 
             const track = await fetchTrackData(trackId, 'get');
-            const isFree = Number(track.is_free) === 1;
-            const isPremium = TCHADOK.IS_PREMIUM;
 
-            if (isFree || isPremium) {
-                const fileUrl = track.audio_file?.startsWith('http') ? track.audio_file : `${TCHADOK.SITE_URL}/${track.audio_file}`;
-                window.open(fileUrl, '_blank');
+            // SEC-06 : le serveur decide. stream_url n'est fourni que si
+            // l'acces complet est accorde ; aucun chemin brut n'est expose.
+            // Les quotas de telechargement arriveront avec SHOP-04/05.
+            if (track.access === 'full' && track.stream_url) {
+                window.open(track.stream_url, '_blank');
                 return;
             }
 
-            showNotification('Achat requis pour télécharger ce titre', 'warning', 3000);
+            showNotification(track.access_message || 'Achat requis pour télécharger ce titre', 'warning', 3000);
         } catch (error) {
             console.error('Erreur dans downloadTrack:', error);
             showNotification('Erreur lors du téléchargement', 'error');
@@ -289,22 +289,23 @@
         return payload.data?.playlist_id;
     }
 
+    /**
+     * Source lisible, decidee par le SERVEUR (SEC-06).
+     * Voir le meme commentaire dans assets/js/player.js.
+     */
     function getPlayableSource(track) {
-        const isFree = Number(track.is_free) === 1;
-        const isPremium = TCHADOK.IS_PREMIUM;
-        const price = Number(track.price || 0);
+        if (!track) return null;
 
-        if (isFree || isPremium) {
-            return track.audio_file || track.preview_file || null;
+        if (track.access === 'full' && track.stream_url) {
+            return track.stream_url;
         }
-        if (track.preview_file) {
-            return track.preview_file;
+        if (track.preview_url) {
+            if (track.access_message) {
+                showNotification(track.access_message + ' Extrait de 30 secondes.', 'info');
+            }
+            return track.preview_url;
         }
-        if (price > 0) {
-            showNotification('Titre payant. Achat requis.', 'warning');
-            return null;
-        }
-        showNotification('Titre reserve aux abonnes Premium.', 'warning');
+        showNotification(track.access_message || 'Titre non disponible a l\'ecoute.', 'warning');
         return null;
     }
 
@@ -324,7 +325,8 @@
             currentAudio = null;
             return;
         }
-        currentAudio.src = source.startsWith('http') ? source : `${TCHADOK.SITE_URL}/${source}`;
+        // URL deja absolue et signee par le serveur.
+        currentAudio.src = source;
         currentAudio.preload = 'metadata';
         
         // Événements audio

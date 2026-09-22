@@ -141,26 +141,30 @@
         icon.className = isPlaying ? 'fas fa-pause' : 'fas fa-play';
     }
 
+    /**
+     * Source lisible, decidee par le SERVEUR (SEC-06).
+     *
+     * Auparavant ce code decidait lui-meme, a partir de is_free et d'un
+     * drapeau Premium, et recevait le chemin brut du fichier pour tous les
+     * titres : le controle d'acces se contournait en lisant la reponse de
+     * l'API. Le serveur ne renvoie plus que des URL signees, et seulement
+     * lorsque l'acces est accorde. Ce code se contente de les utiliser.
+     */
     function getPlayableSource(track) {
         if (!track) return null;
-        const isFree = Number(track.is_free) === 1;
-        const price = Number(track.price || 0);
-        const isPremium = window.TCHADOK && window.TCHADOK.IS_PREMIUM;
 
-        if (isFree || isPremium) {
-            return track.audio_file || track.preview_file || null;
+        if (track.access === 'full' && track.stream_url) {
+            return track.stream_url;
         }
 
-        if (track.preview_file) {
-            return track.preview_file;
+        if (track.preview_url) {
+            if (track.access_message) {
+                showNotification(track.access_message + ' Extrait de 30 secondes.', 'info');
+            }
+            return track.preview_url;
         }
 
-        if (price > 0) {
-            showNotification('Ce titre est payant. Passez au paiement pour l\'ecouter.', 'warning');
-            return null;
-        }
-
-        showNotification('Ce titre est reserve aux abonnes Premium.', 'warning');
+        showNotification(track.access_message || 'Ce titre n\'est pas disponible a l\'ecoute.', 'warning');
         return null;
     }
 
@@ -187,7 +191,8 @@
             return false;
         }
 
-        audioPlayer.src = source.startsWith('http') ? source : `${siteUrl()}/${source}`;
+        // Les URL fournies par le serveur sont deja absolues et signees.
+        audioPlayer.src = source;
         audioPlayer.preload = 'metadata';
         const slider = document.querySelector(playerSelectors.volumeSlider);
         if (slider) {

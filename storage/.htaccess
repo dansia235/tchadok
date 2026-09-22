@@ -1,0 +1,4 @@
+# SEC-06 : storage/ n'est jamais servi directement (defense en profondeur :
+# la regle de reecriture des .htaccess racine le bloque deja).
+Require all denied
+Options -Indexes

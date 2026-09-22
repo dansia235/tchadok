@@ -138,8 +138,12 @@
     # TOUTES les reponses, pages HTML comprises, avec GET/POST/PUT/DELETE.
     # Le CORS se declare desormais endpoint par endpoint (tache SEC-18).
 
+    # setifempty et non set : un script qui definit lui-meme sa politique
+    # de cache doit la conserver. media.php pose "private, max-age=3600" pour
+    # que le navigateur garde l'audio en cache ; "set" l'ecrasait, et chaque
+    # reecoute retelechargeait le titre -- couteux en donnees mobiles.
     <FilesMatch "\.(php)$">
-        Header set Cache-Control "no-store, no-cache, must-revalidate"
+        Header setifempty Cache-Control "no-store, no-cache, must-revalidate"
     </FilesMatch>
 
     Header unset X-Powered-By
