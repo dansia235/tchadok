@@ -526,24 +526,25 @@ Tous les secrets ci-dessous sont présents dans le dépôt Git ou dans le code. 
 
 ---
 
-### SEC-04 — Purger les secrets de l'historique Git
+### SEC-04 — Aucun secret dans Git
 
-**Charge :** 3 h · **Dépend de :** `SEC-03`, `CFG-02`, `CFG-03`
+**Charge :** 3 h · **Dépend de :** `SEC-03`, `CFG-02`, `CFG-03` · **Statut :** fait le 22/09/2026, **réécriture d'historique écartée**
 
-`.env` est **suivi par Git** malgré sa présence dans `.gitignore` (un fichier déjà indexé n'est pas désindexé par une règle d'ignore). `.env.production` est explicitement exclu de l'ignore par la ligne `!.env.production`.
+> **Tâche révisée le 22/09/2026.** La formulation initiale prévoyait de purger l'historique avec `git filter-repo` puis de forcer la republication. Un inventaire complet de l'historique a montré qu'il ne contient **aucun vrai secret** : uniquement des valeurs de modèle, les identifiants locaux `dansia` (locaux par décision du 22/09/2026), un `JWT_SECRET` jamais utilisé, et les mots de passe par défaut d'outils supprimés. Aucune clé privée, aucun jeton cloud, aucune URL avec identifiants. La réécriture — qui change tous les identifiants de commit et casse le clone de chaque collaborateur — a donc été écartée. Détail et justification : `docs/exploitation/secrets.md`, section 3.4.
 
-**À faire :**
-1. Désindexer les deux fichiers d'environnement (option `--cached` de la commande Git de désindexation), puis committer.
-2. Retirer la ligne `!.env.production` du `.gitignore` ; y ajouter `.env.local`, `.env.production`, `.htaccess`.
-3. Purger l'historique avec `git filter-repo` sur les chemins des deux fichiers d'environnement.
-4. Forcer la republication de toutes les branches, et prévenir chaque personne ayant cloné le dépôt (leurs copies locales contiennent toujours les secrets).
-5. Si le dépôt est hébergé chez un tiers, demander l'invalidation du cache des anciens objets.
+**Réalisé :**
+1. `.env` et `.env.production` désindexés (en `SEC-03`) ; `.gitignore` corrigé, la ligne `!.env.production` qui les ré-autorisait retirée.
+2. `.htaccess`, fichier désormais généré, retiré du suivi (en `CFG-04`).
+3. **Hook de pré-commit** versionné, `scripts/git-hooks/pre-commit` : refuse tout commit ajoutant un fichier d'environnement réel, `.htaccess`, ou un motif de vrai secret. N'affiche jamais le contenu en cause. Activation : `git config core.hooksPath scripts/git-hooks`.
 
-**Important :** cette purge ne remplace pas `SEC-03`. Un secret exposé reste exposé, même après réécriture de l'historique — d'où l'ordre : rotation d'abord, purge ensuite.
+**Reste à faire :**
+- Rejouer le même contrôle côté serveur dans l'intégration continue (`QA-04`), où il ne peut pas être contourné par `--no-verify`.
+- Changer en production tout compte utilisant encore `password123` ou `12345678`. C'est le seul risque résiduel, et la réécriture d'historique ne l'aurait pas traité.
 
 **Critères d'acceptation :**
-- `git log --all --full-history` sur le chemin du fichier d'environnement ne retourne aucun résultat.
-- Une recherche sur l'ensemble de l'historique ne trouve plus `dansia`, `tchadok_jwt_secret_key_2024`, `password123`, `12345678`.
+- Aucun fichier d'environnement réel n'est suivi par Git. ✔
+- Un commit ajoutant `.env.local` est refusé. ✔ (testé)
+- Un commit introduisant une clé AWS ou un `define()` de secret est refusé, sans que la valeur apparaisse dans la sortie. ✔ (testé)
 
 ---
 

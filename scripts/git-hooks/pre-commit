@@ -1,0 +1,108 @@
+#!/bin/sh
+# ================================================================
+# Tchadok - hook de pre-commit : aucun secret dans Git
+# ================================================================
+#
+# Tache SEC-04 (volet preventif).
+#
+# Activation, une fois par clone :
+#   git config core.hooksPath scripts/git-hooks
+#
+# Refuse un commit qui :
+#   1. ajoute un fichier d'environnement reel ou un fichier genere
+#      (.env, .env.local, .env.production, .htaccess) ;
+#   2. introduit dans le code un motif de vrai secret (cle privee,
+#      jeton cloud, URL avec identifiants, cle d'API connue).
+#
+# Contournement ponctuel, en connaissance de cause :
+#   git commit --no-verify
+#
+# N'utilise que git, grep et sed, fournis avec Git pour Windows :
+# fonctionne sous Windows comme sous Linux, sans PHP ni Python.
+# ================================================================
+
+echec=0
+
+rouge() { printf '\033[31m%s\033[0m\n' "$1"; }
+jaune() { printf '\033[33m%s\033[0m\n' "$1"; }
+
+# ---------------------------------------------------------------
+# 1. Fichiers interdits
+# ---------------------------------------------------------------
+interdits=$(git diff --cached --name-only --diff-filter=ACMR | grep -E \
+  '(^|/)\.env$|(^|/)\.env\.local$|(^|/)\.env\.production$|^\.htaccess$|^\.htaccess\.remplace-')
+
+if [ -n "$interdits" ]; then
+  rouge "[pre-commit] Fichier(s) interdit(s) dans un commit :"
+  echo "$interdits" | sed 's/^/    - /'
+  echo ""
+  echo "  Les fichiers d'environnement reels ne sont jamais versionnes :"
+  echo "  seuls .env.local.example et .env.production.example le sont."
+  echo "  .htaccess est genere par scripts/env-switch.php : versionnez"
+  echo "  .htaccess.local ou .htaccess.production a la place."
+  echo ""
+  echo "  Retirer de l'index :  git restore --staged <fichier>"
+  echo ""
+  echec=1
+fi
+
+# ---------------------------------------------------------------
+# 2. Motifs de vrais secrets dans les lignes ajoutees
+# ---------------------------------------------------------------
+# On n'examine que les lignes AJOUTEES (prefixe '+'), fichier par
+# fichier. Les documents d'audit et le present hook sont exclus : ils
+# citent ces motifs a titre d'exemple.
+#
+# Seul le NOM du fichier est affiche, jamais le contenu de la ligne :
+# un controle anti-fuite ne doit pas recopier le secret dans le
+# terminal ni dans les journaux d'integration continue.
+fichiers=$(git diff --cached --name-only --diff-filter=ACMR -- . \
+  ':(exclude)scripts/git-hooks/*' \
+  ':(exclude)*.md' \
+  ':(exclude)includes/production-secret-policy.php')
+
+verifier() {
+  libelle="$1"
+  motif="$2"
+  touches=""
+  for f in $fichiers; do
+    if git diff --cached -U0 -- "$f" | grep -E '^\+' | grep -vE '^\+\+\+ ' \
+       | grep -qE -- "$motif"; then
+      touches="$touches    - $f
+"
+    fi
+  done
+  if [ -n "$touches" ]; then
+    rouge "[pre-commit] Motif suspect : $libelle"
+    printf '%s' "$touches"
+    echo "    (contenu masque)"
+    echo ""
+    echec=1
+  fi
+}
+
+verifier "cle privee"                '-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY'
+verifier "cle d'acces AWS"           'AKIA[0-9A-Z]{16}'
+verifier "cle Stripe de production"  'sk_live_[0-9A-Za-z]{20,}'
+verifier "jeton GitHub"              'gh[pousr]_[0-9A-Za-z]{30,}'
+verifier "jeton Slack"               'xox[baprs]-[0-9A-Za-z-]{10,}'
+verifier "cle Google API"            'AIza[0-9A-Za-z_-]{35}'
+verifier "URL avec identifiants"     '[a-z]+://[^/[:space:]:@]+:[^/[:space:]:@]{6,}@'
+
+# Affectations de secrets en dur dans le code PHP :
+#   define('XXX_SECRET', '...')  /  'password' => '...'
+# avec une valeur d'au moins 8 caracteres qui n'est ni vide ni un appel env().
+verifier "secret ecrit en dur (define)" \
+  "define\(['\"][A-Z_]*(SECRET|PASSWORD|API_KEY|TOKEN)[A-Z_]*['\"],[[:space:]]*['\"][^'\"]{8,}['\"]"
+
+# ---------------------------------------------------------------
+# Conclusion
+# ---------------------------------------------------------------
+if [ "$echec" -ne 0 ]; then
+  echo "  Commit refuse. Corrigez les points ci-dessus, ou, si c'est un faux"
+  echo "  positif verifie, contournez ponctuellement :  git commit --no-verify"
+  echo ""
+  exit 1
+fi
+
+exit 0

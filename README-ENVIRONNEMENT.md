@@ -105,6 +105,16 @@ php scripts/env-switch.php local
 Cette commande génère `.htaccess`. **Elle n'est pas optionnelle** : sans
 elle, aucune règle n'est appliquée.
 
+### 2.4 bis. Hook Git anti-secrets
+
+```
+git config core.hooksPath scripts/git-hooks
+```
+
+À faire une fois par clone. Le hook refuse tout commit qui ajouterait un
+fichier d'environnement réel, `.htaccess`, ou un motif de vrai secret. Voir
+`docs/exploitation/secrets.md`, section 3.5.
+
 ### 2.5. Comptes
 
 Le dump `database/tchadok.sql` livre encore deux comptes, `admin`
