@@ -604,7 +604,11 @@ Les fichiers audio sont dans `uploads/audio/`, sous la racine web, servis direct
 
 ### SEC-07 — Supprimer la seconde couche d'accès à la base
 
-**Charge :** 2 h
+**Charge :** 2 h · **Statut :** fait le 22/09/2026
+
+> **Bilan.** `config/database.php` a été supprimé dès `SEC-03`, puisqu'il portait des identifiants en dur. Restaient les deux seuls consommateurs de son API : `pages/admin/dashboard.php` et `pages/artist/dashboard.php`, prévus au `LOT 3` (`CLEAN-02`). Vérification faite, ils étaient **atteignables** et, pour un administrateur connecté, produisaient une **erreur fatale exposant le chemin serveur** (`$db->fetchOne()` sur une variable indéfinie). Ils ont donc été retirés dès maintenant ; aucune page du site n'y renvoyait. `CLEAN-02` n'a plus à les traiter.
+>
+> **Relevé en passant :** `config/payment.php` (l. 368) construit un lien de notification vers `pages/user/purchases.php`, **qui n'existe pas**. À corriger avec la page « Ma bibliothèque » (`SHOP-04`).
 
 `config/database.php` déclare une classe `Database` avec les identifiants en dur, n'est requis par **aucun fichier**, et a déjà provoqué une erreur fatale tracée dans `logs/php_errors.log` (« Cannot declare class Database, because the name is already in use »).
 
