@@ -176,18 +176,28 @@ if (!defined('CACHE_LIFETIME')) {
     }
 }
 
-// Fuseau horaire
-date_default_timezone_set('Africa/Ndjamena');
+// Fuseau horaire : gere par config/env.php a partir de APP_TIMEZONE.
+// L'appel en dur qui figurait ici ecrasait le reglage de l'environnement.
 
-// Configuration de développement/production
-define('ENVIRONMENT', 'development'); // development, staging, production
-define('DEBUG_MODE', ENVIRONMENT === 'development');
+// ----------------------------------------------------------------------
+// Environnement (CFG-01)
+//
+// Ces deux constantes etaient ECRITES EN DUR :
+//     define('ENVIRONMENT', 'development');
+//     define('DEBUG_MODE', ENVIRONMENT === 'development');
+//
+// Quelle que soit la valeur de APP_ENV dans le fichier d'environnement,
+// DEBUG_MODE valait donc true et display_errors restait actif -- y compris
+// en production. Elles derivent desormais du fichier reellement charge.
+//
+// error_reporting et display_errors sont regles par config/env.php :
+// ne pas les repositionner ici, sous peine de reintroduire le probleme.
+// ----------------------------------------------------------------------
+if (!defined('ENVIRONMENT')) {
+    define('ENVIRONMENT', class_exists('EnvLoader') ? EnvLoader::environment() : 'production');
+}
 
-if (DEBUG_MODE) {
-    error_reporting(E_ALL);
-    ini_set('display_errors', 1);
-} else {
-    error_reporting(0);
-    ini_set('display_errors', 0);
+if (!defined('DEBUG_MODE')) {
+    define('DEBUG_MODE', defined('APP_DEBUG') ? (bool) APP_DEBUG : false);
 }
 ?>

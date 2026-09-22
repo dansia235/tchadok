@@ -1,0 +1,169 @@
+# ================================================================
+# TCHADOK - APACHE, ENVIRONNEMENT LOCAL
+# ================================================================
+#
+# Tache CFG-04.
+#
+# Ce fichier est une SOURCE. Apache ne lit que le fichier nomme
+# exactement ".htaccess" : il ignore totalement celui-ci.
+#
+# Mise en place :
+#   php scripts/env-switch.php local
+#
+# En production, ce fichier est SUPPRIME du serveur.
+#
+# Principe : rester aussi proche que possible de .htaccess.production.
+# Les seules differences admises sont celles qui sont techniquement
+# impossibles en local (HTTPS, HSTS) ou qui servent le diagnostic
+# (affichage des erreurs, limites elevees).
+#
+# En particulier, ce fichier ne pose AUCUN en-tete CORS permissif.
+# L'ancienne version posait Access-Control-Allow-Origin "*" sur toutes
+# les reponses, y compris les pages HTML : cela rendait toute
+# verification CSRF inoperante et donnait une fausse impression de
+# securite, les problemes n'apparaissant qu'en production.
+# ================================================================
+
+# ---------------------------------------------------------------
+# Reecriture
+# ---------------------------------------------------------------
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Projet servi depuis htdocs/tchadok
+    RewriteBase /tchadok/
+
+    # Certificats ACME : laisser passer avant toute autre regle
+    RewriteRule ^\.well-known/ - [L]
+
+    # Fichiers sensibles
+    RewriteRule ^\.env - [F,L]
+    RewriteRule ^composer\.(json|lock)$ - [F,L]
+    RewriteRule ^package(-lock)?\.json$ - [F,L]
+
+    # Repertoires qui ne doivent jamais etre servis
+    RewriteRule ^(includes|config|database|scripts|storage|tests|mock-gateways|docs|vendor|node_modules|infra)/ - [F,L]
+
+    # URL sans extension -> fichier PHP correspondant
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME}\.php -f
+    RewriteRule ^(.*)$ $1.php [L,QSA]
+</IfModule>
+
+# ---------------------------------------------------------------
+# Fichiers sensibles
+# ---------------------------------------------------------------
+# Tout fichier commencant par un point
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+# robots.txt doit rester accessible : .txt n'est donc pas bloque
+# globalement, contrairement a l'ancienne configuration.
+<FilesMatch "\.(env|htaccess|htpasswd|ini|log|sh|sql|md|bak|dist|yml|yaml|ps1)$">
+    Require all denied
+</FilesMatch>
+
+<Files ".well-known">
+    Require all granted
+</Files>
+
+# ---------------------------------------------------------------
+# PHP (local : erreurs visibles, limites larges)
+# ---------------------------------------------------------------
+<IfModule mod_php.c>
+    php_flag display_errors On
+    php_flag display_startup_errors On
+    php_value error_reporting E_ALL
+    php_flag log_errors On
+
+    php_value upload_max_filesize 50M
+    php_value post_max_size 52M
+    php_value memory_limit 256M
+    php_value max_execution_time 300
+    php_value max_input_time 300
+
+    php_value session.gc_maxlifetime 7200
+    php_flag session.cookie_httponly On
+    # Secure a Off : le cookie ne serait pas transmis en HTTP
+    php_flag session.cookie_secure Off
+    php_value session.cookie_samesite Lax
+    php_flag session.use_strict_mode On
+
+    php_value date.timezone "Africa/Ndjamena"
+</IfModule>
+
+# Note : disable_functions n'est PAS configurable depuis un .htaccess
+# (directive PHP_INI_SYSTEM). L'ancienne configuration de production en
+# posait une, sans effet -- et qui aurait coupe curl_exec, donc TOUTES
+# les passerelles de paiement, si elle avait fonctionne.
+
+# ---------------------------------------------------------------
+# En-tetes de securite
+# Identiques a la production, sauf HSTS (impossible en HTTP).
+# ---------------------------------------------------------------
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=()"
+
+    # Identifie l'environnement servi. Utile au diagnostic, et exploite
+    # par le garde-fou applicatif (CFG-05) pour detecter un .htaccess
+    # incoherent avec le fichier d'environnement charge.
+    Header always set X-Tchadok-Env "local"
+
+    # Ne jamais mettre en cache une reponse d'API
+    <FilesMatch "\.(php)$">
+        Header set Cache-Control "no-store, no-cache, must-revalidate"
+    </FilesMatch>
+
+    Header unset X-Powered-By
+</IfModule>
+
+# ---------------------------------------------------------------
+# Compression et cache
+# Necessitent mod_deflate et mod_expires, absents de XAMPP par defaut.
+# Les blocs sont silencieusement ignores s'ils manquent.
+# ---------------------------------------------------------------
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css
+    AddOutputFilterByType DEFLATE application/javascript application/json
+    AddOutputFilterByType DEFLATE image/svg+xml
+</IfModule>
+
+<IfModule mod_expires.c>
+    ExpiresActive On
+    # Durees courtes en local : on veut voir ses modifications
+    ExpiresByType text/css "access plus 1 hour"
+    ExpiresByType application/javascript "access plus 1 hour"
+    ExpiresByType image/png "access plus 1 day"
+    ExpiresByType image/jpeg "access plus 1 day"
+    ExpiresByType image/svg+xml "access plus 1 day"
+    ExpiresByType audio/mpeg "access plus 1 day"
+</IfModule>
+
+# ---------------------------------------------------------------
+# Divers
+# ---------------------------------------------------------------
+Options -Indexes
+Options +FollowSymLinks
+ServerSignature Off
+AddDefaultCharset UTF-8
+
+<IfModule mod_mime.c>
+    AddType audio/mpeg mp3
+    AddType audio/mp4 m4a
+    AddType audio/ogg ogg
+    AddType audio/wav wav
+    AddType video/mp4 mp4
+    AddType application/json json
+    AddType font/woff2 woff2
+    AddType image/svg+xml svg svgz
+    AddType application/manifest+json webmanifest
+</IfModule>
+
+ErrorDocument 403 /tchadok/403.php
+ErrorDocument 404 /tchadok/404.php
+ErrorDocument 500 /tchadok/500.php

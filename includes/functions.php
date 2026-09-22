@@ -7,6 +7,12 @@
 
 require_once __DIR__ . '/../config/env.php';
 require_once __DIR__ . '/../config/constants.php';
+
+// CFG-05 : controle de coherence de l'environnement.
+// Place AVANT la couche base de donnees : si la configuration n'est pas
+// celle attendue, mieux vaut s'arreter que se connecter a la mauvaise base.
+require_once __DIR__ . '/environment-guard.php';
+
 require_once __DIR__ . '/database.php';
 
 /**

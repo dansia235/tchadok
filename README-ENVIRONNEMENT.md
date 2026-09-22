@@ -1,294 +1,299 @@
-# Configuration de l'Environnement - Tchadok Platform
+# Configuration des environnements — Tchadok
 
-## 📋 Vue d'ensemble
+Tâche `CFG-06`. Dernière mise à jour : 22 septembre 2026.
 
-Le projet Tchadok utilise des fichiers de configuration d'environnement pour gérer les différences entre l'environnement de développement local et la production.
-
-## 🔧 Installation Initiale
-
-### 1. Configuration Locale (XAMPP/WAMP)
-
-```bash
-# Le fichier .env est déjà configuré pour l'environnement local
-# Vérifiez simplement que les paramètres correspondent à votre configuration
-```
-
-**Fichiers pour l'environnement local :**
-- `.env` - Variables d'environnement (déjà configuré)
-- `.htaccess` - Configuration Apache (déjà configuré)
-
-**Configuration de la base de données locale :**
-```env
-DB_HOST=localhost
-DB_DATABASE=tchadok
-DB_USERNAME=dansia
-DB_PASSWORD=dansia
-```
-
-**URL locale :**
-```env
-APP_URL=http://localhost/tchadok
-SITE_URL=http://localhost/tchadok
-```
-
-### 2. Création de la Base de Données
-
-```sql
--- Créer la base de données
-CREATE DATABASE IF NOT EXISTS tchadok CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- Créer l'utilisateur (si nécessaire)
-CREATE USER 'dansia'@'localhost' IDENTIFIED BY 'dansia';
-GRANT ALL PRIVILEGES ON tchadok.* TO 'dansia'@'localhost';
-FLUSH PRIVILEGES;
-```
-
-### 3. Importation de la Structure
-
-```bash
-# Via phpMyAdmin : Importer database/tchadok.sql
-
-# Ou via ligne de commande :
-mysql -u dansia -p tchadok < database/tchadok.sql
-```
-
-### 4. Vérification de l'Installation
-
-Accédez à : `http://localhost/tchadok/`
-
-Si tout est configuré correctement, la page d'accueil devrait s'afficher.
-
-## 🚀 Déploiement en Production
-
-### 1. Préparer les Fichiers de Configuration
-
-```bash
-# Sur le serveur de production, renommer les fichiers templates
-cp .env.production .env
-cp .htaccess.production .htaccess
-```
-
-### 2. Configurer le Fichier .env
-
-Éditez le fichier `.env` et configurez :
-
-```env
-# Environnement
-APP_ENV=production
-APP_DEBUG=false
-
-# URL de production (IMPORTANT !)
-APP_URL=https://tchadok.td
-SITE_URL=https://tchadok.td
-
-# Base de données
-DB_HOST=localhost
-DB_DATABASE=tchadok
-DB_USERNAME=dansia
-DB_PASSWORD=dansia
-
-# Clés de sécurité (GÉNÉRER DE NOUVELLES CLÉS !)
-APP_KEY=base64:NOUVELLE_CLE_ICI
-SESSION_SECRET=NOUVEAU_SECRET_ICI
-```
-
-### 3. Générer de Nouvelles Clés de Sécurité
-
-```bash
-# Générer une nouvelle clé APP_KEY
-openssl rand -base64 32
-
-# Générer un nouveau SESSION_SECRET
-openssl rand -base64 32
-```
-
-**Copiez ces valeurs dans votre fichier `.env`**
-
-### 4. Configurer les Services Externes
-
-#### Email (SMTP)
-```env
-MAIL_HOST=smtp.votre-domaine.com
-MAIL_PORT=587
-MAIL_USERNAME=votre-email@domaine.com
-MAIL_PASSWORD=votre-mot-de-passe
-```
-
-#### Paiements
-```env
-PAYMENT_MODE=live
-AIRTEL_MONEY_API_KEY=votre-cle-api-production
-MOOV_MONEY_API_KEY=votre-cle-api-production
-```
-
-#### Réseaux Sociaux
-```env
-FACEBOOK_APP_ID=votre-app-id-production
-GOOGLE_CLIENT_ID=votre-client-id-production
-```
-
-### 5. Permissions des Fichiers
-
-```bash
-# Répertoire uploads
-chmod 755 uploads/
-chmod 755 uploads/music/
-chmod 755 uploads/images/
-chmod 755 uploads/profiles/
-
-# Répertoire cache et logs
-chmod 755 cache/
-chmod 755 storage/logs/
-
-# Fichiers sensibles
-chmod 600 .env
-chmod 644 .htaccess
-```
-
-### 6. Vérifications de Sécurité
-
-✅ Le fichier `.env` n'est PAS accessible via le navigateur
-✅ Le fichier `.htaccess` bloque l'accès aux fichiers sensibles
-✅ `APP_DEBUG` est sur `false`
-✅ `FORCE_HTTPS` est sur `true`
-✅ Les clés de sécurité ont été changées
-
-## 🔐 Sécurité
-
-### Fichiers à NE JAMAIS Commiter dans Git
-
-- `.env` (contient les mots de passe)
-- `config.local.php`
-- Fichiers de backup `.sql`
-
-### Fichiers à Commiter
-
-- ✅ `.env.production` (template sans valeurs sensibles)
-- ✅ `.htaccess.production` (template)
-- ✅ `.gitignore`
-
-## 📂 Structure des Fichiers de Configuration
-
-```
-tchadok/
-├── .env                      # Configuration locale (NON commité)
-├── .env.production          # Template pour production (commité)
-├── .htaccess                # Configuration Apache locale (NON commité)
-├── .htaccess.production     # Template Apache production (commité)
-├── .gitignore               # Fichiers à ignorer
-├── config/
-│   ├── env.php              # Chargeur de variables d'environnement
-│   └── constants.php        # Constantes de l'application
-└── README-ENVIRONNEMENT.md  # Ce fichier
-```
-
-## 🛠️ Variables d'Environnement Importantes
-
-### Environnement
-- `APP_ENV` : `development` ou `production`
-- `APP_DEBUG` : `true` ou `false`
-- `APP_URL` : URL complète du site
-
-### Base de Données
-- `DB_HOST` : Hôte MySQL (généralement `localhost`)
-- `DB_DATABASE` : Nom de la base de données
-- `DB_USERNAME` : Utilisateur MySQL
-- `DB_PASSWORD` : Mot de passe MySQL
-
-### Sécurité
-- `APP_KEY` : Clé de chiffrement de l'application
-- `SESSION_SECRET` : Secret pour les sessions
-
-### Fonctionnalités de Développement
-- `ENABLE_TEST_ACCOUNTS` : Activer les comptes de test
-- `ENABLE_DEBUG_TOOLBAR` : Afficher la barre de debug
-- `ENABLE_QUERY_LOG` : Logger les requêtes SQL
-
-### Radio Engine (Icecast/Liquidsoap)
-- `RADIO_ENGINE_ENABLED` : Active l'integration moteur de stream
-- `RADIO_STREAM_PUBLIC_URL` : URL publique du flux (ex: `https://radio.tchadok.td/tchadok.mp3`)
-- `RADIO_STREAM_FALLBACK_URL` : fallback interne (par defaut `/api/radio/stream`)
-- `ICECAST_STATUS_URL` : endpoint status JSON Icecast (ex: `http://127.0.0.1:8000/status-json.xsl`)
-- `ICECAST_ADMIN_USER` : user admin Icecast
-- `ICECAST_ADMIN_PASSWORD` : mot de passe admin Icecast
-- `RADIO_ENGINE_MOUNT` : mount du flux principal (ex: `/tchadok.mp3`)
-- `RADIO_ENGINE_TIMEOUT` : timeout de lecture status (secondes)
-- `RADIO_ENGINE_PREFER_STREAM` : priorise l'URL du moteur sur l'URL en base
-- `RADIO_ENGINE_USE_STATUS_LISTENURL` : utilise `listenurl` Icecast (a activer si DNS public resolu)
-
-## 🧪 Comptes de test
-
-> **Modifié le 21/09/2026 (SEC-02).** La page web `admin/create-test-accounts.php`
-> a été supprimée, ainsi que les scripts `sql/create-test-accounts*.sql`.
-> Les comptes qu'ils créaient partageaient tous un mot de passe unique et
-> documenté comme public.
-
-La création d'un compte administrateur passera par une commande en ligne de
-commande (`scripts/create-admin.php`, tâche `SEC-05`), qui impose un mot de
-passe fort et refuse de s'exécuter via HTTP.
-
-Le jeu de démonstration sera fourni dans `database/seeds/demo.sql`, jamais
-importé en production.
-
-> Ce document décrit encore l'ancien mécanisme de configuration (fichier `.env`
-> unique). Il sera entièrement réécrit à la tâche `CFG-06`, après la mise en
-> place de `.env.local` / `.env.production`. En attendant, se reporter à
-> `docs/exploitation/pre-requis.md` pour l'installation locale.
-
-## 🆘 Dépannage
-
-### Erreur "Ce script ne peut être exécuté qu'en mode développement"
-
-**Solution :** Vérifiez votre fichier `.env` :
-```env
-APP_ENV=development
-ENABLE_TEST_ACCOUNTS=true
-```
-
-### Erreur de connexion à la base de données
-
-**Solution :** Vérifiez les identifiants dans `.env` :
-```env
-DB_HOST=localhost
-DB_DATABASE=tchadok
-DB_USERNAME=dansia
-DB_PASSWORD=dansia
-```
-
-### Page blanche ou erreur 500
-
-**Solution :**
-1. Vérifiez que le fichier `.env` existe
-2. Vérifiez les permissions des fichiers
-3. Consultez les logs PHP : `storage/logs/`
-
-### URL incorrectes (liens cassés)
-
-**Solution :** Vérifiez `SITE_URL` dans `.env` :
-```env
-# Local
-SITE_URL=http://localhost/tchadok
-
-# Production
-SITE_URL=https://tchadok.td
-```
-
-## 📝 Notes Importantes
-
-1. **Ne jamais** éditer `.env.production` avec des vraies valeurs
-2. **Toujours** créer un nouveau `.env` en production
-3. **Toujours** générer de nouvelles clés pour la production
-4. **Toujours** vérifier que `.env` n'est pas accessible publiquement
-5. **Toujours** faire un backup avant de déployer
-
-## 📞 Support
-
-Pour toute question sur la configuration :
-1. Consultez ce README
-2. Vérifiez les fichiers templates (`.env.production`, `.htaccess.production`)
-3. Consultez la documentation du serveur web
+Ce document remplace la version précédente, qui décrivait un mécanisme à
+fichier `.env` unique désormais abandonné.
 
 ---
 
-**Dernière mise à jour** : 2025
-**Version** : 1.0
+## 1. Le principe en une page
+
+Deux environnements, jamais mélangés.
+
+| Fichier | Versionné | Rôle | Sur le serveur de production |
+|---|:--:|---|---|
+| `.env.local` | **non** | Configuration du poste de développement | **retiré** |
+| `.env.local.example` | oui | Modèle, sans valeur réelle | présent, sans effet |
+| `.env.production` | **non** | Configuration réelle du serveur | présent |
+| `.env.production.example` | oui | Modèle, sans valeur réelle | présent, sans effet |
+| `.htaccess.local` | oui | Règles Apache de développement | **retiré** |
+| `.htaccess.production` | oui | Règles Apache durcies | source de `.htaccess` |
+| `.htaccess` | **non** | **Généré** — seul fichier lu par Apache | copie de `.htaccess.production` |
+
+`config/env.php` résout dans cet ordre strict :
+
+1. `.env.local` présent → environnement **local** ;
+2. sinon `.env.production` → environnement **production** ;
+3. sinon → **erreur fatale explicite**, jamais de valeur par défaut.
+
+Retirer `.env.local` du serveur suffit donc à basculer la configuration.
+
+### Le piège à connaître
+
+**Apache ne lit que le fichier nommé exactement `.htaccess`.** Il ignore
+totalement `.htaccess.local` et `.htaccess.production`.
+
+Retirer `.htaccess.local` d'un serveur ne suffit pas : s'il ne reste aucun
+`.htaccess`, Apache n'applique **aucune** règle — ni blocage des fichiers
+sensibles, ni en-têtes de sécurité, ni redirection HTTPS. Le site répond
+normalement et rien ne signale le problème.
+
+D'où deux garde-fous :
+
+- `scripts/env-switch.php` **génère** `.htaccess` depuis la bonne source ;
+- `includes/environment-guard.php` refuse de servir l'application si la
+  configuration active ne correspond pas à l'infrastructure.
+
+### Les identifiants locaux peuvent rester simples
+
+C'est un choix assumé. Le poste de développement n'est pas exposé, et des
+identifiants mémorisables y font gagner du temps. Ce qui protège la
+production n'est pas la complexité des valeurs locales : c'est
+l'impossibilité technique qu'elles y arrivent — et c'est le rôle de
+`env-switch` et du garde-fou.
+
+---
+
+## 2. Installation sur un poste de développement
+
+### 2.1. Pré-requis
+
+Voir `docs/exploitation/pre-requis.md` pour le détail. En résumé :
+
+- XAMPP avec **PHP 8.2**, MariaDB 10.4+, Apache 2.4 ;
+- extensions `pdo_mysql`, `mbstring`, `openssl`, `fileinfo`, `curl`, `gd`,
+  `intl`, `zip` ;
+- `ffmpeg` / `ffprobe` (nécessaire aux lots 9 et 12).
+
+### 2.2. Base de données
+
+```sql
+CREATE DATABASE tchadok_local
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+Puis importer le schéma **avec un compte administrateur** — le dump contient
+des `CREATE TRIGGER`, qu'un compte limité ne peut pas exécuter :
+
+```
+C:\xampp\mysql\bin\mysql.exe -u root tchadok_local < database\tchadok.sql
+```
+
+Attendu : 27 tables, 2 vues, 3 triggers.
+
+> Les triggers `update_stream_stats`, `update_purchase_stats` et
+> `update_album_tracks_count` maintiennent les compteurs directement depuis
+> la donnée brute. Ils seront retirés à la tâche `STAT-06` au profit d'une
+> chaîne d'agrégation explicite et reconstructible.
+
+### 2.3. Configuration
+
+```
+copy .env.local.example .env.local
+```
+
+Renseigner au minimum `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`. Les
+autres valeurs du modèle conviennent pour démarrer.
+
+### 2.4. Règles Apache
+
+```
+php scripts/env-switch.php local
+```
+
+Cette commande génère `.htaccess`. **Elle n'est pas optionnelle** : sans
+elle, aucune règle n'est appliquée.
+
+### 2.5. Comptes
+
+Le dump `database/tchadok.sql` livre encore deux comptes, `admin`
+(super-administrateur) et `user_demo`. Ils partagent un même hash, dont le
+mot de passe est documenté comme public. **Changez-le après l'import :**
+
+```
+php -r "echo password_hash('votre-mot-de-passe', PASSWORD_BCRYPT, ['cost'=>12]);"
+```
+
+```sql
+UPDATE users SET password = '<hash>', password_hash = '<hash>' WHERE id IN (1, 2);
+```
+
+Sur le poste de référence, les deux comptes utilisent le mot de passe local
+`tchadok2026`.
+
+> La tâche `SEC-05` retirera ces comptes du dump de référence et livrera
+> `scripts/create-admin.php`, commande en ligne de commande qui imposera un
+> mot de passe fort. **Ce dump ne doit pas être importé tel quel en
+> production** tant que `SEC-05` n'est pas fait.
+
+### 2.6. Vérification
+
+```
+php scripts/env-switch.php --status
+```
+
+Attendu :
+
+```
+  [ok]    Configuration : local (.env.local)
+  [ok]    Apache        : .htaccess genere depuis .htaccess.local
+```
+
+Puis ouvrir `http://localhost/tchadok`.
+
+---
+
+## 3. Déploiement en production
+
+> Procédure complète et automatisable : `docs/exploitation/deploiement.md`
+> (tâche `DEPLOY-02`). Ce qui suit en est le noyau.
+
+1. **Sauvegarder**, et vérifier la sauvegarde
+   (`scripts/backup.ps1`, puis `scripts/restore.ps1` sur une base de contrôle).
+2. Mettre le site en maintenance.
+3. Récupérer le code.
+4. **Retirer du serveur** : `.env.local`, `.htaccess.local`,
+   `mock-gateways/`, `tests/`, `database/seeds/demo.sql`.
+5. Déposer `.env.production` (jamais versionné) avec les vraies valeurs,
+   droits `600`.
+6. **Basculer** :
+   ```
+   php scripts/env-switch.php production
+   ```
+   La commande **refuse** de s'exécuter tant qu'un fichier de développement
+   subsiste ou qu'un secret porte encore une valeur de modèle. Elle liste
+   alors tout ce qui bloque, en une fois.
+7. Appliquer les migrations (`php scripts/migrate.php up`, tâche `DATA-01`).
+8. Contrôler :
+   ```
+   php scripts/env-switch.php --status
+   curl -I https://<domaine>/
+   ```
+9. Sortir du mode maintenance et vérifier les cinq parcours critiques :
+   inscription, connexion, publication d'un titre, achat, baromètre.
+
+### Ce que `env-switch production` refuse
+
+- `.env.local`, `.htaccess.local`, `mock-gateways/`, `tests/` ou
+  `database/seeds/demo.sql` présents ;
+- un secret laissé à `REMPLACER`, `CHANGE-ME`, `YOUR_`, `votre-`,
+  `A_DEFINIR`, `mock-` ou `hackme` ;
+- `APP_DEBUG` différent de `false` ;
+- `PAYMENT_DRIVER` différent de `live` ;
+- `ALLOW_DEV_TOOLS` différent de `false` ;
+- `SESSION_SECURE` différent de `true` ;
+- `APP_URL` ou `SITE_URL` qui ne sont pas en HTTPS.
+
+### Ce que le garde-fou applicatif arrête
+
+`includes/environment-guard.php` s'exécute à chaque requête. En production,
+il renvoie une page 503 — sans aucun détail technique, les anomalies allant
+dans les journaux — si :
+
+- `.htaccess` est **absent** ;
+- `.htaccess` provient de la mauvaise source ;
+- `APP_DEBUG` ou `ALLOW_DEV_TOOLS` sont actifs ;
+- `PAYMENT_DRIVER` vaut `mock` ;
+- un secret porte encore une valeur de modèle ;
+- `APP_URL` ou `SITE_URL` ne sont pas en HTTPS ;
+- `SESSION_SECURE` est désactivé ;
+- **`.env.local` est présent sur une infrastructure de production.**
+
+Ce dernier point mérite l'attention : un `.env.local` oublié prend la
+priorité sur `.env.production`, et l'application démarrerait en mode
+développement — debug actif, paiements simulés — sans se croire en
+production, donc sans déclencher les autres contrôles. Le garde détecte
+l'infrastructure par l'empreinte du `.htaccess` en place et par le marqueur
+`storage/.environment`, que ce fichier oublié ne peut pas masquer.
+
+En local, ces mêmes anomalies s'affichent en bandeau et ne bloquent jamais.
+
+---
+
+## 4. Variables d'environnement
+
+| Variable | Obligatoire | Local | Production |
+|---|:--:|---|---|
+| `APP_ENV` | oui | `local` | `production` |
+| `APP_DEBUG` | oui | `true` | **`false`** |
+| `APP_URL`, `SITE_URL` | oui | `http://localhost/tchadok` | **HTTPS obligatoire** |
+| `APP_TIMEZONE` | non | `Africa/Ndjamena` | idem |
+| `DB_HOST`, `DB_PORT` | oui | `127.0.0.1`, `3306` | selon l'hébergement |
+| `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` | **oui** | valeurs locales | compte limité au DML |
+| `BACKUP_DB_USERNAME`, `BACKUP_DB_PASSWORD` | recommandé | identique au compte applicatif | **compte distinct en lecture seule** |
+| `APP_KEY`, `SESSION_SECRET` | **oui** | valeurs simples | générées, différentes du local |
+| `SESSION_SECURE` | oui | `false` (HTTP) | **`true`** |
+| `SESSION_SAMESITE` | non | `Lax` | `Lax` |
+| `SESSION_LIFETIME`, `ADMIN_SESSION_LIFETIME` | non | longues | 1800 / 900 s |
+| `TRUSTED_PROXIES` | non | vide | IP du proxy, sinon **vide** |
+| `STORAGE_PATH` | oui | `./storage` | chemin absolu, **hors racine web** |
+| `MAIL_DRIVER` | oui | `log` | `smtp` |
+| `PAYMENT_DRIVER` | oui | `mock` | **`live`** |
+| `<PASSERELLE>_BASE_URL`, `_API_KEY`, `_WEBHOOK_SECRET` | oui | simulateurs locaux | fournis par le partenaire |
+| `FFPROBE_PATH`, `FFMPEG_PATH` | oui (lots 9, 12) | chemin local | chemin serveur |
+| `ALLOW_DEV_TOOLS` | oui | `true` | **`false`** |
+| `FORCE_HTTPS`, `HSTS_ENABLED` | non | `false` | `true` |
+| `RADIO_*`, `ICECAST_*` | si radio activée | Icecast local | Icecast production, **HTTPS** |
+
+Les secrets ne sont **jamais** exposés en constante PHP : seule une liste
+blanche (`APP_NAME`, `APP_TIMEZONE`, `APP_URL`) est promue. Tout le reste se
+lit par `env('CLE')`, ou `env_require('CLE')` quand l'absence doit être
+fatale.
+
+---
+
+## 5. Dépannage
+
+### « Aucun fichier d'environnement trouvé »
+
+Ni `.env.local` ni `.env.production` n'existe. En local :
+`copy .env.local.example .env.local`.
+
+### Page 503 « Service momentanément indisponible » avec une référence
+
+Le garde-fou a détecté une anomalie critique. Le détail est dans
+`storage/logs/php-errors.log`, préfixé `[Tchadok][guard]`. La référence
+affichée permet de retrouver l'entrée correspondante.
+
+### « Configuration de base de données incomplète »
+
+`DB_DATABASE`, `DB_USERNAME` ou `DB_PASSWORD` manque. Le message nomme les
+variables absentes. Il n'y a plus de valeur de repli : c'est volontaire —
+l'ancienne version se rabattait silencieusement sur des identifiants écrits
+en dur.
+
+### Le site fonctionne mais les fichiers sensibles sont accessibles
+
+`.htaccess` n'a pas été généré. Lancer `php scripts/env-switch.php local`
+(ou `production`), puis vérifier avec `--status`.
+
+### Modifications du `.htaccess` perdues
+
+`.htaccess` est un fichier **généré**, écrasé à chaque bascule. Reporter les
+modifications dans `.htaccess.local` ou `.htaccess.production`. Si une
+version non reconnue est détectée, `env-switch` la sauvegarde sous
+`.htaccess.remplace-<horodatage>` avant de l'écraser.
+
+### « SHOW VIEW command denied » pendant une sauvegarde
+
+Le compte applicatif est volontairement limité au DML et ne peut pas lire
+les définitions de vues et de triggers. Renseigner `BACKUP_DB_USERNAME` avec
+un compte de sauvegarde dédié — voir `docs/exploitation/sauvegarde.md`.
+
+### Les extensions PHP activées ne sont pas prises en compte
+
+Redémarrer Apache. La version CLI de PHP relit `php.ini` à chaque appel,
+pas le module Apache.
+
+---
+
+## 6. Documents liés
+
+| Document | Contenu |
+|---|---|
+| `docs/exploitation/pre-requis.md` | Versions, extensions, modules Apache, base locale |
+| `docs/exploitation/secrets.md` | Inventaire des secrets, rotation, procédure de fuite |
+| `docs/exploitation/sauvegarde.md` | Sauvegarde, restauration, comptes MySQL, rétention |
+| `AUDIT-PLATEFORME-TCHADOK.md` | Audit complet de la plateforme |
+| `PLAN-ACHEVEMENT-TCHADOK.md` | Les 123 tâches vers la mise en production |

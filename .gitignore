@@ -17,6 +17,20 @@ config.local.php
 !.env.local.example
 !.env.production.example
 
+# ----------------------------------------------------------------
+# Apache (CFG-04)
+# .htaccess est GENERE par scripts/env-switch.php depuis
+# .htaccess.local ou .htaccess.production, qui sont les sources
+# versionnees. Ne jamais modifier .htaccess a la main : il est ecrase
+# a chaque bascule.
+# ----------------------------------------------------------------
+.htaccess
+.htaccess.remplace-*
+!.htaccess.local
+!.htaccess.production
+# Protections locales de sous-repertoires (storage/, uploads/...)
+!*/.htaccess
+
 # Logs
 *.log
 logs/

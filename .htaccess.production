@@ -1,209 +1,183 @@
 # ================================================================
-# .htaccess pour environnement PRODUCTION - Tchadok Platform
+# TCHADOK - APACHE, PRODUCTION
 # ================================================================
-# Configuration Apache optimisée pour la production
-# RENOMMER en .htaccess lors du déploiement
+#
+# Tache CFG-04.
+#
+# Ce fichier est une SOURCE. Apache ne lit que le fichier nomme
+# exactement ".htaccess" : il ignore totalement celui-ci.
+#
+# Mise en place, lors du deploiement :
+#   php scripts/env-switch.php production
+#
+# ATTENTION : supprimer .htaccess.local du serveur ne suffit PAS.
+# Si aucun fichier ".htaccess" n'est en place, Apache n'applique
+# AUCUNE de ces regles, silencieusement : ni blocage des fichiers
+# sensibles, ni en-tetes de securite, ni redirection HTTPS. Le site
+# fonctionne en apparence, sans aucune protection.
+# Le garde-fou applicatif (CFG-05) detecte cette situation et arrete
+# l'application plutot que de servir un site non protege.
 # ================================================================
 
-# Activer le moteur de réécriture
+# ---------------------------------------------------------------
+# Reecriture
+# ---------------------------------------------------------------
 <IfModule mod_rewrite.c>
     RewriteEngine On
-
-    # Définir la base de réécriture (racine du domaine)
     RewriteBase /
 
-    # Forcer HTTPS en production
+    # Certificats ACME : laisser passer AVANT la redirection HTTPS,
+    # sinon le renouvellement automatique echoue.
+    RewriteRule ^\.well-known/ - [L]
+
+    # HTTPS obligatoire
     RewriteCond %{HTTPS} off
+    RewriteCond %{HTTP:X-Forwarded-Proto} !https
     RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-    # Rediriger www vers non-www (ou inverse selon préférence)
-    RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
+    # www -> apex
+    RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
     RewriteRule ^(.*)$ https://%1/$1 [R=301,L]
 
-    # Empêcher l'accès direct aux fichiers sensibles
-    RewriteRule ^\.env$ - [F,L]
-    RewriteRule ^\.env\.production$ - [F,L]
+    # Fichiers sensibles
+    RewriteRule ^\.env - [F,L]
     RewriteRule ^composer\.(json|lock)$ - [F,L]
     RewriteRule ^package(-lock)?\.json$ - [F,L]
-    RewriteRule ^README\.md$ - [F,L]
 
-    # Bloquer l'accès aux dossiers sensibles
-    RewriteRule ^(includes|config|sql|database|vendor|node_modules)/ - [F,L]
+    # Repertoires qui ne doivent jamais etre servis.
+    # mock-gateways et tests ne devraient pas etre presents en
+    # production : ce blocage est une defense en profondeur.
+    RewriteRule ^(includes|config|database|scripts|storage|tests|mock-gateways|docs|vendor|node_modules|infra)/ - [F,L]
 
-    # Rediriger les requêtes sans extension vers PHP
+    # URL sans extension -> fichier PHP correspondant
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME}\.php -f
     RewriteRule ^(.*)$ $1.php [L,QSA]
 </IfModule>
 
-# Protection maximale des fichiers sensibles
+# ---------------------------------------------------------------
+# Fichiers sensibles
+# ---------------------------------------------------------------
 <FilesMatch "^\.">
-    Order allow,deny
-    Deny from all
+    Require all denied
 </FilesMatch>
 
-<FilesMatch "\.(env|htaccess|htpasswd|ini|log|sh|sql|md|txt|bak|config|dist|git|gitignore|yml|yaml)$">
-    Order allow,deny
-    Deny from all
+# .txt n'est volontairement PAS bloque : robots.txt doit rester lisible.
+<FilesMatch "\.(env|htaccess|htpasswd|ini|log|sh|sql|md|bak|dist|yml|yaml|ps1)$">
+    Require all denied
 </FilesMatch>
 
-# Autoriser l'accès aux fichiers .well-known (certifications SSL)
-<IfModule mod_rewrite.c>
-    RewriteRule ^\.well-known/ - [L]
-</IfModule>
+<Files ".well-known">
+    Require all granted
+</Files>
 
-# Configuration PHP pour la production
-<IfModule mod_php7.c>
-    # Masquer les erreurs en production
-    php_flag display_errors Off
-    php_flag display_startup_errors Off
-    php_value error_reporting 0
-    php_flag log_errors On
-    php_value error_log /var/log/php_errors.log
-
-    # Taille maximale des uploads
-    php_value upload_max_filesize 50M
-    php_value post_max_size 52M
-    php_value memory_limit 512M
-    php_value max_execution_time 300
-    php_value max_input_time 300
-
-    # Sessions sécurisées
-    php_value session.gc_maxlifetime 7200
-    php_flag session.cookie_httponly On
-    php_flag session.cookie_secure On
-    php_value session.cookie_samesite Strict
-
-    # Timezone
-    php_value date.timezone "Africa/Ndjamena"
-
-    # Désactiver les fonctions dangereuses
-    php_value disable_functions "exec,passthru,shell_exec,system,proc_open,popen,curl_exec,curl_multi_exec,parse_ini_file,show_source"
-</IfModule>
-
-# Configuration pour PHP 8
+# ---------------------------------------------------------------
+# PHP
+# ---------------------------------------------------------------
 <IfModule mod_php.c>
     php_flag display_errors Off
     php_flag display_startup_errors Off
-    php_value error_reporting 0
     php_flag log_errors On
-    php_value error_log /var/log/php_errors.log
+
+    # error_reporting reste a E_ALL : on journalise tout, on n'affiche rien.
+    # L'ancienne configuration posait error_reporting 0, ce qui faisait
+    # disparaitre les erreurs des journaux aussi.
+    php_value error_reporting 32767
+
     php_value upload_max_filesize 50M
     php_value post_max_size 52M
     php_value memory_limit 512M
-    php_value max_execution_time 300
-    php_value max_input_time 300
-    php_value session.gc_maxlifetime 7200
+    php_value max_execution_time 120
+    php_value max_input_time 120
+
+    php_value session.gc_maxlifetime 1800
     php_flag session.cookie_httponly On
     php_flag session.cookie_secure On
-    php_value session.cookie_samesite Strict
+    # Lax et non Strict : Strict casse le retour depuis une page de
+    # paiement hebergee (VISA, 3-D Secure), le cookie de session
+    # n'etant pas renvoye lors de la redirection entrante.
+    php_value session.cookie_samesite Lax
+    php_flag session.use_strict_mode On
+
+    php_flag expose_php Off
     php_value date.timezone "Africa/Ndjamena"
 </IfModule>
 
-# Compression GZIP pour optimiser les performances
-<IfModule mod_deflate.c>
-    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript
-    AddOutputFilterByType DEFLATE application/javascript application/json application/xml
-    AddOutputFilterByType DEFLATE image/svg+xml
+# Note : ne PAS tenter de poser disable_functions ici. C'est une
+# directive PHP_INI_SYSTEM, inapplicable depuis un .htaccess. La version
+# precedente de ce fichier en declarait une incluant curl_exec, ce qui
+# aurait coupe toutes les passerelles de paiement si elle avait pris
+# effet. Le durcissement de PHP se fait dans php.ini.
 
-    # Compression niveau 6 (bon compromis CPU/taille)
-    DeflateCompressionLevel 6
-</IfModule>
-
-# Cache agressif des fichiers statiques en production
-<IfModule mod_expires.c>
-    ExpiresActive On
-    ExpiresDefault "access plus 1 month"
-
-    # Images
-    ExpiresByType image/jpg "access plus 1 year"
-    ExpiresByType image/jpeg "access plus 1 year"
-    ExpiresByType image/gif "access plus 1 year"
-    ExpiresByType image/png "access plus 1 year"
-    ExpiresByType image/svg+xml "access plus 1 year"
-    ExpiresByType image/webp "access plus 1 year"
-    ExpiresByType image/x-icon "access plus 1 year"
-
-    # CSS et JavaScript
-    ExpiresByType text/css "access plus 1 year"
-    ExpiresByType text/javascript "access plus 1 year"
-    ExpiresByType application/javascript "access plus 1 year"
-
-    # Fonts
-    ExpiresByType font/woff2 "access plus 1 year"
-    ExpiresByType font/woff "access plus 1 year"
-    ExpiresByType font/ttf "access plus 1 year"
-    ExpiresByType application/font-woff2 "access plus 1 year"
-
-    # Médias
-    ExpiresByType audio/mpeg "access plus 1 year"
-    ExpiresByType audio/mp4 "access plus 1 year"
-    ExpiresByType video/mp4 "access plus 1 year"
-
-    # Documents
-    ExpiresByType application/pdf "access plus 1 month"
-
-    # HTML et JSON - cache court
-    ExpiresByType text/html "access plus 0 seconds"
-    ExpiresByType application/json "access plus 0 seconds"
-</IfModule>
-
-# Headers de sécurité stricts pour la production
+# ---------------------------------------------------------------
+# En-tetes de securite
+# ---------------------------------------------------------------
 <IfModule mod_headers.c>
-    # CORS - Restreint au domaine
-    Header set Access-Control-Allow-Origin "https://tchadok.td"
-    Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-    Header set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
-    Header set Access-Control-Allow-Credentials "true"
-
-    # Protection contre le clickjacking
+    Header always set X-Content-Type-Options "nosniff"
     Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=()"
+    Header always set X-Tchadok-Env "production"
 
-    # Protection XSS
-    Header set X-XSS-Protection "1; mode=block"
+    # HSTS : n'activer qu'apres validation du certificat sur tous les
+    # sous-domaines. Une erreur ici rend le site inaccessible pendant
+    # toute la duree du max-age, sans possibilite de retour arriere
+    # cote navigateur.
+    # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
 
-    # Empêcher le sniffing MIME
-    Header set X-Content-Type-Options "nosniff"
+    # Politique de securite du contenu.
+    # En Report-Only tant que Tailwind est charge depuis son CDN : le
+    # compilateur navigateur exige 'unsafe-eval'. Basculer en
+    # Content-Security-Policy (bloquante) apres la tache UX-03, qui
+    # compile Tailwind localement.
+    Header always set Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; img-src 'self' data: https:; media-src 'self' https:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
 
-    # Politique de référent stricte
-    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    # Aucun en-tete CORS global.
+    # L'ancienne configuration posait Access-Control-Allow-Origin "*" sur
+    # TOUTES les reponses, pages HTML comprises, avec GET/POST/PUT/DELETE.
+    # Le CORS se declare desormais endpoint par endpoint (tache SEC-18).
 
-    # Content Security Policy (à adapter selon vos besoins)
-    Header set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https:; connect-src 'self'; media-src 'self';"
-
-    # HSTS - Force HTTPS pendant 1 an
-    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-
-    # Permissions Policy
-    Header set Permissions-Policy "geolocation=(), microphone=(), camera=()"
-
-    # Désactiver le cache pour les fichiers sensibles
-    <FilesMatch "\.(php|html)$">
-        Header set Cache-Control "no-cache, no-store, must-revalidate"
-        Header set Pragma "no-cache"
-        Header set Expires 0
+    <FilesMatch "\.(php)$">
+        Header set Cache-Control "no-store, no-cache, must-revalidate"
     </FilesMatch>
 
-    # ETag pour versionning
-    Header unset ETag
-    FileETag None
+    Header unset X-Powered-By
+    Header unset Server
 </IfModule>
 
-# Pages d'erreur personnalisées
-ErrorDocument 404 /404.php
-ErrorDocument 403 /403.php
-ErrorDocument 500 /500.php
+# ---------------------------------------------------------------
+# Compression et cache
+# ---------------------------------------------------------------
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css
+    AddOutputFilterByType DEFLATE application/javascript application/json
+    AddOutputFilterByType DEFLATE image/svg+xml application/manifest+json
+</IfModule>
 
-# Options du répertoire - Sécurité maximale
+<IfModule mod_expires.c>
+    ExpiresActive On
+    # Les actifs doivent porter une empreinte dans leur nom pour que
+    # ces durees longues soient sures (tache UX-03).
+    ExpiresByType text/css "access plus 1 year"
+    ExpiresByType application/javascript "access plus 1 year"
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/webp "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 1 month"
+    ExpiresByType audio/mpeg "access plus 1 week"
+    ExpiresByType text/html "access plus 0 seconds"
+</IfModule>
+
+# ---------------------------------------------------------------
+# Divers
+# ---------------------------------------------------------------
 Options -Indexes
-Options -MultiViews
 Options +FollowSymLinks
-
-# Encodage par défaut
+ServerSignature Off
 AddDefaultCharset UTF-8
 
-# Types MIME
 <IfModule mod_mime.c>
     AddType audio/mpeg mp3
     AddType audio/mp4 m4a
@@ -211,37 +185,11 @@ AddDefaultCharset UTF-8
     AddType audio/wav wav
     AddType video/mp4 mp4
     AddType application/json json
-    AddType application/font-woff2 woff2
     AddType font/woff2 woff2
     AddType image/svg+xml svg svgz
-    AddType image/webp webp
+    AddType application/manifest+json webmanifest
 </IfModule>
 
-# Protection contre les hotlinking
-<IfModule mod_rewrite.c>
-    RewriteCond %{HTTP_REFERER} !^$
-    RewriteCond %{HTTP_REFERER} !^https://(www\.)?tchadok\.td [NC]
-    RewriteRule \.(jpg|jpeg|png|gif|mp3|mp4|wav|pdf)$ - [F,NC]
-</IfModule>
-
-# Limite de taille des requêtes
-LimitRequestBody 52428800
-
-# Protection contre les attaques par force brute
-<IfModule mod_security2.c>
-    SecFilterEngine On
-    SecFilterCheckURLEncoding On
-</IfModule>
-
-# Bloquer les user agents malveillants
-<IfModule mod_rewrite.c>
-    RewriteCond %{HTTP_USER_AGENT} ^$ [OR]
-    RewriteCond %{HTTP_USER_AGENT} ^(-|curl|wget|libwww-perl|python|nikto|scan|java|winhttp|HTTrack|clshttp|archiver|loader|email|harvest|extract|grab|miner) [NC,OR]
-    RewriteCond %{HTTP_USER_AGENT} (libwww-perl|wget|python|nikto|curl|scan|java|winhttp|clshttp|loader) [NC,OR]
-    RewriteCond %{HTTP_USER_AGENT} (<|>|'|%0A|%0D|%27|%3C|%3E|%00) [NC,OR]
-    RewriteCond %{HTTP_USER_AGENT} (;|<|>|'|"|\)|\(|%0A|%0D|%22|%27|%28|%3C|%3E|%00).*(libwww-perl|wget|python|nikto|curl|scan|java|winhttp|HTTrack|clshttp|archiver|loader|email|harvest|extract|grab|miner) [NC]
-    RewriteRule .* - [F,L]
-</IfModule>
-
-# Désactiver la signature du serveur
-ServerSignature Off
+ErrorDocument 403 /403.php
+ErrorDocument 404 /404.php
+ErrorDocument 500 /500.php
