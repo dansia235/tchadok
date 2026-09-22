@@ -101,8 +101,15 @@ $RECYCLE.BIN/
 backup/
 backups/
 
-# Exception : Autoriser les scripts SQL dans le dossier sql/
+# Exceptions : scripts SQL versionnes.
+# La regle *.sql ci-dessus vise les exports et sauvegardes ; elle ne doit
+# pas masquer le schema de reference, les migrations ni les donnees de
+# reference. Sans ces exceptions, database/seeds/demo.sql et toute
+# migration de database/migrations/ seraient silencieusement ignores.
 !sql/*.sql
+!database/tchadok.sql
+!database/migrations/*.sql
+!database/seeds/*.sql
 
 # Fichiers de session
 storage/sessions/
