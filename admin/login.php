@@ -68,6 +68,7 @@ include '../includes/header-tailwind.php';
             <?php endif; ?>
 
             <form method="POST" class="mt-6 space-y-4">
+                <?php echo csrfField(); ?>
                 <label class="text-xs font-semibold text-muted">
                     Nom d'utilisateur
                     <input type="text" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-2 text-sm text-text" id="username" name="username" required value="<?php echo htmlspecialchars($_POST['username'] ?? ''); ?>">

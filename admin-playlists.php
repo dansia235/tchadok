@@ -169,6 +169,7 @@ include 'includes/header-tailwind.php';
                 <div id="playlist-create" class="rounded-3xl border border-white/10 bg-surface/60 p-6">
                     <h2 class="text-lg font-semibold text-text"><i class="fas fa-plus"></i> Nouvelle playlist</h2>
                     <form method="POST" enctype="multipart/form-data" class="mt-4 space-y-4">
+                        <?php echo csrfField(); ?>
                         <input type="hidden" name="action" value="create_playlist">
                         <div>
                             <label class="text-xs font-semibold text-muted">Utilisateur *</label>
@@ -222,6 +223,7 @@ include 'includes/header-tailwind.php';
                 <div id="playlist-curation" class="rounded-3xl border border-white/10 bg-surface/60 p-6">
                     <h2 class="text-lg font-semibold text-text"><i class="fas fa-music"></i> Ajouter un titre</h2>
                     <form method="POST" class="mt-4 space-y-4">
+                        <?php echo csrfField(); ?>
                         <input type="hidden" name="action" value="add_track">
                         <div>
                             <label class="text-xs font-semibold text-muted">Playlist *</label>

@@ -226,6 +226,7 @@ include 'includes/header-tailwind.php';
                 <div id="podcast-create" class="rounded-3xl border border-white/10 bg-surface/60 p-6">
                     <h2 class="text-lg font-semibold text-text"><i class="fas fa-plus"></i> Nouveau podcast</h2>
                     <form method="POST" enctype="multipart/form-data" class="mt-4 space-y-4">
+                        <?php echo csrfField(); ?>
                         <input type="hidden" name="action" value="create_podcast">
                         <div>
                             <label class="text-xs font-semibold text-muted">Titre *</label>
@@ -282,6 +283,7 @@ include 'includes/header-tailwind.php';
                 <div id="episode-create" class="rounded-3xl border border-white/10 bg-surface/60 p-6">
                     <h2 class="text-lg font-semibold text-text"><i class="fas fa-waveform"></i> Nouvel épisode</h2>
                     <form method="POST" enctype="multipart/form-data" class="mt-4 space-y-4">
+                        <?php echo csrfField(); ?>
                         <input type="hidden" name="action" value="create_episode">
                         <div>
                             <label class="text-xs font-semibold text-muted">Podcast *</label>

@@ -668,7 +668,20 @@ Huit requêtes publiques incluent les contenus en `draft` : lignes 101, 269, 304
 
 ### SEC-09 — Protection CSRF centralisée
 
-**Charge :** 1 j
+**Charge :** 1 j · **Statut :** fait le 22/09/2026
+
+> **Bilan.** `includes/csrf-guard.php`, chargée en fin de `includes/functions.php`, vérifie toute requête `POST`, `PUT`, `PATCH` ou `DELETE` **avant** l'exécution du point d'entrée. Active par défaut : un formulaire ajouté sans jeton échoue au lieu de passer. Exemption uniquement par `define('TCHADOK_CSRF_EXEMPT', '<raison>')`, raison obligatoire, journalisée — réservée aux callbacks de paiement (`PAY-04`). Jeton accepté par champ `csrf_token`, en-tête `X-CSRF-Token` ou corps JSON ; renouvelé à la connexion. Jeton ajouté aux 23 formulaires. Côté JavaScript, un correctif de `fetch()` ajoute l'en-tête à toute requête modifiante **vers le site uniquement** : la protection est aussi active par défaut pour le code à venir.
+>
+> **Code 403 et non 419.** Le plan prévoyait 419 (convention de Laravel). Apache ne connaît pas ce code et le transforme en **500** : le refus devenait indistinguable d'une panne. 403 est le code standard d'un refus CSRF. Les réponses JSON portent `reason: "csrf"` pour que le front distingue ce cas d'un refus d'autorisation. **`419.php` prévu en `SEC-16` n'a donc plus lieu d'être.**
+>
+> **Traité en plus :**
+> - envoi au-delà de `post_max_size` : PHP vide alors `$_POST`, jeton compris ; la garde répond **413 « fichier trop volumineux »** plutôt que « session expirée » ;
+> - `verifyCSRFToken()` plantait en PHP 8 (`TypeError`) quand le jeton était absent ;
+> - **déconnexion** : passée en `POST` (un lien `GET` permettait à n'importe quel site de déconnecter un utilisateur par une image), et elle **ne déconnectait pas les comptes « se souvenir de moi »** — la session était détruite mais pas le cookie `remember_token`, et l'utilisateur était reconnecté dès la requête suivante. Vérifié sur l'ancienne version, corrigé. Redirection limitée au site lui-même.
+>
+> **Vérifié :** `tests/securite/sec09-csrf.ps1` (64 contrôles) et `tests/securite/sec09-fetch-patch.js` (17 contrôles), tous au vert ; suites `SEC-06` et `SEC-08` adaptées pour envoyer le jeton comme un navigateur, toujours au vert.
+>
+> **Relevé pour `SEC-14` / `SEC-20` :** `security-settings.php` utilise par défaut le secret TOTP d'exemple public `JBSWY3DPEHPK3PXP`, identique pour tous, et fait générer le QR code par un **service tiers** (`api.qrserver.com`) en lui transmettant le secret dans l'URL.
 
 22 fichiers traitent des requêtes `POST` ; **4** seulement vérifient le jeton CSRF. Les fonctions nécessaires existent déjà dans `includes/functions.php`.
 

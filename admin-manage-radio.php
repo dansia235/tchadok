@@ -209,6 +209,7 @@ include 'includes/header-tailwind.php';
                         <?php endif; ?>
                     </div>
                     <form method="POST" class="mt-4 space-y-4">
+                        <?php echo csrfField(); ?>
                         <input type="hidden" name="action" value="save_live">
                         <div>
                             <label class="text-xs font-semibold text-muted">URL du stream</label>
@@ -262,6 +263,7 @@ include 'includes/header-tailwind.php';
                 <div class="rounded-3xl border border-white/10 bg-surface/60 p-6">
                     <h2 class="text-lg font-semibold text-text"><i class="fas fa-calendar-alt"></i> Nouvelle émission</h2>
                     <form method="POST" enctype="multipart/form-data" class="mt-4 space-y-4">
+                        <?php echo csrfField(); ?>
                         <input type="hidden" name="action" value="create_show">
                         <div>
                             <label class="text-xs font-semibold text-muted">Titre *</label>

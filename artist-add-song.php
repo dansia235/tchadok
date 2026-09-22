@@ -156,6 +156,7 @@ include 'includes/header-tailwind.php';
             <?php endif; ?>
 
             <form method="POST" enctype="multipart/form-data" class="rounded-3xl border border-white/10 bg-surface/60 p-6 space-y-6">
+                <?php echo csrfField(); ?>
                 <div class="grid gap-4 md:grid-cols-2">
                     <div>
                         <label class="text-xs font-semibold text-muted" for="title">Titre *</label>

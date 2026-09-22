@@ -426,6 +426,7 @@ include 'includes/header-tailwind.php';
                         <p class="mt-2 text-sm text-muted">Utilisez un mot de passe fort et unique.</p>
 
                         <form method="POST" class="mt-5 space-y-4" data-password-form>
+                            <?php echo csrfField(); ?>
                             <input type="hidden" name="action" value="change_password">
 
                             <div>
@@ -636,6 +637,7 @@ include 'includes/header-tailwind.php';
                 </div>
 
                 <form method="POST" class="rounded-3xl border border-white/10 bg-white/5 p-5 space-y-4">
+                    <?php echo csrfField(); ?>
                     <input type="hidden" name="action" value="enable_2fa_totp">
                     <div>
                         <label for="totp_code" class="text-sm font-semibold text-text">Code de vérification</label>
@@ -666,6 +668,7 @@ include 'includes/header-tailwind.php';
             </div>
         </div>
         <form method="POST" class="mt-5 space-y-4 rounded-3xl border border-white/10 bg-white/5 p-5">
+            <?php echo csrfField(); ?>
             <input type="hidden" name="action" value="enable_2fa_sms">
             <div>
                 <label for="phone" class="text-sm font-semibold text-text">Numéro de téléphone</label>

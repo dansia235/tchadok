@@ -208,6 +208,7 @@ include 'includes/header-tailwind.php';
                         <details class="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
                             <summary class="cursor-pointer list-none text-sm font-semibold text-text">Changer le mot de passe</summary>
                             <form method="POST" action="" class="mt-4 space-y-4">
+                                <?php echo csrfField(); ?>
                                 <input type="hidden" name="action" value="change_password">
 
                                 <div>
@@ -249,6 +250,7 @@ include 'includes/header-tailwind.php';
                         <p class="mt-2 text-sm text-muted">Gerez vos preferences de notification.</p>
 
                         <form method="POST" action="" class="mt-6 space-y-4">
+                            <?php echo csrfField(); ?>
                             <input type="hidden" name="action" value="update_notifications">
 
                             <label class="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-text">

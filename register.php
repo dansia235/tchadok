@@ -191,6 +191,7 @@ include 'includes/header-tailwind.php';
                     <p class="mt-2 text-center text-xs text-muted">Remplissez le formulaire pour avancer.</p>
 
                     <form method="POST" class="mt-6 space-y-8" data-register-form>
+                        <?php echo csrfField(); ?>
                         <div class="space-y-4">
                             <div class="flex items-center gap-2 text-sm font-semibold text-text">
                                 <i class="fas fa-user-circle text-accent"></i>

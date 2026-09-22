@@ -215,6 +215,7 @@ include 'includes/header-tailwind.php';
                         <?php endif; ?>
 
                         <form method="POST" action="" class="mt-6 space-y-6">
+                            <?php echo csrfField(); ?>
                             <div class="grid gap-4 sm:grid-cols-2">
                                 <div>
                                     <label for="first_name" class="text-sm font-semibold text-text">Prenom *</label>

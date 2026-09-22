@@ -92,10 +92,12 @@ function Titre([int]$id, $session) {
 
 function Connexion([string]$email) {
     $s = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-    Invoke-WebRequest "$base/login.php" -UseBasicParsing -WebSession $s | Out-Null
+    $page = Invoke-WebRequest "$base/login.php" -UseBasicParsing -WebSession $s
+    # Depuis SEC-09, tout POST exige le jeton CSRF, comme dans un vrai navigateur.
+    $jeton = if ($page.Content -match 'name="csrf-token" content="([a-f0-9]+)"') { $matches[1] } else { '' }
     try {
         Invoke-WebRequest "$base/login.php" -Method POST -UseBasicParsing -WebSession $s -MaximumRedirection 0 `
-            -Body @{ email = $email; password = 'tchadok2026' } -ErrorAction Stop | Out-Null
+            -Body @{ email = $email; password = 'tchadok2026'; csrf_token = $jeton } -ErrorAction Stop | Out-Null
     } catch {}
     return $s
 }

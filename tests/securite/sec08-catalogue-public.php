@@ -186,15 +186,31 @@ try {
 
     // api/stream.php : aucune ecoute enregistree sur un titre non publie.
     // Necessite le serveur web local.
-    $appel = function (int $trackId): int {
+    //
+    // Depuis SEC-09, tout POST exige le jeton CSRF de la session : on ouvre
+    // d'abord une session par un GET, comme le ferait un navigateur, puis on
+    // envoie le cookie et le jeton.
+    $site = rtrim((string) SITE_URL, '/');
+    $page = @file_get_contents($site . '/login.php', false, stream_context_create(['http' => ['timeout' => 15]]));
+    $cookie = '';
+    foreach ($http_response_header ?? [] as $entete) {
+        if (preg_match('/^Set-Cookie:\s*(PHPSESSID=[^;]+)/i', $entete, $m)) {
+            $cookie = $m[1];
+        }
+    }
+    $jeton = ($page !== false && preg_match('/name="csrf-token" content="([a-f0-9]+)"/', $page, $m)) ? $m[1] : '';
+
+    $appel = function (int $trackId) use ($site, $cookie, $jeton): int {
         $ctx = stream_context_create(['http' => [
             'method' => 'POST',
-            'header' => "Content-Type: application/json\r\n",
+            'header' => "Content-Type: application/json\r\n"
+                      . "Cookie: {$cookie}\r\n"
+                      . "X-CSRF-Token: {$jeton}\r\n",
             'content' => json_encode(['track_id' => $trackId, 'duration' => 60]),
             'ignore_errors' => true,
             'timeout' => 15,
         ]]);
-        @file_get_contents(rtrim((string) SITE_URL, '/') . '/api/stream.php', false, $ctx);
+        @file_get_contents($site . '/api/stream.php', false, $ctx);
         $statut = $http_response_header[0] ?? '';
         return preg_match('/\s(\d{3})\s/', $statut, $m) ? (int) $m[1] : 0;
     };

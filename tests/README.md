@@ -15,12 +15,30 @@ configurée ne ressemble pas à une base locale.
 | `securite/sec06-acces-media.ps1` | `SEC-06` | Accès direct aux fichiers audio interdit ; aucun chemin de fichier exposé par l'API ; lecture complète et partielle via `media.php` ; rejet des URL falsifiées, expirées, détournées ou copiées dans une autre session ; décision d'accès selon le statut (gratuit, payant, acheté, Premium actif ou expiré, propriétaire, brouillon) ; refus des URL externes et de la traversée de répertoire. **39 contrôles.** |
 | `securite/sec08-catalogue-public.php` | `SEC-08` | Exécute chaque fonction publique de `includes/database.php` avec des titres et albums dans chaque statut et un artiste désactivé : recherche, listes, albums, statistiques, compteurs, écoutes récentes, enregistrement d'écoute. Seul le contenu publié d'artistes actifs doit apparaître. Contrôles positifs et surveillance du journal d'erreurs, car ces fonctions masquent les erreurs SQL. **36 contrôles.** |
 
+| `securite/sec09-csrf.ps1` | `SEC-09` | Chaque point d'entrée (26) refuse une requête modifiante sans jeton, avec un jeton faux, ou avec le jeton d'une autre session ; jeton valide accepté par champ, par en-tête et par corps JSON ; GET non affectés ; jeton renouvelé à la connexion ; 413 et non 403 au-delà de `post_max_size` ; réponses JSON pour les API, HTML pour les pages ; déconnexion en POST, y compris pour les comptes « se souvenir de moi », sans redirection ouverte. **64 contrôles.** |
+| `securite/sec09-fetch-patch.js` | `SEC-09` | Exécute, dans un DOM simulé, le code exact du correctif de `fetch()` extrait de `includes/header-tailwind.php` : jeton ajouté aux requêtes modifiantes vers le site, jamais vers une autre origine ni un autre port, en-têtes et options de l'appelant respectés, objet `Request` géré. **17 contrôles.** Nécessite Node 18+. |
+
 ### Exécution
 
 ```
 powershell -ExecutionPolicy Bypass -File tests\securite\sec06-acces-media.ps1
 C:\xampp\php\php.exe tests\securite\sec08-catalogue-public.php
+powershell -ExecutionPolicy Bypass -File tests\securite\sec09-csrf.ps1
+node tests\securite\sec09-fetch-patch.js
 ```
+
+### Pièges de PowerShell 5.1 rencontrés
+
+Trois comportements de PowerShell 5.1 ont faussé des résultats de test avant
+d'être identifiés. Ils valent pour tout script qui appelle `curl.exe` :
+
+- l'en-tête `Range` est refusé dans `Invoke-WebRequest -Headers` ;
+- **les guillemets doubles sont supprimés** des arguments passés à un
+  exécutable natif : `{"a":1}` arrive sous la forme `{a:1}`. Passer tout corps
+  JSON par fichier (`--data-binary @fichier`) ;
+- **les arguments vides sont supprimés** : `-d ''` fait consommer l'URL par
+  `-d` ;
+- un paramètre de fonction typé `[string]` transforme `$null` en chaîne vide.
 
 ### Leçon retenue : exécuter le SQL, pas seulement le PHP
 

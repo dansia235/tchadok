@@ -145,6 +145,7 @@ include 'includes/header-tailwind.php';
                         <?php endif; ?>
 
                         <form method="POST" data-login-form class="mt-6 space-y-5">
+                            <?php echo csrfField(); ?>
                             <div>
                                 <label for="email" class="text-sm font-semibold text-text">Adresse email</label>
                                 <div class="relative mt-2">

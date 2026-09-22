@@ -22,6 +22,7 @@ $metaTwitterImage = $pageTwitterImage ?? (SITE_URL . '/assets/images/twitter-ima
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php echo csrfMeta(); ?>
     <meta name="description" content="<?php echo htmlspecialchars($metaDescription, ENT_QUOTES, 'UTF-8'); ?>">
     <meta name="keywords" content="musique tchadienne, Tchad, artistes tchadiens, streaming, téléchargement, Tchadok">
     <meta name="author" content="Tchadok Team">
@@ -150,7 +151,13 @@ $metaTwitterImage = $pageTwitterImage ?? (SITE_URL . '/assets/images/twitter-ima
                                 <a class="site-nav-link block px-4 py-2 text-sm text-muted hover:text-text" href="<?php echo SITE_URL; ?>/user-dashboard.php">Mon Profil</a>
                                 <a class="site-nav-link block px-4 py-2 text-sm text-muted hover:text-text" href="<?php echo SITE_URL; ?>/premium.php">Premium</a>
                                 <div class="my-1 h-px bg-white/10"></div>
-                                <a class="site-nav-link block px-4 py-2 text-sm text-muted hover:text-text" href="<?php echo SITE_URL; ?>/logout.php">Déconnexion</a>
+                                <?php /* SEC-09 : deconnexion en POST avec jeton. Un simple lien GET
+                                    permettait a n'importe quel site de deconnecter un utilisateur
+                                    par une balise <img src=".../logout.php">. */ ?>
+                                <form method="POST" action="<?php echo SITE_URL; ?>/logout.php" class="m-0">
+                                    <?php echo csrfField(); ?>
+                                    <button type="submit" class="site-nav-link block w-full px-4 py-2 text-left text-sm text-muted hover:text-text">Déconnexion</button>
+                                </form>
                             </div>
                         </details>
                     <?php endif; ?>
@@ -177,7 +184,10 @@ $metaTwitterImage = $pageTwitterImage ?? (SITE_URL . '/assets/images/twitter-ima
                             <a href="<?php echo SITE_URL; ?>/register.php" class="site-nav-cta rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white">S'inscrire</a>
                         <?php else: ?>
                             <a href="<?php echo SITE_URL; ?>/user-dashboard.php" class="site-nav-button rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-text">Mon Profil</a>
-                            <a href="<?php echo SITE_URL; ?>/logout.php" class="site-nav-button rounded-full bg-white/5 px-4 py-2 text-sm font-semibold text-text">Déconnexion</a>
+                            <form method="POST" action="<?php echo SITE_URL; ?>/logout.php" class="m-0">
+                                <?php echo csrfField(); ?>
+                                <button type="submit" class="site-nav-button w-full rounded-full bg-white/5 px-4 py-2 text-left text-sm font-semibold text-text">Déconnexion</button>
+                            </form>
                         <?php endif; ?>
                         <button class="theme-toggle theme-toggle--row flex items-center justify-between gap-2 rounded-full px-4 py-2 text-sm font-semibold" type="button" data-theme-toggle aria-label="Basculer le thème" aria-pressed="false">
                             <span class="theme-toggle-label">Thème</span>
@@ -219,4 +229,47 @@ $metaTwitterImage = $pageTwitterImage ?? (SITE_URL . '/assets/images/twitter-ima
                 CSRF_TOKEN: 'none'
             };
         }
+
+        /*
+         * SEC-09 : jeton CSRF ajoute automatiquement a toute requete fetch()
+         * modifiante (POST, PUT, PATCH, DELETE) vers le site lui-meme.
+         *
+         * Le serveur refuse desormais toute requete modifiante sans jeton
+         * (includes/csrf-guard.php). Ce correctif rend la protection active
+         * par defaut cote JavaScript aussi : un appel ecrit demain sans penser
+         * au jeton fonctionnera, au lieu d'echouer en 419.
+         *
+         * N'ajoute jamais le jeton vers une autre origine : il y fuirait.
+         * Respecte un en-tete X-CSRF-Token deja fourni par l'appelant.
+         */
+        (function () {
+            if (!window.fetch) { return; }
+            var meta = document.querySelector('meta[name="csrf-token"]');
+            var jeton = meta ? meta.getAttribute('content') : '';
+            if (!jeton) { return; }
+            var fetchOriginal = window.fetch;
+            var methodesModifiantes = ['POST', 'PUT', 'PATCH', 'DELETE'];
+
+            window.fetch = function (ressource, options) {
+                options = options || {};
+                var methode = String(options.method || (ressource && ressource.method) || 'GET').toUpperCase();
+                if (methodesModifiantes.indexOf(methode) === -1) {
+                    return fetchOriginal.call(this, ressource, options);
+                }
+                var url = typeof ressource === 'string' ? ressource : (ressource && ressource.url) || '';
+                var memeOrigine;
+                try { memeOrigine = new URL(url, window.location.href).origin === window.location.origin; }
+                catch (e) { memeOrigine = false; }
+                if (!memeOrigine) {
+                    return fetchOriginal.call(this, ressource, options);
+                }
+                var entetes = new Headers(options.headers || (ressource && ressource.headers) || {});
+                if (!entetes.has('X-CSRF-Token')) {
+                    entetes.set('X-CSRF-Token', jeton);
+                }
+                // Copie : ne pas modifier l'objet d'options de l'appelant.
+                var optionsJeton = Object.assign({}, options, { headers: entetes });
+                return fetchOriginal.call(this, ressource, optionsJeton);
+            };
+        })();
     </script>

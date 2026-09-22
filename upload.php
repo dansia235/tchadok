@@ -320,6 +320,7 @@ include 'includes/header-tailwind.php';
                 </div>
 
                 <form id="uploadForm" method="POST" enctype="multipart/form-data" class="mt-8 space-y-10">
+                    <?php echo csrfField(); ?>
                     <div data-form-step="1">
                         <div class="grid gap-6 lg:grid-cols-2">
                             <div class="lg:col-span-2">

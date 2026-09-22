@@ -221,6 +221,7 @@ include 'includes/header-tailwind.php';
                 <?php endif; ?>
 
                 <form method="POST" class="space-y-5" data-contact-form novalidate>
+                    <?php echo csrfField(); ?>
                     <div class="grid gap-4 md:grid-cols-2">
                         <div>
                             <label class="text-xs font-semibold text-muted" for="name">Nom complet *</label>

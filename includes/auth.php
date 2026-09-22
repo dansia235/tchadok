@@ -95,6 +95,13 @@ class Auth {
      * Démarre une session utilisateur
      */
     private function startUserSession($user, $rememberMe = false) {
+        // SEC-09 : nouveau jeton CSRF a la connexion. Un jeton obtenu avant
+        // l'authentification ne doit pas rester valide apres.
+        // (La regeneration de l'identifiant de session releve de SEC-10.)
+        if (class_exists('CsrfGuard')) {
+            CsrfGuard::renouveler();
+        }
+
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['username'] = $user['username'];
         $_SESSION['email'] = $user['email'];

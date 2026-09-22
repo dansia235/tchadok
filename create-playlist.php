@@ -121,6 +121,7 @@ include 'includes/header-tailwind.php';
                 <?php endif; ?>
 
                 <form method="POST" action="" enctype="multipart/form-data" class="space-y-6">
+                    <?php echo csrfField(); ?>
                     <div>
                         <label for="playlist_name" class="text-sm font-semibold text-text">Nom de la playlist *</label>
                         <input type="text"

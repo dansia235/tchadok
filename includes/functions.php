@@ -448,9 +448,19 @@ function generatePagination($currentPage, $totalPages, $baseUrl) {
 
 /**
  * Vérifie le token CSRF
+ *
+ * SEC-09 : la verification est desormais faite pour toute requete modifiante
+ * par includes/csrf-guard.php, avant l'execution du point d'entree. Cette
+ * fonction reste disponible pour les pages qui la verifiaient deja.
+ * Elle acceptait un jeton null, que hash_equals() refuse en PHP 8 par une
+ * TypeError : l'absence de jeton produisait une erreur fatale au lieu d'un
+ * refus propre.
  */
 function verifyCSRFToken($token) {
-    return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token);
+    $attendu = $_SESSION['csrf_token'] ?? '';
+    return is_string($attendu) && $attendu !== ''
+        && is_string($token) && $token !== ''
+        && hash_equals($attendu, $token);
 }
 
 /**
@@ -468,6 +478,15 @@ function generateCSRFToken() {
  */
 function csrfField() {
     return '<input type="hidden" name="csrf_token" value="' . generateCSRFToken() . '">';
+}
+
+/**
+ * Balise meta exposant le jeton aux appels JavaScript (SEC-09).
+ * Lue par le correctif de fetch() de includes/header-tailwind.php, qui
+ * ajoute l'en-tete X-CSRF-Token a toute requete modifiante vers le site.
+ */
+function csrfMeta() {
+    return '<meta name="csrf-token" content="' . htmlspecialchars(generateCSRFToken(), ENT_QUOTES, 'UTF-8') . '">';
 }
 
 /**
@@ -513,4 +532,10 @@ function displayFlashMessages() {
 
 // Initialisation de la session
 startSecureSession();
+
+// SEC-09 : verification CSRF de toute requete modifiante, AVANT l'execution
+// du point d'entree. Placee apres le demarrage de la session, qui porte le
+// jeton attendu. Voir includes/csrf-guard.php pour le mecanisme d'exemption.
+require_once __DIR__ . '/csrf-guard.php';
+CsrfGuard::verifier();
 ?>

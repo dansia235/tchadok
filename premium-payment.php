@@ -185,6 +185,7 @@ include 'includes/header-tailwind.php';
 
                         <?php if (!$success): ?>
                             <form method="POST" action="" id="paymentForm" class="space-y-8">
+                                <?php echo csrfField(); ?>
                                 <input type="hidden" name="plan_type" value="<?php echo htmlspecialchars($selectedPlan); ?>" data-plan-input>
 
                                 <div>
