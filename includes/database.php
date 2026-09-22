@@ -120,7 +120,8 @@ function getNewReleases($limit = 4) {
             FROM albums a
             JOIN artists ar ON a.artist_id = ar.id
             LEFT JOIN genres g ON a.genre_id = g.id
-            WHERE a.status = 'approved' OR a.status = 'draft'
+            WHERE a.status = 'approved'
+              AND ar.is_active = 1
             ORDER BY a.release_date DESC, a.created_at DESC
             LIMIT ?
         ");
@@ -232,7 +233,10 @@ function getPlatformStats() {
         $pdo = $db->getConnection();
         $stats = [];
 
-        $stmt = $pdo->query("SELECT COUNT(*) FROM tracks");
+        // SEC-08 : seuls les titres publies entrent dans les statistiques
+        // publiques. Brouillons, titres en attente et titres rejetes en
+        // etaient auparavant, faussant les chiffres affiches en page d'accueil.
+        $stmt = $pdo->query("SELECT COUNT(*) FROM tracks WHERE status = 'approved' AND artist_id IN (SELECT id FROM artists WHERE is_active = 1)");
         $stats['total_tracks'] = (int) $stmt->fetchColumn();
 
         $stmt = $pdo->query("SELECT COUNT(*) FROM artists WHERE is_active = 1");
@@ -245,7 +249,7 @@ function getPlatformStats() {
         $stats['total_genres'] = (int) $stmt->fetchColumn();
 
         // Heures de streaming: SUM(total_streams * duration) / 3600
-        $stmt = $pdo->query("SELECT COALESCE(SUM(total_streams * duration) / 3600, 0) FROM tracks");
+        $stmt = $pdo->query("SELECT COALESCE(SUM(total_streams * duration) / 3600, 0) FROM tracks WHERE status = 'approved' AND artist_id IN (SELECT id FROM artists WHERE is_active = 1)");
         $stats['streaming_hours'] = max(0, round((float) $stmt->fetchColumn()));
 
         return $stats;
@@ -288,7 +292,8 @@ function getTrendingTracks($limit = 6) {
             FROM tracks t
             JOIN artists ar ON t.artist_id = ar.id
             LEFT JOIN genres g ON t.genre_id = g.id
-            WHERE t.status = 'approved' OR t.status = 'draft'
+            WHERE t.status = 'approved'
+              AND ar.is_active = 1
             ORDER BY t.total_streams DESC, t.created_at DESC
             LIMIT ?
         ");
@@ -323,7 +328,8 @@ function getNewTracks($limit = 6) {
             FROM tracks t
             JOIN artists ar ON t.artist_id = ar.id
             LEFT JOIN genres g ON t.genre_id = g.id
-            WHERE t.status = 'approved' OR t.status = 'draft'
+            WHERE t.status = 'approved'
+              AND ar.is_active = 1
             ORDER BY t.created_at DESC, t.release_date DESC
             LIMIT ?
         ");
@@ -358,7 +364,8 @@ function getClassicTracks($limit = 6) {
             FROM tracks t
             JOIN artists ar ON t.artist_id = ar.id
             LEFT JOIN genres g ON t.genre_id = g.id
-            WHERE (t.status = 'approved' OR t.status = 'draft')
+            WHERE t.status = 'approved'
+              AND ar.is_active = 1
             ORDER BY t.release_date ASC, t.created_at ASC
             LIMIT ?
         ");
@@ -390,7 +397,7 @@ function getRisingArtists($limit = 6) {
             SELECT ar.id, ar.stage_name AS artist, ar.total_streams,
                    ar.genres AS artist_genres, ar.profile_image, ar.created_at,
                    (SELECT COUNT(*) FROM follows f WHERE f.followed_id = ar.id AND f.followed_type = 'artist') AS followers_count,
-                   (SELECT COUNT(*) FROM tracks t WHERE t.artist_id = ar.id) AS tracks_count
+                   (SELECT COUNT(*) FROM tracks t WHERE t.artist_id = ar.id AND t.status = 'approved') AS tracks_count
             FROM artists ar
             WHERE ar.is_active = 1
             ORDER BY ar.created_at DESC, ar.total_streams DESC
@@ -424,7 +431,7 @@ function getFeaturedArtists($limit = 3) {
                    ar.total_streams, ar.verified, ar.featured,
                    ar.profile_image, ar.bio,
                    (SELECT COUNT(*) FROM follows f WHERE f.followed_id = ar.id AND f.followed_type = 'artist') AS followers_count,
-                   (SELECT COUNT(*) FROM tracks t WHERE t.artist_id = ar.id) AS tracks_count
+                   (SELECT COUNT(*) FROM tracks t WHERE t.artist_id = ar.id AND t.status = 'approved') AS tracks_count
             FROM artists ar
             WHERE ar.is_active = 1 AND (ar.featured = 1 OR ar.verified = 1)
             ORDER BY ar.featured DESC, ar.total_streams DESC
@@ -482,7 +489,7 @@ function getAllArtists($limit = 12, $offset = 0, $genre = null, $filter = null, 
             SELECT ar.id, ar.stage_name AS name, ar.genres AS genre,
                    ar.total_streams, ar.verified, ar.featured,
                    ar.profile_image, ar.created_at,
-                   (SELECT COUNT(*) FROM tracks t WHERE t.artist_id = ar.id) AS tracks_count
+                   (SELECT COUNT(*) FROM tracks t WHERE t.artist_id = ar.id AND t.status = 'approved') AS tracks_count
             FROM artists ar
             WHERE $where
             ORDER BY $orderBy
@@ -571,6 +578,8 @@ function getRecentStreams($limit = 5) {
             FROM streams s
             JOIN tracks t ON s.track_id = t.id
             JOIN artists ar ON s.artist_id = ar.id
+            WHERE t.status = 'approved'
+              AND ar.is_active = 1
             ORDER BY s.created_at DESC
             LIMIT ?
         ");
@@ -647,7 +656,9 @@ function searchContent($query, $limit = 10) {
             FROM tracks t
             JOIN artists ar ON t.artist_id = ar.id
             LEFT JOIN albums a ON t.album_id = a.id
-            WHERE t.title LIKE ? OR ar.stage_name LIKE ?
+            WHERE t.status = 'approved'
+              AND ar.is_active = 1
+              AND (t.title LIKE ? OR ar.stage_name LIKE ?)
             ORDER BY t.total_streams DESC
             LIMIT ?
         ");
@@ -659,7 +670,8 @@ function searchContent($query, $limit = 10) {
             SELECT id, stage_name AS name, genres AS genre, total_streams,
                    profile_image, verified
             FROM artists
-            WHERE stage_name LIKE ? OR real_name LIKE ? OR genres LIKE ?
+            WHERE is_active = 1
+              AND (stage_name LIKE ? OR real_name LIKE ? OR genres LIKE ?)
             ORDER BY total_streams DESC
             LIMIT ?
         ");
@@ -672,7 +684,9 @@ function searchContent($query, $limit = 10) {
                    a.cover_image, a.release_date, a.total_tracks
             FROM albums a
             JOIN artists ar ON a.artist_id = ar.id
-            WHERE a.title LIKE ? OR ar.stage_name LIKE ?
+            WHERE a.status = 'approved'
+              AND ar.is_active = 1
+              AND (a.title LIKE ? OR ar.stage_name LIKE ?)
             ORDER BY a.release_date DESC
             LIMIT ?
         ");
@@ -694,7 +708,7 @@ function getAlbums($limit = 12, $offset = 0, $genre = null, $type = null, $sort 
     if (!$db->isConnected()) return [];
 
     try {
-        $where = "(a.status = 'approved' OR a.status = 'draft')";
+        $where = "a.status = 'approved' AND ar.is_active = 1";
         $params = [];
 
         if ($genre && $genre !== 'all') {
@@ -764,7 +778,7 @@ function countAlbums($genre = null, $type = null, $search = null) {
     if (!$db->isConnected()) return 0;
 
     try {
-        $where = "(a.status = 'approved' OR a.status = 'draft')";
+        $where = "a.status = 'approved' AND ar.is_active = 1";
         $params = [];
 
         if ($genre && $genre !== 'all') {
@@ -810,7 +824,7 @@ function getAlbumTypes() {
         $stmt = $db->getConnection()->query("
             SELECT DISTINCT type
             FROM albums
-            WHERE type IS NOT NULL AND type <> ''
+            WHERE type IS NOT NULL AND type <> '' AND status = 'approved'
             ORDER BY type ASC
         ");
         return array_map(function($row) {
@@ -946,7 +960,8 @@ function getGenresWithStats() {
                    COUNT(t.id) AS track_count,
                    COALESCE(SUM(t.total_streams), 0) AS total_streams
             FROM genres g
-            LEFT JOIN tracks t ON t.genre_id = g.id AND (t.status = 'approved' OR t.status = 'draft')
+            LEFT JOIN tracks t ON t.genre_id = g.id AND t.status = 'approved'
+                AND t.artist_id IN (SELECT id FROM artists WHERE is_active = 1)
             WHERE g.is_active = 1
             GROUP BY g.id
             ORDER BY g.name ASC
@@ -991,6 +1006,8 @@ function getTopArtistsByGenre($genreId, $limit = 4) {
             FROM tracks t
             JOIN artists ar ON t.artist_id = ar.id
             WHERE t.genre_id = ?
+              AND t.status = 'approved'
+              AND ar.is_active = 1
             GROUP BY ar.id
             ORDER BY ar.total_streams DESC
             LIMIT ?

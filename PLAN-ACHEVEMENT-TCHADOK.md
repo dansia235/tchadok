@@ -622,7 +622,34 @@ Les fichiers audio sont dans `uploads/audio/`, sous la racine web, servis direct
 
 ### SEC-08 — Retirer le contenu non modéré du catalogue public
 
-**Charge :** 2 h · **Fichier :** `includes/database.php`
+**Charge :** 2 h · **Fichier :** `includes/database.php` · **Statut :** fait le 22/09/2026
+
+> **Bilan.** Le périmètre réel était plus large que les occurrences `draft` annoncées (7, et non 8). Un recensement de toutes les requêtes publiques sur `tracks` et `albums` a montré que **la recherche publique n'avait aucun filtre** : brouillons, titres en attente et titres **rejetés** sortaient dans les résultats, ainsi que les artistes désactivés. Les compteurs publics (« X titres » par artiste, statistiques de la page d'accueil, artistes par genre, écoutes récentes) comptaient eux aussi le contenu non publié.
+>
+> **Réalisé :**
+> - les 7 filtres `approved OR draft` réduits à `approved` ;
+> - `searchContent` : titres et albums publiés uniquement, artistes actifs uniquement ;
+> - `getPlatformStats`, `tracks_count` (3 fonctions), `getTopArtistsByGenre`, `getGenresWithStats`, `getRecentStreams`, `getAlbumTypes` : contenu publié uniquement ;
+> - **artistes désactivés exclus** de toutes les listes publiques — un artiste suspendu, pour fraude par exemple, ne reste plus en vitrine ;
+> - `api/stream.php` n'enregistre plus d'écoute sur un titre non publié : un propriétaire ou un administrateur lisant un brouillon ne gonfle plus les compteurs publics via le trigger.
+>
+> **Point 3 du plan, non appliqué — formulation erronée.** `admin-add-song.php` et `admin-add-album.php` sont des pages **administrateur** : les administrateurs sont les modérateurs, leur retirer `approved` les empêcherait de publier. Les pages artistes (`artist-add-song.php`, `artist-add-album.php`, `upload.php`) forcent déjà `pending` pour les titres.
+>
+> **Incident corrigé en cours de tâche :** une première correction par expression régulière avait produit `WHEREa.status = 'approved'ORDER BY` sur trois requêtes — valide pour `php -l`, invalide pour MySQL, et masqué par les fonctions qui interceptent les erreurs SQL et renvoient un tableau vide. D'où `tests/securite/sec08-catalogue-public.php`, qui **exécute** chaque fonction publique contre la base, avec contrôles positifs et surveillance du journal d'erreurs. **36 contrôles, tous au vert.**
+>
+> **À faire avant déploiement en production** — compter le contenu qui va disparaître du catalogue public :
+> ```sql
+> SELECT 'titres' AS type, status, COUNT(*) FROM tracks WHERE status <> 'approved' GROUP BY status
+> UNION ALL
+> SELECT 'albums', status, COUNT(*) FROM albums WHERE status <> 'approved' GROUP BY status
+> UNION ALL
+> SELECT 'titres publies d''artistes inactifs', 'approved', COUNT(*)
+>   FROM tracks t JOIN artists ar ON ar.id = t.artist_id
+>  WHERE t.status = 'approved' AND ar.is_active = 0;
+> ```
+> Arbitrer avec l'équipe éditoriale **avant** la mise en ligne. Ne pas basculer ce contenu en masse vers `approved` sans revue : c'est précisément le problème corrigé.
+>
+> **Relevé pour `MOD-01` :** `upload.php` crée automatiquement des albums en `draft`, sans aucun chemin vers `pending` ni `approved`. Un titre approuvé peut donc appartenir à un album qui ne sera jamais visible.
 
 Huit requêtes publiques incluent les contenus en `draft` : lignes 101, 269, 304, 339, 675, 745, 927.
 

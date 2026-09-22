@@ -68,7 +68,12 @@ function recordStream() {
     }
 
     $db = $dbInstance->getConnection();
-    $stmt = $db->prepare("SELECT id, artist_id, duration FROM tracks WHERE id = ?");
+    // SEC-08 : pas d'ecoute enregistree sur un titre non publie. Un
+    // proprietaire ou un administrateur peut lire un brouillon (verification,
+    // moderation) ; ces lectures ne doivent pas alimenter les compteurs
+    // publics, que le trigger update_stream_stats incremente a chaque ligne.
+    // La securisation complete de cet endpoint releve de STAT-02.
+    $stmt = $db->prepare("SELECT id, artist_id, duration FROM tracks WHERE id = ? AND status = 'approved'");
     $stmt->execute([$trackId]);
     $track = $stmt->fetch();
 
