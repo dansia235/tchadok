@@ -6,6 +6,7 @@
 
 require_once 'includes/functions.php';
 require_once 'includes/auth.php';
+require_once 'includes/captcha.php';
 require_once 'assets/images/placeholders.php';
 
 $pageTitle = 'Nous Contacter';
@@ -28,13 +29,22 @@ $success = '';
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // SEC-12 : le formulaire de contact est une cible classique d'envois
+    // automatises. Limite par adresse, avec question de verification au-dela
+    // de deux envois.
+    LimiteDebit::appliquer('contact');
+    $captchaRequis = Captcha::requis('contact');
+    $captchaValide = !$captchaRequis || Captcha::verifier('contact', (string) ($_POST['captcha'] ?? ''));
+
     $name = sanitizeInput($_POST['name'] ?? '');
     $email = sanitizeInput($_POST['email'] ?? '');
     $subject = sanitizeInput($_POST['subject'] ?? '');
     $message = sanitizeInput($_POST['message'] ?? '');
     $type = sanitizeInput($_POST['type'] ?? 'general');
 
-    if (empty($name) || empty($email) || empty($subject) || empty($message)) {
+    if (!$captchaValide) {
+        $error = 'La reponse a la question de verification est incorrecte.';
+    } elseif (empty($name) || empty($email) || empty($subject) || empty($message)) {
         $error = 'Veuillez remplir tous les champs obligatoires.';
     } elseif (!validateEmail($email)) {
         $error = 'Adresse email invalide.';
@@ -273,6 +283,10 @@ include 'includes/header-tailwind.php';
                             <span class="character-counter"><span data-char-count>0</span>/1000 caracteres</span>
                         </div>
                     </div>
+
+                    <?php if (Captcha::requis('contact')): ?>
+                        <?php echo Captcha::champ('contact'); ?>
+                    <?php endif; ?>
 
                     <div class="flex flex-wrap gap-3">
                         <button type="submit" class="rounded-full bg-accent px-6 py-3 text-sm font-semibold text-white shadow-elev-1">

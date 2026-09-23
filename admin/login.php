@@ -21,7 +21,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
 
-    if (empty($username) || empty($password)) {
+    // SEC-12 : meme verrou que sur la page publique. La console est la cible
+    // la plus interessante du site : elle merite au moins la meme protection.
+    $attente = VerrouConnexion::attente($username);
+
+    if ($attente > 0) {
+        $error = VerrouConnexion::message($attente);
+    } elseif (empty($username) || empty($password)) {
         $error = 'Veuillez remplir tous les champs';
     } else {
         if (!$auth) {
@@ -30,12 +36,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $result = $auth->login($username, $password, false);
             if (!empty($result['success'])) {
                 if (isAdmin()) {
+                    VerrouConnexion::reussite($username);
                     header('Location: ' . SITE_URL . '/admin-dashboard.php');
                     exit;
                 }
+                // Identifiants valides mais compte non administrateur : la
+                // tentative compte comme un echec ici, sinon la console
+                // servirait a tester des mots de passe sans limite.
+                VerrouConnexion::echec($username);
                 $auth->logout();
                 $error = 'Acces reserve aux administrateurs';
             } else {
+                VerrouConnexion::echec($username);
                 $error = $result['error'] ?? 'Identifiants incorrects';
             }
         }

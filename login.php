@@ -25,7 +25,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'] ?? '';
     $remember = isset($_POST['remember']);
 
-    if (empty($email) || empty($password)) {
+    // SEC-12 : verrouillage progressif apres des echecs repetes, sur le couple
+    // identifiant + adresse. Verifie AVANT de comparer le mot de passe : un
+    // bcrypt par tentative est precisement ce qu'une attaque cherche a payer.
+    $attente = VerrouConnexion::attente($email);
+
+    if ($attente > 0) {
+        $error = VerrouConnexion::message($attente);
+    } elseif (empty($email) || empty($password)) {
         $error = 'Veuillez remplir tous les champs.';
     } else {
         // Utiliser le systeme d'authentification reel
@@ -34,9 +41,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($result['success']) {
                 // Connexion réussie
+                VerrouConnexion::reussite($email);
                 setFlashMessage(FLASH_SUCCESS, 'Connexion réussie ! Bienvenue sur Tchadok');
                 redirect(SITE_URL . '/');
             } else {
+                VerrouConnexion::echec($email);
                 $error = $result['error'] ?? 'Email ou mot de passe incorrect.';
             }
         } else {

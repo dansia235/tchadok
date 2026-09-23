@@ -27,6 +27,11 @@ if (!empty($_GET['email']) && !empty($_GET['token'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // SEC-12 : la reinitialisation sert a la fois a envoyer des liens et a
+    // essayer des jetons. Limitee par adresse, demande et reinitialisation
+    // confondues.
+    LimiteDebit::appliquer('mot-de-passe');
+
     $action = $_POST['action'] ?? '';
     $csrfToken = $_POST['csrf_token'] ?? '';
 

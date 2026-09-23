@@ -681,6 +681,34 @@ CREATE TABLE `users` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `login_attempts` (SEC-12)
+--
+
+CREATE TABLE `login_attempts` (
+  `id` bigint(20) unsigned NOT NULL,
+  `identifier` varchar(190) NOT NULL,
+  `ip_address` varchar(45) NOT NULL,
+  `success` tinyint(1) NOT NULL DEFAULT 0,
+  `user_agent` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `rate_limit_hits` (SEC-12)
+--
+
+CREATE TABLE `rate_limit_hits` (
+  `id` bigint(20) unsigned NOT NULL,
+  `bucket` varchar(64) NOT NULL,
+  `ip_address` varchar(45) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `remember_tokens` (SEC-11)
 --
 
@@ -949,6 +977,21 @@ ALTER TABLE `users`
   ADD UNIQUE KEY `email` (`email`);
 
 --
+-- Indexes for table `login_attempts`
+--
+ALTER TABLE `login_attempts`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `identifiant_date` (`identifier`, `created_at`),
+  ADD KEY `adresse_date` (`ip_address`, `created_at`);
+
+--
+-- Indexes for table `rate_limit_hits`
+--
+ALTER TABLE `rate_limit_hits`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `fenetre` (`bucket`, `ip_address`, `created_at`);
+
+--
 -- Indexes for table `remember_tokens`
 --
 ALTER TABLE `remember_tokens`
@@ -967,6 +1010,18 @@ ALTER TABLE `user_sessions`
 --
 -- AUTO_INCREMENT for dumped tables
 --
+
+--
+-- AUTO_INCREMENT for table `login_attempts`
+--
+ALTER TABLE `login_attempts`
+  MODIFY `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `rate_limit_hits`
+--
+ALTER TABLE `rate_limit_hits`
+  MODIFY `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `remember_tokens`

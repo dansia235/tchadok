@@ -19,6 +19,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
+// SEC-12 : chaque recherche declenche plusieurs requetes SQL avec LIKE.
+// Soixante par minute couvrent la frappe au clavier la plus rapide.
+LimiteDebit::appliquer('recherche');
+
 try {
     $query = trim($_GET['q'] ?? '');
     $type = $_GET['type'] ?? 'all'; // all, tracks, artists, albums

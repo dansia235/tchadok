@@ -21,6 +21,10 @@ try {
     $method = $_SERVER['REQUEST_METHOD'];
 
     if ($method === 'POST') {
+        // SEC-12 : une ecoute dure au moins quelques dizaines de secondes.
+        // Au-dela d'une soixantaine d'appels par minute, ce n'est plus
+        // quelqu'un qui ecoute : c'est un script qui gonfle des compteurs.
+        LimiteDebit::appliquer('ecoute');
         recordStream();
         exit();
     }

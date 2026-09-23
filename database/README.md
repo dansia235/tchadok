@@ -20,6 +20,7 @@ mysql -u <utilisateur> -p <base> < database/migrations/2026-09-22-sec11-remember
 | Fichier | Effet |
 |---|---|
 | `2026-09-22-sec11-remember-tokens.sql` | Table `remember_tokens` (connexion automatique, SEC-11) et suppression de `users.remember_token`. Les personnes qui avaient coché « se souvenir de moi » se reconnectent une fois. |
+| `2026-09-23-sec12-limitation-debit.sql` | Tables `login_attempts` et `rate_limit_hits` (limitation de débit et verrouillage des connexions, SEC-12). |
 
 ## Données
 

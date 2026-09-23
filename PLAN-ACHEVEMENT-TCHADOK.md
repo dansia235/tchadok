@@ -780,7 +780,27 @@ Huit requêtes publiques incluent les contenus en `draft` : lignes 101, 269, 304
 
 ### SEC-12 — Limitation de débit et verrouillage de compte
 
-**Charge :** 1 j
+**Charge :** 1 j · **Statut :** fait le 23/09/2026
+
+> **Bilan.** Deux mécanismes distincts, dans `includes/rate-limit.php` :
+> - **`VerrouConnexion`** — verrouillage progressif des tentatives de connexion : **5 échecs → 15 min, 10 échecs → 1 h**, sur le couple identifiant + adresse. Vérifié **avant** la comparaison du mot de passe : un `bcrypt` par tentative est précisément le coût qu'une attaque cherche à imposer. Le bon mot de passe ne lève pas le verrou, et une tentative refusée n'est pas enregistrée — insister n'allonge donc pas la punition. Une connexion réussie remet le compteur à zéro. Actif sur `login.php` **et** `admin/login.php`, où des identifiants valides mais non administrateurs comptent comme un échec, sans quoi la console servirait de banc d'essai.
+> - **`LimiteDebit`** — fenêtre glissante par action et par adresse : inscription (10/h), contact (5/10 min), réinitialisation de mot de passe (5/15 min), recherche (60/min), enregistrement d'écoute (60/min). Refus en **429** avec `Retry-After`, en JSON pour les API et en page pour le reste, via le rendu partagé `includes/reponse-refus.php` (extrait de la garde CSRF, qui l'utilise désormais aussi).
+>
+> **Le verrou porte sur le couple, jamais sur le seul identifiant.** Verrouiller un compte sur son seul nom permettrait à n'importe qui de bloquer n'importe quel titulaire à distance, en se trompant de mot de passe à sa place. Une garde plus large, **20 échecs par adresse, tous identifiants confondus**, arrête celui qui essaie beaucoup de comptes depuis un même poste.
+>
+> **Les connexions réussies ne sont pas comptées.** Limiter le nombre de connexions par adresse punirait les adresses partagées — un cybercafé, un opérateur mobile qui place ses abonnés derrière une même adresse. Au Tchad, c'est le cas courant, pas l'exception. Seuls les échecs comptent.
+>
+> **Question de vérification** (point 4) : une addition générée et vérifiée sur le serveur, affichée sur `register.php` et `contact.php` **au-delà de deux envois depuis la même adresse**. Pas de service tiers : la réponse ne sort pas du site, la page reste utilisable sans JavaScript, et un visiteur ordinaire ne voit jamais la question. Une réponse ne sert qu'une fois.
+>
+> **Purge** (point 5) : `login_attempts` conservée 90 jours (c'est aussi une piste d'audit), compteurs de débit 1 jour. Déclenchée une requête sur cinquante, et disponible en appel direct pour une tâche planifiée.
+>
+> **Interrupteur :** `RATE_LIMIT_ENABLED` (défaut `true`). Si la migration n'est pas appliquée, la limitation se désactive d'elle-même et le signale dans le journal, plutôt que de mettre le site en panne.
+>
+> **Traité en plus :** suppression de `logLoginAttempt()`, `isAccountLocked()`, `storeLoginAttempt()` et `getRecentFailedAttempts()` dans `includes/advanced-auth.php`. Aucune n'était appelée, et `isAccountLocked()` répondait toujours « compte ouvert » : les laisser à côté d'un vrai verrou invitait à brancher la mauvaise. Cela couvre une partie du point 3 de `SEC-14`.
+>
+> **Vérifié :** `tests/securite/sec12-limitation.ps1` (38 contrôles) — dont les trois critères d'acceptation : le 6e échec verrouille avec un message neutre, 62 appels à `api/search.php` déclenchent un 429, et les échecs d'un tiers depuis une autre adresse n'empêchent pas le titulaire de se connecter. Suites `SEC-06` (39), `SEC-08` (36), `SEC-09` (64 + 17), `SEC-10` (35), `SEC-11` (50) au vert ; 19 pages publiques en 200, aucune erreur PHP.
+>
+> **Migration :** `database/migrations/2026-09-23-sec12-limitation-debit.sql` (tables `login_attempts` et `rate_limit_hits`).
 
 Aucune limitation de débit n'existe dans le projet (0 occurrence de `rate_limit` ou `throttle`). Les fonctions `isAccountLocked()` et `logLoginAttempt()` existent dans `includes/advanced-auth.php` mais ne sont jamais appelées, et leur persistance est factice (`SEC-14`).
 

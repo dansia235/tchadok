@@ -42,6 +42,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/reponse-refus.php';
+
 final class CsrfGuard
 {
     private const METHODES_SURES = ['GET', 'HEAD', 'OPTIONS'];
@@ -154,28 +156,14 @@ final class CsrfGuard
 
     private static function chemin(): string
     {
-        return (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+        return ReponseRefus::chemin();
     }
-
-    private static function attendJson(): bool
-    {
-        $accept = strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? ''));
-        $type   = strtolower((string) ($_SERVER['CONTENT_TYPE'] ?? ''));
-        return str_contains(self::chemin(), '/api/')
-            || str_contains($accept, 'application/json')
-            || str_contains($type, 'application/json')
-            || strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest';
-    }
-
-    // -----------------------------------------------------------------
-    // Reponses
-    // -----------------------------------------------------------------
 
     private static function refuserTaille(): never
     {
         $max = (string) ini_get('post_max_size');
         error_log(sprintf('[Tchadok][csrf] requete au-dela de post_max_size (%s) : %s', $max, self::chemin()));
-        self::repondre(
+        ReponseRefus::envoyer(
             413,
             'Fichier trop volumineux',
             "L'envoi depasse la taille maximale autorisee ({$max}). Reduisez la taille du fichier et reessayez."
@@ -191,7 +179,7 @@ final class CsrfGuard
     private static function refuser(int $code, string $motif): never
     {
         if ($code === 403) {
-            self::repondre(
+            ReponseRefus::envoyer(
                 403,
                 'Session expiree',
                 "Pour votre securite, ce formulaire n'a pas pu etre envoye : la page est restee ouverte "
@@ -200,53 +188,6 @@ final class CsrfGuard
             );
         }
         error_log('[Tchadok][csrf] ' . $motif);
-        self::repondre($code, 'Requete refusee', 'La requete n\'a pas pu etre traitee.');
-    }
-
-    private static function repondre(int $code, string $titre, string $message, ?string $raison = null): never
-    {
-        if (!headers_sent()) {
-            http_response_code($code);
-            header('Cache-Control: no-store');
-        }
-
-        if (self::attendJson()) {
-            if (!headers_sent()) {
-                header('Content-Type: application/json; charset=utf-8');
-            }
-            $erreur = ['code' => $code, 'message' => $message];
-            if ($raison !== null) {
-                $erreur['reason'] = $raison;
-            }
-            echo json_encode(['success' => false, 'error' => $erreur], JSON_UNESCAPED_UNICODE);
-            exit;
-        }
-
-        if (!headers_sent()) {
-            header('Content-Type: text/html; charset=utf-8');
-        }
-
-        $retour = (string) ($_SERVER['HTTP_REFERER'] ?? '');
-        $hote   = (string) ($_SERVER['HTTP_HOST'] ?? '');
-        // Lien de retour uniquement vers le site lui-meme : un Referer tiers
-        // ne doit pas devenir une redirection ouverte.
-        if ($retour === '' || parse_url($retour, PHP_URL_HOST) !== parse_url('http://' . $hote, PHP_URL_HOST)) {
-            $retour = defined('SITE_URL') ? SITE_URL . '/' : '/';
-        }
-
-        echo '<!doctype html><html lang="fr"><head><meta charset="utf-8">'
-           . '<meta name="viewport" content="width=device-width,initial-scale=1">'
-           . '<title>' . htmlspecialchars($titre, ENT_QUOTES, 'UTF-8') . '</title>'
-           . '<style>body{font:15px/1.6 system-ui,sans-serif;background:#0B0F17;color:#E6EAF2;margin:0;'
-           . 'min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem}'
-           . 'main{max-width:34rem;text-align:center}h1{font-size:1.5rem;margin:0 0 .75rem}'
-           . 'p{color:#A4AEC2;margin:0 0 1.5rem}a{display:inline-block;background:#2F6DE0;color:#fff;'
-           . 'text-decoration:none;padding:.7rem 1.4rem;border-radius:999px;font-weight:600}'
-           . 'a:focus-visible{outline:3px solid #FFC107;outline-offset:3px}</style></head><body><main>'
-           . '<h1>' . htmlspecialchars($titre, ENT_QUOTES, 'UTF-8') . '</h1>'
-           . '<p>' . htmlspecialchars($message, ENT_QUOTES, 'UTF-8') . '</p>'
-           . '<a href="' . htmlspecialchars($retour, ENT_QUOTES, 'UTF-8') . '">Revenir a la page</a>'
-           . '</main></body></html>';
-        exit;
+        ReponseRefus::envoyer($code, 'Requete refusee', 'La requete n\'a pas pu etre traitee.');
     }
 }

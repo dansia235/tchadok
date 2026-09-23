@@ -6,6 +6,7 @@
 
 require_once 'includes/functions.php';
 require_once 'includes/auth.php';
+require_once 'includes/captcha.php';
 
 $pageTitle = 'Inscription';
 $pageDescription = 'Rejoignez la communauté Tchadok et découvrez la musique tchadienne.';
@@ -19,6 +20,13 @@ $error = '';
 $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // SEC-12 : limitation par adresse, et question de verification au-dela de
+    // deux envois -- de quoi arreter la creation de comptes en serie sans
+    // gener quelqu'un qui s'inscrit normalement.
+    LimiteDebit::appliquer('inscription');
+    $captchaRequis = Captcha::requis('inscription');
+    $captchaValide = !$captchaRequis || Captcha::verifier('inscription', (string) ($_POST['captcha'] ?? ''));
+
     $firstName = sanitizeInput($_POST['first_name'] ?? '');
     $lastName = sanitizeInput($_POST['last_name'] ?? '');
     $email = sanitizeInput($_POST['email'] ?? '');
@@ -29,7 +37,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $terms = isset($_POST['terms']);
     $stageName = sanitizeInput($_POST['stage_name'] ?? '');
 
-    if (empty($firstName) || empty($lastName) || empty($email) || empty($password)) {
+    if (!$captchaValide) {
+        $error = 'La reponse a la question de verification est incorrecte.';
+    } elseif (empty($firstName) || empty($lastName) || empty($email) || empty($password)) {
         $error = 'Veuillez remplir tous les champs obligatoires.';
     } elseif (!validateEmail($email)) {
         $error = 'Adresse email invalide.';
@@ -378,6 +388,10 @@ include 'includes/header-tailwind.php';
                             <input type="checkbox" class="mt-1 h-4 w-4 rounded border-white/20 bg-bg text-accent focus:ring-accent/60" id="terms" name="terms" data-progress-field required>
                             <span>J accepte les conditions d utilisation et la politique de confidentialite.</span>
                         </label>
+
+                        <?php if (Captcha::requis('inscription')): ?>
+                            <?php echo Captcha::champ('inscription'); ?>
+                        <?php endif; ?>
 
                         <button type="submit" class="flex w-full items-center justify-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-semibold text-white shadow-elev-1 hover:shadow-elev-2" data-submit>
                             <span data-btn-text><i class="fas fa-user-plus mr-2"></i>Créer mon compte gratuitement</span>

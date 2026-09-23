@@ -268,44 +268,15 @@ function verifyBackupCode($code, $hashedCode) {
  * reelle est dans includes/remember-me.php (classe RememberMe).
  */
 
-/**
- * Enregistre une tentative de connexion
+/*
+ * SEC-12 : logLoginAttempt() et isAccountLocked() ont ete retirees. Elles
+ * n'etaient appelees par aucun flux de connexion, et leur persistance etait
+ * simulee : getRecentFailedAttempts() renvoyant toujours un tableau vide,
+ * isAccountLocked() repondait systematiquement "compte ouvert". Les brancher
+ * aurait donne l'illusion d'une protection. Le verrouillage reel est dans
+ * includes/rate-limit.php (classe VerrouConnexion), adosse a la table
+ * login_attempts.
  */
-function logLoginAttempt($identifier, $success, $ip = null, $userAgent = null) {
-    $ip = $ip ?: $_SERVER['REMOTE_ADDR'];
-    $userAgent = $userAgent ?: $_SERVER['HTTP_USER_AGENT'];
-    
-    $attempt = [
-        'identifier' => $identifier,
-        'success' => $success,
-        'ip_address' => $ip,
-        'user_agent' => $userAgent,
-        'timestamp' => date('Y-m-d H:i:s'),
-        'location' => getLocationFromIP($ip)
-    ];
-    
-    // Stocker en base (simulation)
-    storeLoginAttempt($attempt);
-    
-    return true;
-}
-
-/**
- * Vérifie si un compte est bloqué (trop de tentatives échouées)
- */
-function isAccountLocked($identifier) {
-    $attempts = getRecentFailedAttempts($identifier, 15); // 15 dernières minutes
-    
-    if (count($attempts) >= 5) {
-        return [
-            'locked' => true,
-            'until' => date('H:i', strtotime('+15 minutes')),
-            'attempts' => count($attempts)
-        ];
-    }
-    
-    return ['locked' => false];
-}
 
 /**
  * Détecte une connexion suspecte
@@ -415,17 +386,6 @@ function sendSuspiciousLoginNotification($userId, $details) {
 /**
  * Fonctions de simulation de base de données
  */
-function storeLoginAttempt($attempt) {
-    // Simulation - stocker en base de données
-    error_log("Tentative de connexion: " . json_encode($attempt));
-    return true;
-}
-
-function getRecentFailedAttempts($identifier, $minutes) {
-    // Simulation - récupérer les tentatives échouées récentes
-    return []; // Retourner tableau vide pour simulation
-}
-
 function getRecentSuccessfulLogins($userId, $days) {
     // Simulation - récupérer les connexions réussies récentes
     return [
