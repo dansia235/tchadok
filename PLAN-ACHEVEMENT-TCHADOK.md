@@ -888,7 +888,21 @@ L'implémentation réelle de la 2FA est traitée en `SEC-20`.
 
 ### SEC-15 — Corriger la configuration d'environnement et la divulgation d'erreurs
 
-**Charge :** 4 h · **Fichiers :** `config/constants.php`, les deux `.htaccess`, points d'entrée
+**Charge :** 4 h · **Fichiers :** `config/constants.php`, les deux `.htaccess`, points d'entrée · **Statut :** fait le 23/09/2026
+
+> **Bilan.** Les points 1, 2 et 5 étaient déjà traités au `LOT 0` (`ENVIRONMENT` et `DEBUG_MODE` dérivés de `EnvLoader`, `display_errors` piloté par l'environnement, journal vers `storage/logs/php-errors.log`, bloc `mod_php7` retiré). Cette tâche livre les points 3 et 4.
+>
+> **Gestionnaire global** (`includes/erreurs.php`, installé au démarrage) : toute exception non interceptée et toute erreur fatale reçoivent une **référence de huit caractères** — sans `0`, `O`, `1` ni `I`, pour être dictée au téléphone sans ambiguïté. Le visiteur voit cette référence et rien d'autre ; le journal reçoit le détail complet, trace, méthode, chemin et adresse comprises. En local, le détail reste affiché à l'écran : c'est la machine du développeur.
+>
+> **Les messages d'exception ne partent plus à l'écran** (point 4) : 10 pages (`register.php`, `upload.php`, `premium-payment.php`, les quatre pages d'ajout de contenu, `admin-playlists.php`, `admin-podcasts.php`, `admin-manage-radio.php`) et 6 fonctions de `includes/blog-manager.php` passent par `GestionErreurs::messagePublic()`.
+>
+> **Les API distinguent deux cas.** Une exception portant un code **4xx** est écrite pour le client (« La requête de recherche doit contenir au moins 2 caractères ») : son message est conservé, il est utile et ne révèle rien. Tout le reste devient un **500 avec référence**. Sans cette distinction, masquer les erreurs aurait rendu les API inutilisables.
+>
+> **Trouvé et retiré : `admin/test-db-connection.php`.** Ce script de diagnostic répondait **sans aucune authentification** et renvoyait en JSON l'hôte MySQL, le nom de la base et l'utilisateur. Il n'était référencé nulle part. Supprimé.
+>
+> **Relevé pour le `LOT 5` (paiement) :** `includes/payment.php` **ne se charge pas du tout** — erreur de syntaxe ligne 250, `new \PDO::PARAM_STR(...)`, qui n'est pas du PHP valide. Le fichier n'étant inclus par aucun point d'entrée, l'erreur n'a jamais été visible. Le code cURL Airtel et Moov présenté comme base de `PAY-03` n'a donc **jamais été exécuté** : il est à reprendre, pas à adapter. Le fichier est laissé en l'état pour la refonte.
+>
+> **Vérifié :** `tests/securite/sec15-erreurs.php` (46 contrôles), dont les trois critères d'acceptation : une erreur SQL en production n'affiche ni la requête ni le chemin serveur, la référence affichée retrouve la trace complète dans le journal, et le mode production s'obtient sans toucher au code. Les essais de bout en bout déposent une page qui échoue volontairement, puis la retirent. Suites `SEC-06` (39), `SEC-08` (36), `SEC-09` (64 + 17), `SEC-10` (35), `SEC-11` (50), `SEC-12` (38), `SEC-13` (31), `SEC-14` (36) au vert ; 18 pages publiques en 200.
 
 `config/constants.php` ligne 179 écrit `define('ENVIRONMENT', 'development')` **en dur** : quelle que soit la valeur de `APP_ENV`, `DEBUG_MODE` vaut `true` et `display_errors` est activé. Le `.htaccess` confirme (`php_flag display_errors On`). Plusieurs points d'entrée renvoient `$e->getMessage()` à l'utilisateur.
 

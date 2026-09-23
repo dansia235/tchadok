@@ -102,7 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $success = 'Émission ajoutée avec succès.';
         }
     } catch (Exception $e) {
-        $error = 'Erreur: ' . $e->getMessage();
+        $error = GestionErreurs::messagePublic($e, 'gestion de la radio');
     }
 }
 

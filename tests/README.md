@@ -21,6 +21,7 @@ configurée ne ressemble pas à une base locale.
 | `securite/sec12-limitation.ps1` | `SEC-12` | Verrouillage après 5 puis 10 échecs de connexion (page publique et console), message identique que le compte existe ou non, bon mot de passe sans effet pendant le verrou, remise à zéro après une connexion réussie, garde par adresse, impossibilité de verrouiller le compte d'un tiers depuis une autre adresse ; limitation de débit des API (429, `Retry-After`, JSON) et des pages (HTML), requêtes refusées non comptées ; question de vérification après deux envois, non rejouable ; purge ; interrupteur `RATE_LIMIT_ENABLED`. **38 contrôles.** Vide `login_attempts` et `rate_limit_hits` entre les sections. |
 | `securite/sec13-adresse.php` | `SEC-13` | Lecture de l'adresse du client : en-têtes `X-Forwarded-For` et `Client-IP` ignorés sans proxy déclaré, chaîne de proxys parcourue de droite à gauche, entrées illisibles, plages CIDR et IPv6, câblage réel avec et sans `TRUSTED_PROXIES`, verrouillage de connexion non contournable par en-tête, absence d'une seconde implémentation. **31 contrôles.** Modifie temporairement `TRUSTED_PROXIES` dans `.env.local` et restaure la valeur d'origine. |
 | `securite/sec14-securite-simulee.php` | `SEC-14` | Disparition du module simulé et de son JavaScript ; absence de chaque donnée fabriquée de l'ancienne page (secret TOTP d'exemple, service de QR tiers, adresses et appareils inventés) ; historique de connexions conforme à `login_attempts`, cloisonné par compte ; connexion automatique tracée ; 2FA annoncée indisponible et ancienne action sans effet ; refus d'un mot de passe faible et fermeture des autres sessions ; page inaccessible sans session ; aucune fonction déclarée deux fois parmi les fichiers chargés à chaque requête. **36 contrôles.** |
+| `securite/sec15-erreurs.php` | `SEC-15` | Référence de corrélation (format, unicité) ; message d'exception remplacé à l'écran et retrouvé dans le journal par sa référence ; erreurs d'API 4xx conservées, pannes masquées ; exception non interceptée et erreur fatale rendues en 500 avec référence, en HTML comme en JSON ; détail conservé en local ; absence de `getMessage()` affiché ; script de diagnostic retiré ; réglages des deux `.htaccess`. **46 contrôles.** Se déclare en mode production, et dépose puis retire une page qui échoue volontairement. |
 
 ### Exécution
 
@@ -34,6 +35,7 @@ powershell -ExecutionPolicy Bypass -File tests\securite\sec11-souvenir.ps1
 powershell -ExecutionPolicy Bypass -File tests\securite\sec12-limitation.ps1
 C:\xampp\php\php.exe tests\securite\sec13-adresse.php
 C:\xampp\php\php.exe tests\securite\sec14-securite-simulee.php
+C:\xampp\php\php.exe tests\securite\sec15-erreurs.php
 ```
 
 ### Pièges de PowerShell 5.1 rencontrés

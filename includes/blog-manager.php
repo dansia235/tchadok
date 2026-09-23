@@ -289,7 +289,7 @@ function blogCreateOrUpdateCategory($name, $color, $icon, $description = '') {
 
         return ['success' => true, 'message' => "Categorie enregistree."];
     } catch (Exception $e) {
-        return ['success' => false, 'message' => "Erreur categorie: " . $e->getMessage()];
+        return ['success' => false, 'message' => GestionErreurs::messagePublic($e, 'categorie de blog')];
     }
 }
 
@@ -732,7 +732,7 @@ function blogSavePost(array $payload, array $files, $authorId, $postId = 0) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
-        return ['success' => false, 'message' => "Erreur sauvegarde: " . $e->getMessage()];
+        return ['success' => false, 'message' => GestionErreurs::messagePublic($e, 'sauvegarde d\'un article')];
     }
 }
 
@@ -778,7 +778,7 @@ function blogDeletePost($postId) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
-        return ['success' => false, 'message' => "Erreur suppression: " . $e->getMessage()];
+        return ['success' => false, 'message' => GestionErreurs::messagePublic($e, 'suppression d\'un article')];
     }
 }
 
@@ -1360,7 +1360,7 @@ function blogCreateComment($postId, $userId, $content, $parentId = null) {
 
         return ['success' => true, 'message' => "Commentaire envoye. Il sera publie apres validation."];
     } catch (Exception $e) {
-        return ['success' => false, 'message' => "Erreur commentaire: " . $e->getMessage()];
+        return ['success' => false, 'message' => GestionErreurs::messagePublic($e, 'ajout d\'un commentaire')];
     }
 }
 
@@ -1394,7 +1394,7 @@ function blogModerateComment($commentId, $status) {
 
         return ['success' => true, 'message' => "Commentaire mis a jour."];
     } catch (Exception $e) {
-        return ['success' => false, 'message' => "Erreur moderation: " . $e->getMessage()];
+        return ['success' => false, 'message' => GestionErreurs::messagePublic($e, 'moderation d\'un commentaire')];
     }
 }
 
@@ -1426,7 +1426,7 @@ function blogDeleteComment($commentId) {
         blogRefreshCommentsCount($postId);
         return ['success' => true, 'message' => "Commentaire supprime."];
     } catch (Exception $e) {
-        return ['success' => false, 'message' => "Erreur suppression commentaire: " . $e->getMessage()];
+        return ['success' => false, 'message' => GestionErreurs::messagePublic($e, 'suppression d\'un commentaire')];
     }
 }
 

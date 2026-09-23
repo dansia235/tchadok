@@ -84,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $success = 'Titre ajouté à la playlist.';
         }
     } catch (Exception $e) {
-        $error = 'Erreur: ' . $e->getMessage();
+        $error = GestionErreurs::messagePublic($e, 'gestion des playlists');
     }
 }
 

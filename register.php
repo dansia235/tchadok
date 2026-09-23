@@ -121,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (isset($db) && $db && $db->inTransaction()) {
                 $db->rollBack();
             }
-            $error = 'Erreur lors de l\'inscription : ' . $e->getMessage();
+            $error = GestionErreurs::messagePublic($e, 'inscription');
         }
     }
 }

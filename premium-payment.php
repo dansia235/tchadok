@@ -115,7 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (isset($db) && $db && $db->inTransaction()) {
                 $db->rollBack();
             }
-            $error = 'Une erreur est survenue lors du traitement du paiement: ' . $e->getMessage();
+            $error = GestionErreurs::messagePublic($e, 'paiement premium');
         }
     }
 }

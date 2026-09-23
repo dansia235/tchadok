@@ -50,8 +50,8 @@ try {
             respond(['success' => false, 'error' => ['message' => 'Methode non autorisee']], 405);
     }
 } catch (Exception $e) {
-    $code = $e->getCode() ?: 500;
-    respond(['success' => false, 'error' => ['message' => $e->getMessage()]], $code);
+    $erreur = GestionErreurs::erreurApi($e, 'api/playlists');
+    respond($erreur['reponse'], $erreur['code']);
 }
 
 function respond($payload, $code = 200) {

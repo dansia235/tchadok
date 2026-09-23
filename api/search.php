@@ -51,15 +51,11 @@ try {
         'total_results' => $totalResults
     ], JSON_UNESCAPED_UNICODE);
 } catch (Exception $e) {
-    $statusCode = $e->getCode() ?: 500;
-    http_response_code($statusCode);
-
-    echo json_encode([
-        'success' => false,
-        'error' => [
-            'message' => $e->getMessage(),
-            'code' => $statusCode,
-            'timestamp' => date('c')
-        ]
-    ], JSON_UNESCAPED_UNICODE);
+    // SEC-15 : un message ecrit pour le client (400, 404, 405...) reste
+    // affiche tel quel ; une panne renvoie une reference, jamais le detail.
+    $erreur = GestionErreurs::erreurApi($e, 'api/search');
+    http_response_code($erreur['code']);
+    $corps = $erreur['reponse'];
+    $corps['error']['timestamp'] = date('c');
+    echo json_encode($corps, JSON_UNESCAPED_UNICODE);
 }

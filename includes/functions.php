@@ -8,6 +8,13 @@
 require_once __DIR__ . '/../config/env.php';
 require_once __DIR__ . '/../config/constants.php';
 
+// SEC-15 : gestionnaire d'erreurs global. Installe des que l'environnement est
+// connu (DEBUG_MODE en depend) et avant tout code susceptible d'echouer : une
+// exception qui remonte doit produire une reference, pas une page blanche ni
+// un message technique.
+require_once __DIR__ . '/erreurs.php';
+GestionErreurs::installer();
+
 // CFG-05 : controle de coherence de l'environnement.
 // Place AVANT la couche base de donnees : si la configuration n'est pas
 // celle attendue, mieux vaut s'arreter que se connecter a la mauvaise base.

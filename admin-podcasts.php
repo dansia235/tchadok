@@ -141,7 +141,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $success = 'Épisode ajouté avec succès.';
         }
     } catch (Exception $e) {
-        $error = 'Erreur: ' . $e->getMessage();
+        $error = GestionErreurs::messagePublic($e, 'gestion des podcasts');
     }
 }
 

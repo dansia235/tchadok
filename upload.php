@@ -206,7 +206,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $success = 'Votre titre a bien ete soumis. Il sera publie apres validation.';
             header('refresh:2;url=' . SITE_URL . '/artist-dashboard.php');
         } catch (Exception $e) {
-            $error = 'Erreur: ' . $e->getMessage();
+            $error = GestionErreurs::messagePublic($e, 'televersement');
         }
     }
 }

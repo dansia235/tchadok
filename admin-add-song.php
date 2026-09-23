@@ -123,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $success = 'Chanson ajoutée avec succès !';
             header('refresh:2;url=' . SITE_URL . '/admin-dashboard.php');
         } catch (Exception $e) {
-            $error = 'Erreur: ' . $e->getMessage();
+            $error = GestionErreurs::messagePublic($e, 'ajout d\'un titre (admin)');
         }
     }
 }

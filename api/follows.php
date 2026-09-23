@@ -75,7 +75,8 @@ try {
             respond(['success' => false, 'error' => ['message' => 'Action non reconnue']], 400);
     }
 } catch (Exception $e) {
-    respond(['success' => false, 'error' => ['message' => $e->getMessage()]], 500);
+    $erreur = GestionErreurs::erreurApi($e, 'api/follows');
+    respond($erreur['reponse'], $erreur['code']);
 }
 
 function respond($payload, $code = 200) {
