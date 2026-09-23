@@ -259,54 +259,14 @@ function verifyBackupCode($code, $hashedCode) {
     return password_verify(strtoupper($code), $hashedCode);
 }
 
-/**
- * Enregistre un token de connexion persistent
+/*
+ * SEC-11 : createRememberToken(), verifyRememberToken() et
+ * deleteRememberTokens() ont ete retirees. Elles simulaient la persistance --
+ * getRememberToken() renvoyait en dur l'utilisateur 1, c'est-a-dire le
+ * super-administrateur : brancher ce chemin donnait le compte le plus
+ * privilegie a qui presentait un cookie quelconque. La connexion automatique
+ * reelle est dans includes/remember-me.php (classe RememberMe).
  */
-function createRememberToken($userId) {
-    $token = generateSecureToken();
-    $selector = generateSecureToken(12);
-    $hashedToken = password_hash($token, PASSWORD_DEFAULT);
-    $expires = date('Y-m-d H:i:s', strtotime('+30 days'));
-    
-    // Stocker en base de données (simulation)
-    storeRememberToken($userId, $selector, $hashedToken, $expires);
-    
-    // Retourner le cookie value (selector:token)
-    return $selector . ':' . $token;
-}
-
-/**
- * Vérifie un token de connexion persistent
- */
-function verifyRememberToken($cookieValue) {
-    if (!$cookieValue || !str_contains($cookieValue, ':')) {
-        return false;
-    }
-    
-    list($selector, $token) = explode(':', $cookieValue, 2);
-    
-    // Récupérer le token de la base (simulation)
-    $storedToken = getRememberToken($selector);
-    
-    if (!$storedToken || strtotime($storedToken['expires']) < time()) {
-        return false;
-    }
-    
-    if (password_verify($token, $storedToken['hashed_token'])) {
-        return $storedToken['user_id'];
-    }
-    
-    return false;
-}
-
-/**
- * Supprime les tokens de connexion d'un utilisateur
- */
-function deleteRememberTokens($userId) {
-    // Simulation - supprimer de la base de données
-    error_log("Suppression des remember tokens pour l'utilisateur $userId");
-    return true;
-}
 
 /**
  * Enregistre une tentative de connexion
@@ -455,20 +415,6 @@ function sendSuspiciousLoginNotification($userId, $details) {
 /**
  * Fonctions de simulation de base de données
  */
-function storeRememberToken($userId, $selector, $hashedToken, $expires) {
-    // Simulation - stocker en base de données
-    return true;
-}
-
-function getRememberToken($selector) {
-    // Simulation - récupérer de la base de données
-    return [
-        'user_id' => 1,
-        'hashed_token' => password_hash('dummy_token', PASSWORD_DEFAULT),
-        'expires' => date('Y-m-d H:i:s', strtotime('+30 days'))
-    ];
-}
-
 function storeLoginAttempt($attempt) {
     // Simulation - stocker en base de données
     error_log("Tentative de connexion: " . json_encode($attempt));

@@ -167,8 +167,9 @@ try {
     Verif "... sans reconnexion par 'se souvenir de moi'" (-not (EstConnecte $telephone))
     $page = Obtenir $telephone '/login.php'
     Verif "La page de connexion explique la fermeture" ($page.Corps -match 'mot de passe du compte a ete modifie') ''
-    $token = SqlValeur "SELECT COALESCE(remember_token, 'NULL') FROM users WHERE id = 931"
-    Verif "Jeton de connexion automatique invalide en base" ("$token".Trim() -eq 'NULL') "$token"
+    # SEC-11 : les jetons vivent dans remember_tokens, plus dans users.
+    $token = SqlValeur "SELECT COUNT(*) FROM remember_tokens WHERE user_id = 931 AND revoked_at IS NULL"
+    Verif "Jeton de connexion automatique invalide en base" ("$token".Trim() -eq '0') "$token"
     & $mysql -u root -D $baseDb -e "UPDATE users SET password = password_hash, password_hash = '`$2y`$12`$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG', password = '`$2y`$12`$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG' WHERE id = 931" 2>$null
 
     Write-Output "`n=== G. Administrateur : pas de connexion automatique ==="

@@ -68,17 +68,16 @@ class Auth {
      * Déconnexion
      */
     public function logout() {
-        $userId = isLoggedIn() ? (int) $_SESSION['user_id'] : null;
-
         try {
             $this->db->prepare('DELETE FROM user_sessions WHERE id = ?')->execute([session_id()]);
-            if ($userId !== null) {
-                // Sans cela, checkRememberMe() reconnectait l'utilisateur.
-                $this->db->prepare('UPDATE users SET remember_token = NULL WHERE id = ?')->execute([$userId]);
-            }
         } catch (Exception $e) {
             error_log('[Tchadok][session] ' . $e->getMessage());
         }
+
+        // Sans cela, la connexion automatique rouvrait la session a la requete
+        // suivante. SEC-11 : seul l'appareil qui se deconnecte est concerne,
+        // les autres gardent la leur.
+        RememberMe::oublierAppareilCourant();
 
         // SEC-10 : on vide la session et on emet un nouvel identifiant, au lieu
         // de detruire la session sans en rouvrir une. L'appelant (admin/login.php
@@ -194,31 +193,12 @@ class Auth {
         // session fermee apres 15 minutes serait rouverte d'elle-meme.
         if ($rememberMe && !empty($user['admin_role'])) {
             $rememberMe = false;
-            try {
-                $this->db->prepare('UPDATE users SET remember_token = NULL WHERE id = ?')->execute([$user['id']]);
-            } catch (Exception $e) {
-                // sans consequence
-            }
+            RememberMe::revoquerTout((int) $user['id']);
+            RememberMe::oublierAppareilCourant();
         }
         if ($rememberMe) {
-            $rememberToken = generateSecureToken();
-            // SEC-10 : secure etait force a false -- le cookie de connexion
-            // automatique circulait donc aussi en HTTP clair en production.
-            // Il suit desormais SESSION_SECURE, avec SameSite=Lax.
-            setcookie('remember_token', $rememberToken, [
-                'expires'  => time() + (30 * 24 * 60 * 60),
-                'path'     => '/',
-                'secure'   => EnvLoader::bool('SESSION_SECURE', true),
-                'httponly' => true,
-                'samesite' => 'Lax',
-            ]);
-
-            try {
-                $stmt = $this->db->prepare("UPDATE users SET remember_token = ? WHERE id = ?");
-                $stmt->execute([hashPassword($rememberToken), $user['id']]);
-            } catch (Exception $e) {
-                // Ignorer l'erreur silencieusement
-            }
+            // SEC-11 : un jeton par appareil, verificateur tournant.
+            RememberMe::creer((int) $user['id']);
         }
     }
 
@@ -241,39 +221,53 @@ class Auth {
      * Vérifie la connexion automatique via cookie
      */
     public function checkRememberMe() {
-        if (!isLoggedIn() && isset($_COOKIE['remember_token'])) {
-            $token = $_COOKIE['remember_token'];
-
-            try {
-                $stmt = $this->db->prepare(
-                    "SELECT u.*, a.id as artist_id, a.stage_name, ad.role as admin_role
-                     FROM users u
-                     LEFT JOIN artists a ON u.id = a.user_id
-                     LEFT JOIN admins ad ON u.id = ad.user_id
-                     WHERE u.remember_token IS NOT NULL AND u.is_active = 1"
-                );
-                $stmt->execute();
-
-                while ($user = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                    if (verifyPassword($token, $user['remember_token'])) {
-                        // SEC-10 : pas de connexion automatique pour un
-                        // administrateur (delai d'inactivite de 15 minutes).
-                        if (!empty($user['admin_role'])) {
-                            break;
-                        }
-                        $this->startUserSession($user, true);
-                        return true;
-                    }
-                }
-            } catch (Exception $e) {
-                // Ignorer l'erreur silencieusement
-            }
-
-            // Token invalide, on le supprime
-            setcookie('remember_token', '', time() - 3600, '/');
+        if (isLoggedIn() || !isset($_COOKIE[RememberMe::COOKIE])) {
+            return false;
         }
 
-        return false;
+        // SEC-11 : une lecture indexee par selecteur, une comparaison, et
+        // rotation du verificateur. L'ancienne version lisait tous les comptes
+        // porteurs d'un jeton et calculait un bcrypt sur chacun.
+        $userId = RememberMe::verifier();
+        if ($userId === null) {
+            return false;
+        }
+
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT u.*, a.id as artist_id, a.stage_name, ad.role as admin_role
+                 FROM users u
+                 LEFT JOIN artists a ON u.id = a.user_id
+                 LEFT JOIN admins ad ON u.id = ad.user_id
+                 WHERE u.id = ? AND u.is_active = 1
+                 LIMIT 1"
+            );
+            $stmt->execute([$userId]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            error_log('[Tchadok][souvenir] ' . $e->getMessage());
+            return false;
+        }
+
+        // Compte desactive ou supprime entre-temps, ou devenu administrateur :
+        // pas de connexion automatique, et les jetons tombent (SEC-10, le
+        // delai d'inactivite de l'administration ne doit pas etre contourne).
+        if (!$user || !empty($user['admin_role'])) {
+            RememberMe::revoquerTout($userId);
+            RememberMe::oublierAppareilCourant();
+            return false;
+        }
+
+        // false : le cookie vient d'etre renouvele par la rotation, il ne faut
+        // pas creer un second jeton pour le meme appareil.
+        $this->startUserSession($user, false);
+
+        // La session vient de changer d'identifiant : le jeton doit pointer
+        // vers la nouvelle, sinon la fermer depuis l'ecran « Appareils
+        // connectes » laisserait cet appareil revenir aussitot.
+        RememberMe::associerSessionCourante();
+
+        return true;
     }
 }
 

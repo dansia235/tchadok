@@ -75,16 +75,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
 // POST : deconnexion effective (jeton deja verifie par la garde CSRF)
 // ---------------------------------------------------------------------
 $destination = destinationApresDeconnexion();
-$userId = isLoggedIn() ? (int) $_SESSION['user_id'] : null;
 
 $db = TchadokDatabase::getInstance()->getConnection();
 if ($db) {
     try {
-        if ($userId !== null) {
-            // Sans cela, checkRememberMe() reconnectait l'utilisateur des la
-            // requete suivante. La refonte complete du mecanisme releve de SEC-11.
-            $db->prepare('UPDATE users SET remember_token = NULL WHERE id = ?')->execute([$userId]);
-        }
         if (!empty($_SESSION['session_id'])) {
             $db->prepare('DELETE FROM user_sessions WHERE id = ?')->execute([$_SESSION['session_id']]);
         }
@@ -93,16 +87,10 @@ if ($db) {
     }
 }
 
-// Cookie "se souvenir de moi"
-if (isset($_COOKIE['remember_token'])) {
-    setcookie('remember_token', '', [
-        'expires'  => time() - 3600,
-        'path'     => '/',
-        'secure'   => EnvLoader::bool('SESSION_SECURE', true),
-        'httponly' => true,
-        'samesite' => 'Lax',
-    ]);
-}
+// Cookie "se souvenir de moi" : sans cela, la connexion automatique rouvrait
+// la session a la requete suivante. SEC-11 : seul l'appareil qui se deconnecte
+// perd son jeton ; les autres gardent le leur.
+RememberMe::oublierAppareilCourant();
 
 // Session
 $_SESSION = [];

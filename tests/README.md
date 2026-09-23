@@ -17,6 +17,7 @@ configurée ne ressemble pas à une base locale.
 | `securite/sec09-csrf.ps1` | `SEC-09` | Chaque point d'entrée (26) refuse une requête modifiante sans jeton, avec un jeton faux, ou avec le jeton d'une autre session ; jeton valide accepté par champ, par en-tête et par corps JSON ; GET non affectés ; jeton renouvelé à la connexion ; 413 et non 403 au-delà de `post_max_size` ; réponses JSON pour les API, HTML pour les pages ; déconnexion en POST, y compris pour les comptes « se souvenir de moi », sans redirection ouverte. **64 contrôles.** Utilise les comptes du jeu de démonstration (`database/seeds/demo.sql`). |
 | `securite/sec09-fetch-patch.js` | `SEC-09` | Exécute, dans un DOM simulé, le code exact du correctif de `fetch()` extrait de `includes/header-tailwind.php` : jeton ajouté aux requêtes modifiantes vers le site, jamais vers une autre origine ni un autre port, en-têtes et options de l'appelant respectés, objet `Request` géré. **17 contrôles.** Nécessite Node 18+. |
 | `securite/sec10-session.ps1` | `SEC-10` | Cookie `TCHADOKSESSID` (`HttpOnly`, `SameSite=Lax`, sans `Secure` en HTTP local) ; identifiant régénéré à la connexion ; identifiant forgé refusé ; fixation de session ; registre des sessions sans copie des données ; changement de mot de passe fermant les autres appareils et leur connexion automatique ; pas de connexion automatique pour un administrateur ; délai d'inactivité propre à l'administration ; réinitialisation du mot de passe administrateur ; refus d'un non-administrateur sur la console sans casser le formulaire suivant. **35 contrôles**, dont une attente réelle de 65 s : le script abaisse `ADMIN_SESSION_LIFETIME` à 60 dans `.env.local` et restaure la valeur d'origine en fin de script, même en cas d'échec. |
+| `securite/sec11-souvenir.ps1` | `SEC-11` | Format du cookie (sélecteur + vérificateur) et ses attributs ; coût d'un cookie inconnu mesuré avec 61 jetons en base (aucun `bcrypt`) ; connexion automatique sans création d'un second jeton ; rotation du vérificateur, tolérance pour les requêtes parallèles, révocation générale sur vérificateur périmé ; jeton expiré ; déconnexion limitée à un appareil ; changement de mot de passe ; écran « Appareils connectés » (liste, révocation unitaire et globale, aucun identifiant de session dans la page, jeton d'un autre compte intouchable) ; aucun jeton pour un administrateur. **50 contrôles.** Jeu d'essai partagé avec `SEC-10`. |
 
 ### Exécution
 
@@ -26,6 +27,7 @@ C:\xampp\php\php.exe tests\securite\sec08-catalogue-public.php
 powershell -ExecutionPolicy Bypass -File tests\securite\sec09-csrf.ps1
 node tests\securite\sec09-fetch-patch.js
 powershell -ExecutionPolicy Bypass -File tests\securite\sec10-session.ps1
+powershell -ExecutionPolicy Bypass -File tests\securite\sec11-souvenir.ps1
 ```
 
 ### Pièges de PowerShell 5.1 rencontrés

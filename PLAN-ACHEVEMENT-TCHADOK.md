@@ -741,7 +741,24 @@ Huit requêtes publiques incluent les contenus en `draft` : lignes 101, 269, 304
 
 ### SEC-11 — Corriger « Se souvenir de moi »
 
-**Charge :** 1 j · **Fichier :** `includes/auth.php` (lignes 170-199)
+**Charge :** 1 j · **Fichier :** `includes/auth.php` (lignes 170-199) · **Statut :** fait le 23/09/2026
+
+> **Bilan.** Les sept points sont traités. Le cookie porte désormais un couple **sélecteur + vérificateur** : le sélecteur est une clé publique indexée, le vérificateur un secret de 32 octets. Identifier le porteur d'un cookie demande **une lecture par clé unique et une comparaison**, contre un `bcrypt` par compte auparavant. Mesuré avec 61 jetons en base : **0,12 s**, là où l'ancienne version aurait dépassé 10 s — et ce coût était offert à n'importe quel visiteur anonyme, en boucle. Le vérificateur tourne à chaque usage, le cookie suit `REMEMBER_LIFETIME` (30 jours), avec `Secure` selon `SESSION_SECURE`, `HttpOnly` et `SameSite=Lax`. La colonne `users.remember_token` est supprimée ; la migration est dans `database/migrations/2026-09-22-sec11-remember-tokens.sql`, et `database/tchadok.sql` est à jour.
+>
+> **Empreinte SHA-256 et non bcrypt.** Le vérificateur est une valeur aléatoire de 32 octets, pas un mot de passe choisi par un humain : il n'y a pas d'attaque par dictionnaire à ralentir. Le ralentir volontairement recréerait le déni de service que cette tâche corrige.
+>
+> **Tolérance de rotation.** Un navigateur envoie souvent plusieurs requêtes en parallèle avec le même cookie, et une seule réponse fixe le nouveau. Le vérificateur précédent reste donc accepté **120 secondes** après une rotation. Au-delà, un vérificateur périmé signifie que le cookie a été copié : **tous les jetons du compte sont révoqués** et l'incident est journalisé.
+>
+> **Trouvé pendant les tests : fermer une session ne suffisait pas.** L'appareil écarté depuis l'écran « Appareils connectés » revenait à la requête suivante grâce à son cookie. Chaque jeton retient maintenant la session qu'il a ouverte (`remember_tokens.session_id`) : fermer une session retire aussi sa connexion automatique.
+>
+> **Traité en plus :**
+> - **Déconnexion par appareil** : `logout` invalidait le jeton unique du compte, donc déconnectait tous les appareils. Seul celui qui se déconnecte est concerné.
+> - **Fonctions de simulation retirées** de `includes/advanced-auth.php` (`createRememberToken`, `verifyRememberToken`, `deleteRememberTokens`, `storeRememberToken`, `getRememberToken`). `getRememberToken()` renvoyait en dur l'utilisateur 1, le super-administrateur : brancher ce chemin donnait le compte le plus privilégié à qui présentait un cookie. Elles n'étaient appelées nulle part. Cela couvre par avance le point 3 de `SEC-14`.
+> - **Écran « Appareils connectés »** (`settings.php#devices`) : sessions ouvertes et appareils mémorisés, date de dernier usage, révocation à l'unité ou globale. **Aucun identifiant de session n'apparaît dans la page** — les formulaires portent une empreinte SHA-256, vérifiée côté serveur avec le propriétaire. Un jeton appartenant à un autre compte ne peut pas être révoqué.
+>
+> **Vérifié :** `tests/securite/sec11-souvenir.ps1` (50 contrôles) ; suites `SEC-06` (39), `SEC-08` (36), `SEC-09` (64 + 17), `SEC-10` (35) au vert ; 18 pages publiques en 200, aucune erreur PHP. Le contrôle `SEC-10` qui lisait `users.remember_token` a été porté sur la nouvelle table.
+>
+> **Ce que cela ne couvre pas :** un cookie copié reste utilisable tant que la personne légitime ne revient pas — c'est inhérent au mécanisme, la rotation et la détection de réutilisation en limitent la durée. La limitation de débit sur la connexion relève de `SEC-12`.
 
 `checkRememberMe()` charge **tous** les utilisateurs porteurs d'un jeton et exécute un `bcrypt` (coût 12) sur chacun, à chaque requête d'un visiteur non connecté présentant un cookie. Avec 10 000 comptes, une seule requête consomme plusieurs minutes de CPU : déni de service trivial.
 

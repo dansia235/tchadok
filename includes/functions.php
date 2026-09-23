@@ -192,15 +192,133 @@ function revoquerSessionsUtilisateur(int $userId, bool $garderCourante = true): 
         $nombre = $stmt->rowCount();
 
         // Un cookie "se souvenir de moi" vole ne doit pas survivre au
-        // changement de mot de passe. La refonte du mecanisme releve de SEC-11.
-        $db->prepare('UPDATE users SET remember_token = NULL WHERE id = ?')->execute([$userId]);
+        // changement de mot de passe. Tous les appareils sont concernes, y
+        // compris celui qui change le mot de passe : sa session reste ouverte,
+        // seule la reconnexion sans mot de passe est retiree (SEC-11).
+        $jetons = RememberMe::revoquerTout($userId);
 
-        error_log(sprintf('[Tchadok][session] %d session(s) revoquee(s) pour l\'utilisateur %d', $nombre, $userId));
+        error_log(sprintf(
+            '[Tchadok][session] %d session(s) et %d jeton(s) de connexion automatique revoque(s) pour l\'utilisateur %d',
+            $nombre,
+            $jetons,
+            $userId
+        ));
         return $nombre;
     } catch (Throwable $e) {
         error_log('[Tchadok][session] revocation impossible : ' . $e->getMessage());
         return 0;
     }
+}
+
+/**
+ * Sessions ouvertes d'un utilisateur, la plus recemment active en tete
+ * (ecran « Appareils connectes », SEC-11).
+ *
+ * L'identifiant de session n'est jamais renvoye : c'est un secret, et il
+ * n'aurait rien a faire dans une page. Chaque ligne porte a la place une
+ * empreinte, suffisante pour designer la session a revoquer.
+ */
+function sessionsUtilisateur(int $userId): array
+{
+    $db = TchadokDatabase::getInstance()->getConnection();
+    if (!$db) {
+        return [];
+    }
+
+    $limite = max(dureeSessionOrdinaire(), dureeSessionAdministration());
+
+    try {
+        $stmt = $db->prepare(
+            'SELECT SHA2(id, 256) AS empreinte, id = ? AS courante, ip_address, user_agent,
+                    created_at, last_activity
+             FROM user_sessions
+             WHERE user_id = ? AND last_activity > (NOW() - INTERVAL ? SECOND)
+             ORDER BY last_activity DESC'
+        );
+        $stmt->execute([session_id(), $userId, $limite]);
+        $lignes = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $e) {
+        error_log('[Tchadok][session] lecture du registre impossible : ' . $e->getMessage());
+        return [];
+    }
+
+    foreach ($lignes as &$ligne) {
+        $ligne['courante'] = (bool) $ligne['courante'];
+        $ligne['appareil'] = etiquetteAppareil((string) ($ligne['user_agent'] ?? ''));
+    }
+
+    return $lignes;
+}
+
+/**
+ * Ferme une session designee par l'empreinte de son identifiant, a condition
+ * qu'elle appartienne bien a l'utilisateur indique (SEC-11).
+ */
+function revoquerSessionParEmpreinte(string $empreinte, int $userId): bool
+{
+    $db = TchadokDatabase::getInstance()->getConnection();
+    if (!$db || !ctype_xdigit($empreinte) || strlen($empreinte) !== 64) {
+        return false;
+    }
+
+    try {
+        $stmt = $db->prepare('DELETE FROM user_sessions WHERE user_id = ? AND SHA2(id, 256) = ?');
+        $stmt->execute([$userId, $empreinte]);
+        $ferme = $stmt->rowCount() > 0;
+
+        // Fermer la session ne suffit pas : sans cela, l'appareil ecarte se
+        // reconnaissait tout seul a la requete suivante grace a son cookie.
+        RememberMe::revoquerParSession($empreinte, $userId);
+
+        return $ferme;
+    } catch (Throwable $e) {
+        error_log('[Tchadok][session] revocation impossible : ' . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Nom lisible d'un appareil a partir de sa signature de navigateur, pour
+ * l'ecran « Appareils connectes ». Approximatif par nature : la signature est
+ * declarative, elle sert a se reconnaitre, pas a authentifier.
+ */
+function etiquetteAppareil(string $userAgent): string
+{
+    if (trim($userAgent) === '') {
+        return 'Appareil inconnu';
+    }
+
+    $navigateur = 'Navigateur inconnu';
+    foreach ([
+        'Edg'     => 'Edge',
+        'OPR'     => 'Opera',
+        'Chrome'  => 'Chrome',
+        'Firefox' => 'Firefox',
+        'Safari'  => 'Safari',
+        'curl'    => 'curl',
+    ] as $motif => $nom) {
+        if (stripos($userAgent, $motif) !== false) {
+            $navigateur = $nom;
+            break;
+        }
+    }
+
+    $systeme = '';
+    foreach ([
+        'Android'    => 'Android',
+        'iPhone'     => 'iPhone',
+        'iPad'       => 'iPad',
+        'Windows'    => 'Windows',
+        'Macintosh'  => 'macOS',
+        'Linux'      => 'Linux',
+    ] as $motif => $nom) {
+        if (stripos($userAgent, $motif) !== false) {
+            $systeme = $nom;
+            break;
+        }
+    }
+
+    return $systeme !== '' ? "$navigateur sur $systeme" : $navigateur;
 }
 
 /**
@@ -228,6 +346,12 @@ function renouvelerIdentifiantSession(): void
                 $db->prepare('UPDATE user_sessions SET id = ?, last_activity = NOW() WHERE id = ?')
                    ->execute([$nouvelId, $ancienId]);
                 $_SESSION['session_id'] = $nouvelId;
+
+                // SEC-11 : le jeton de connexion automatique de cet appareil
+                // suit le nouvel identifiant, pour rester revocable par
+                // session depuis l'ecran « Appareils connectes ».
+                $db->prepare('UPDATE remember_tokens SET session_id = ? WHERE session_id = ?')
+                   ->execute([$nouvelId, $ancienId]);
             } catch (Throwable $e) {
                 error_log('[Tchadok][session] ' . $e->getMessage());
             }
@@ -732,6 +856,11 @@ function displayFlashMessages() {
     return $html;
 }
 
+
+// SEC-11 : connexion automatique (cookie selecteur + verificateur). Chargee
+// avant le demarrage de la session : revoquerSessionsUtilisateur() s'appuie
+// dessus, et includes/auth.php l'utilise des son chargement.
+require_once __DIR__ . '/remember-me.php';
 
 // Initialisation de la session
 startSecureSession();

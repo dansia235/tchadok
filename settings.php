@@ -108,6 +108,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $success = 'Parametres de notification mis a jour !';
 }
 
+// SEC-11 : ecran « Appareils connectes ». Une session ou un jeton de connexion
+// automatique se revoque a l'unite, ou tous d'un coup.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    $userId = (int) $_SESSION['user_id'];
+
+    if ($_POST['action'] === 'revoke_session') {
+        if (revoquerSessionParEmpreinte((string) ($_POST['empreinte'] ?? ''), $userId)) {
+            $success = 'Session fermee. Cet appareil devra saisir le mot de passe pour revenir.';
+        } else {
+            $error = 'Cette session n\'existe plus.';
+        }
+    } elseif ($_POST['action'] === 'revoke_device') {
+        if (RememberMe::revoquerUn((int) ($_POST['token_id'] ?? 0), $userId)) {
+            $success = 'Connexion automatique retiree pour cet appareil.';
+        } else {
+            $error = 'Cet appareil n\'est plus enregistre.';
+        }
+    } elseif ($_POST['action'] === 'revoke_all') {
+        $sessions = revoquerSessionsUtilisateur($userId, true);
+        renouvelerIdentifiantSession();
+        $success = $sessions > 0
+            ? "{$sessions} autre(s) session(s) fermee(s), et connexion automatique retiree partout."
+            : 'Aucune autre session ouverte. La connexion automatique a ete retiree partout.';
+    }
+}
+
+$sessionsOuvertes = sessionsUtilisateur((int) $_SESSION['user_id']);
+$appareilsMemorises = RememberMe::lister((int) $_SESSION['user_id']);
+
 include 'includes/header-tailwind.php';
 ?>
 
@@ -251,6 +280,91 @@ include 'includes/header-tailwind.php';
                             </div>
                             <div class="text-xs text-muted">Prochainement</div>
                         </div>
+                    </section>
+
+                    <!-- SEC-11 : appareils connectes -->
+                    <section id="devices" class="mt-6 rounded-3xl border border-white/10 bg-surface/75 p-6 shadow-elev-2 sm:p-8">
+                        <div class="flex flex-wrap items-start justify-between gap-4">
+                            <div>
+                                <h2 class="text-lg font-semibold text-text">Appareils connectes</h2>
+                                <p class="mt-2 text-sm text-muted">
+                                    Les sessions ouvertes sur votre compte, et les appareils autorises a vous
+                                    reconnecter sans mot de passe. Si vous ne reconnaissez pas une ligne, fermez-la
+                                    et changez votre mot de passe.
+                                </p>
+                            </div>
+                            <form method="POST" action="">
+                                <?php echo csrfField(); ?>
+                                <input type="hidden" name="action" value="revoke_all">
+                                <button type="submit" class="rounded-full border border-white/15 px-4 py-2 text-xs font-semibold text-text hover:bg-white/10">
+                                    <i class="fas fa-power-off mr-2"></i>Tout fermer ailleurs
+                                </button>
+                            </form>
+                        </div>
+
+                        <h3 class="mt-6 text-sm font-semibold text-text">Sessions ouvertes</h3>
+                        <?php if (!$sessionsOuvertes): ?>
+                            <p class="mt-2 text-xs text-muted">Aucune session enregistree.</p>
+                        <?php else: ?>
+                            <ul class="mt-3 space-y-3">
+                                <?php foreach ($sessionsOuvertes as $s): ?>
+                                    <li class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-4">
+                                        <div class="min-w-0">
+                                            <p class="text-sm font-semibold text-text">
+                                                <?php echo htmlspecialchars($s['appareil'], ENT_QUOTES, 'UTF-8'); ?>
+                                                <?php if ($s['courante']): ?>
+                                                    <span class="ml-2 rounded-full bg-accent/20 px-2 py-0.5 text-[11px] text-accent">Cet appareil</span>
+                                                <?php endif; ?>
+                                            </p>
+                                            <p class="mt-1 text-xs text-muted">
+                                                <?php echo htmlspecialchars((string) ($s['ip_address'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?>
+                                                &middot; active le <?php echo date('d/m/Y \a H\hi', strtotime((string) $s['last_activity'])); ?>
+                                            </p>
+                                        </div>
+                                        <?php if (!$s['courante']): ?>
+                                            <form method="POST" action="">
+                                                <?php echo csrfField(); ?>
+                                                <input type="hidden" name="action" value="revoke_session">
+                                                <input type="hidden" name="empreinte" value="<?php echo htmlspecialchars((string) $s['empreinte'], ENT_QUOTES, 'UTF-8'); ?>">
+                                                <button type="submit" class="rounded-full border border-white/15 px-4 py-2 text-xs font-semibold text-text hover:bg-white/10">Fermer</button>
+                                            </form>
+                                        <?php endif; ?>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        <?php endif; ?>
+
+                        <h3 class="mt-6 text-sm font-semibold text-text">Connexion automatique</h3>
+                        <?php if (!$appareilsMemorises): ?>
+                            <p class="mt-2 text-xs text-muted">Aucun appareil ne peut vous reconnecter sans mot de passe.</p>
+                        <?php else: ?>
+                            <ul class="mt-3 space-y-3">
+                                <?php foreach ($appareilsMemorises as $d): ?>
+                                    <li class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-4">
+                                        <div class="min-w-0">
+                                            <p class="text-sm font-semibold text-text">
+                                                <?php echo htmlspecialchars((string) ($d['device_label'] ?: 'Appareil inconnu'), ENT_QUOTES, 'UTF-8'); ?>
+                                                <?php if ($d['courant']): ?>
+                                                    <span class="ml-2 rounded-full bg-accent/20 px-2 py-0.5 text-[11px] text-accent">Cet appareil</span>
+                                                <?php endif; ?>
+                                            </p>
+                                            <p class="mt-1 text-xs text-muted">
+                                                <?php echo htmlspecialchars((string) ($d['ip_address'] ?? '-'), ENT_QUOTES, 'UTF-8'); ?>
+                                                &middot; dernier usage
+                                                <?php echo $d['last_used_at'] ? date('d/m/Y \a H\hi', strtotime((string) $d['last_used_at'])) : 'jamais'; ?>
+                                                &middot; expire le <?php echo date('d/m/Y', strtotime((string) $d['expires_at'])); ?>
+                                            </p>
+                                        </div>
+                                        <form method="POST" action="">
+                                            <?php echo csrfField(); ?>
+                                            <input type="hidden" name="action" value="revoke_device">
+                                            <input type="hidden" name="token_id" value="<?php echo (int) $d['id']; ?>">
+                                            <button type="submit" class="rounded-full border border-white/15 px-4 py-2 text-xs font-semibold text-text hover:bg-white/10">Retirer</button>
+                                        </form>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        <?php endif; ?>
                     </section>
 
                     <section id="notifications" class="rounded-3xl border border-white/10 bg-surface/75 p-6 shadow-elev-2 sm:p-8">
