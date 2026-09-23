@@ -16,7 +16,7 @@
  * complet de la plateforme, ou a detruire la base utilisateurs.
  *
  * Aucun appelant atteignable n'utilisait cette API : les 3 appels
- * existants se trouvent dans admin/dashboard-tabs/users.php, fichier
+ * existaient dans admin/dashboard-tabs/users.php, repertoire retire en
  * mort qui n'est inclus par aucun point d'entree (supprime en CLEAN-02).
  *
  * Reecriture prevue : tache SEC-01, seconde etape.

@@ -1100,7 +1100,13 @@ Les algorithmes TOTP de `includes/advanced-auth.php` sont corrects ; seule la pe
 
 ### CLEAN-01 — Vérifier avant de retirer
 
-**Charge :** 4 h · **Bloque :** `CLEAN-02` à `CLEAN-05`
+**Charge :** 4 h · **Bloque :** `CLEAN-02` à `CLEAN-05` · **Statut :** fait le 23/09/2026
+
+> **Bilan.** `docs/nettoyage.md` : chaque fichier retiré, sa taille, la preuve de non-usage, la décision. Aucun fichier n'est resté au statut incertain.
+>
+> **Une première analyse par nom de fichier a produit de faux positifs** : `admin/dashboard-tabs/artists.php` passait pour utilisé parce que des liens pointent vers la page publique `artists.php`. Même piège pour `settings.php`, `users.php` et `playlists.php`. L'analyse a été refaite sur les **chemins**.
+>
+> **Preuve décisive pour les feuilles de style :** les douze pages publiques ont été demandées au serveur et les balises `<link>` réellement servies relevées. Seules `tailwind-base.css` et les neuf `*-tailwind.css` sont chargées. Une feuille qu'aucune page ne charge ne peut pas influencer le rendu.
 
 Pour chaque fichier candidat, confirmer l'absence d'usage par trois contrôles : recherche du nom de fichier dans les `include`/`require`, recherche dans les liens (`href`, `action`, `src`), recherche des sélecteurs CSS dans les gabarits pour les feuilles de style.
 
@@ -1114,7 +1120,11 @@ Pour chaque fichier candidat, confirmer l'absence d'usage par trois contrôles :
 
 ### CLEAN-02 — Retirer les dashboards de la génération précédente
 
-**Charge :** 3 h · **Dépend de :** `CLEAN-01`
+**Charge :** 3 h · **Dépend de :** `CLEAN-01` · **Statut :** fait le 23/09/2026
+
+> **Bilan.** Les huit fichiers de `admin/dashboard-tabs/` sont retirés (133 Ko), et avec eux les **six injections SQL** qu'ils contenaient : supprimer la vulnérabilité plutôt que la corriger. `pages/` n'existait déjà plus dans le dépôt. `admin/dashboard.php` est **conservé** : c'est une redirection de 0,3 Ko vers la console, et une adresse peut avoir été mémorisée.
+>
+> **Trouvé au passage :** `manifest.json` déclarait deux raccourcis vers des pages inexistantes (`/pages/user/playlists.php` et `/discover.php`). Corrigés et vérifiés.
 
 | Élément | Taille | Raison |
 |---|---:|---|
@@ -1134,7 +1144,13 @@ Le répertoire `pages/` devient vide et peut disparaître.
 
 ### CLEAN-03 — Retirer l'ancienne coquille et ses styles
 
-**Charge :** 4 h · **Dépend de :** `CLEAN-01`
+**Charge :** 4 h · **Dépend de :** `CLEAN-01` · **Statut :** fait le 23/09/2026
+
+> **Bilan.** `includes/header.php`, `includes/footer.php`, `assets/css/main.css`, `assets/js/main.js`, `assets/js/admin-dashboard.js` et **21 feuilles orphelines** retirés. `sw.js` mettait `main.css` et `main.js` en cache : corrigé, sans quoi l'installation du service worker aurait échoué sur un 404.
+>
+> **Le lecteur audio : la situation n'était pas celle que décrivait le plan.** Vérification faite, `assets/js/player.js` ne dépend plus de `includes/player.php` — il **construit lui-même son interface**, en classes Tailwind du système actif, et expose `window.playTrack`, appelé par `home.js`, `decouvrir.js` et `radio-live.js`. Il a été recâblé sur les URL signées en `SEC-06`. C'est `includes/player.php` qui est l'ancienne version, en classes **Bootstrap** absentes de la coquille actuelle : le réintégrer aurait produit un lecteur cassé. **Décision : garder `player.js`, retirer `includes/player.php` et `player.css`.** Le lecteur est fonctionnel et stylé — l'état « entre les deux » que le plan voulait éviter n'existait pas.
+>
+> **Aucune régression :** les douze pages publiques ont été capturées avant et après, jetons et horodatages neutralisés. Le HTML servi est **identique**.
 
 | Élément | Taille | Raison |
 |---|---:|---|
@@ -1156,7 +1172,9 @@ Le répertoire `pages/` devient vide et peut disparaître.
 
 ### CLEAN-04 — Retirer les scripts SQL obsolètes
 
-**Charge :** 3 h · **Dépend de :** `CLEAN-01`, `DATA-01`
+**Charge :** 3 h · **Dépend de :** `CLEAN-01`, `DATA-01` · **Statut :** fait le 23/09/2026
+
+> **Bilan.** Répertoire `sql/` (9 fichiers) et `sample-data.sql` retirés. L'état réel du schéma est archivé dans `docs/schema-reel-2026-09-23.sql` et porté par `database/migrations/` depuis `DATA-01` — dont la première migration est précisément une photographie de la base. Le test `DATA-01` vérifie déjà qu'une installation neuve produit le schéma de référence.
 
 Les 14 fichiers de `sql/` sont des correctifs successifs sans ordre d'application documenté, dont deux se contredisent sur `password` / `password_hash`.
 
@@ -1173,7 +1191,15 @@ Les 14 fichiers de `sql/` sont des correctifs successifs sans ordre d'applicatio
 
 ### CLEAN-05 — Ranger la racine du projet
 
-**Charge :** 2 h
+**Charge :** 2 h · **Statut :** fait le 23/09/2026
+
+> **Bilan.** `INSCRIPTION-FONCTIONNELLE.md`, `PLACEHOLDERS_GUIDE.md`, `migration.md` et `README-ENVIRONNEMENT.md` déplacés dans `docs/`. Journaux de `logs/` retirés de la racine web (ils vivent dans `storage/logs/`, déjà bloqué). Trois maquettes HTML statiques oubliées à la racine — `admin-dashboard.html`, `header-moderne2.html`, `header-moderne3.html`, 66 Ko — retirées : servies telles quelles par Apache, elles n'étaient liées nulle part.
+>
+> **`README.md` réécrit.** Il annonçait une soixantaine de fonctionnalités dont la plupart n'existent pas — lyrics synchronisés, recommandations, cadeaux musicaux, royalties. Il décrit maintenant **ce qui fonctionne**, ce qui ne fonctionne pas, l'installation, et renvoie au plan pour la suite.
+>
+> **Écart assumé :** `AUDIT-PLATEFORME-TCHADOK.md` et `PLAN-ACHEVEMENT-TCHADOK.md` restent à la racine. Ils sont modifiés à chaque tâche et cités par des dizaines de références ; les déplacer en plein chantier ferait du bruit pour rien. À faire à la clôture.
+>
+> **Total du lot : 439 Ko retirés**, 674 contrôles automatisés toujours au vert, 15 pages publiques en 200.
 
 | Élément | Action |
 |---|---|

@@ -1,2 +1,0 @@
--- Données d'exemple supprimées pour conserver uniquement les comptes utilisateurs.
--- Utilisez l'inscription ou l'interface d'administration pour alimenter la plateforme.

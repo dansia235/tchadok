@@ -65,14 +65,14 @@
             "name": "Découvrir",
             "short_name": "Découvrir",
             "description": "Découvrir de nouveaux artistes",
-            "url": "/discover.php",
+            "url": "/decouvrir.php",
             "icons": [{ "src": "assets/images/icon-192x192.svg", "sizes": "192x192" }]
         },
         {
             "name": "Mes Playlists",
             "short_name": "Playlists",
             "description": "Mes playlists musicales",
-            "url": "/pages/user/playlists.php",
+            "url": "/create-playlist.php",
             "icons": [{ "src": "assets/images/icon-192x192.svg", "sizes": "192x192" }]
         },
         {

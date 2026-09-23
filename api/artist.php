@@ -16,7 +16,7 @@
  * cascade, son catalogue et l'historique attache.
  *
  * Aucun appelant atteignable n'utilisait cette API : l'unique appel
- * existant se trouve dans admin/dashboard-tabs/artists.php, fichier
+ * existait dans admin/dashboard-tabs/artists.php, repertoire retire en
  * mort (supprime en CLEAN-02).
  *
  * Reecriture prevue : tache SEC-01, seconde etape. Les drapeaux

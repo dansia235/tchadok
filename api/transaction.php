@@ -22,7 +22,7 @@
  * montant, uniquement des ecritures d'annulation.
  *
  * Aucun appelant atteignable n'utilisait cette API : les 3 appels
- * existants se trouvent dans admin/dashboard-tabs/payments.php,
+ * existaient dans admin/dashboard-tabs/payments.php, repertoire retire
  * fichier mort (supprime en CLEAN-02).
  *
  * Le code d'origine reste consultable dans l'historique Git,
