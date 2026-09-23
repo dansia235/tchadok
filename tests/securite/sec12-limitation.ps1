@@ -245,8 +245,20 @@ try {
     $jeton = if ($page.Corps -match 'name="csrf-token" content="([a-f0-9]+)"') { $matches[1] } else { '' }
     $r = Poster $l '/contact.php' @("csrf_token=$jeton", 'name=Essai', 'email=essai@essai.local', 'subject=Bonjour', 'message=Un message de test suffisamment long.', "captcha=$somme")
     Verif "Bonne reponse : message accepte" ($r.Corps -match 'envoye avec succes') ''
-    $r = Poster $l '/contact.php' @("csrf_token=$jeton", 'name=Essai', 'email=essai@essai.local', 'subject=Bonjour', 'message=Un message de test suffisamment long.', "captcha=$somme")
-    Verif "La meme reponse ne se rejoue pas" ($r.Corps -match 'verification est incorrecte') ''
+    # La page de confirmation arme deja une NOUVELLE question. Comme les sommes
+    # vont de 4 a 18, l'ancienne reponse tombe juste par hasard une fois sur dix
+    # environ -- ce qui faisait echouer ce controle au hasard. On tire donc
+    # jusqu'a obtenir une question differente avant de rejouer l'ancienne
+    # reponse : le refus devient certain, et le controle garde son sens.
+    $ancienneSomme = $somme
+    for ($essai = 0; $essai -lt 10; $essai++) {
+        $page = Obtenir $l '/contact.php'
+        $nouvelle = if ($page.Corps -match 'Combien font (\d+) \+ (\d+)') { [int]$matches[1] + [int]$matches[2] } else { -1 }
+        $jeton = if ($page.Corps -match 'name="csrf-token" content="([a-f0-9]+)"') { $matches[1] } else { '' }
+        if ($nouvelle -ne $ancienneSomme) { break }
+    }
+    $r = Poster $l '/contact.php' @("csrf_token=$jeton", 'name=Essai', 'email=essai@essai.local', 'subject=Bonjour', 'message=Un message de test suffisamment long.', "captcha=$ancienneSomme")
+    Verif "La meme reponse ne se rejoue pas" ($r.Corps -match 'verification est incorrecte') "ancienne=$ancienneSomme attendue=$nouvelle"
 
     Write-Output "`n=== L. Purge ==="
     ViderCompteurs

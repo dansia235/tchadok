@@ -77,7 +77,7 @@ function handleGet($db, $userId) {
                 SELECT id, name, description, cover_image, is_public, is_collaborative,
                        total_tracks, total_duration, total_plays, created_at, updated_at
                 FROM playlists
-                WHERE user_id = ?
+                WHERE user_id = ? AND deleted_at IS NULL
                 ORDER BY updated_at DESC
             ");
             $stmt->execute([$userId]);
@@ -93,7 +93,7 @@ function handleGet($db, $userId) {
                 SELECT p.*, u.username
                 FROM playlists p
                 JOIN users u ON p.user_id = u.id
-                WHERE p.id = ?
+                WHERE p.id = ? AND p.deleted_at IS NULL
                 LIMIT 1
             ");
             $stmt->execute([$playlistId]);
@@ -272,7 +272,10 @@ function handleDelete($db, $userId, $input) {
                 respond(['success' => false, 'error' => ['message' => 'ID playlist requis']], 400);
             }
             ensurePlaylistOwner($db, $playlistId, $userId);
-            $stmt = $db->prepare("DELETE FROM playlists WHERE id = ? AND user_id = ?");
+            // DATA-06 : suppression logique. La playlist quitte l'affichage
+            // sans quitter la base : les ecoutes qui s'y rattachent gardent
+            // leur contexte, et une suppression accidentelle se repare.
+            $stmt = $db->prepare("UPDATE playlists SET deleted_at = NOW() WHERE id = ? AND user_id = ? AND deleted_at IS NULL");
             $stmt->execute([$playlistId, $userId]);
             respond(['success' => true]);
             break;
@@ -296,7 +299,7 @@ function handleDelete($db, $userId, $input) {
 }
 
 function ensurePlaylistOwner($db, $playlistId, $userId) {
-    $stmt = $db->prepare("SELECT user_id FROM playlists WHERE id = ?");
+    $stmt = $db->prepare("SELECT user_id FROM playlists WHERE id = ? AND deleted_at IS NULL");
     $stmt->execute([$playlistId]);
     $ownerId = $stmt->fetchColumn();
     if (!$ownerId) {

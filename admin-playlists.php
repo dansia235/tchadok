@@ -88,6 +88,7 @@ $playlists = $db ? $db->query("
     SELECT p.*, u.username
     FROM playlists p
     JOIN users u ON p.user_id = u.id
+    WHERE p.deleted_at IS NULL
     ORDER BY p.updated_at DESC
 ")->fetchAll() : [];
 $tracks = $db ? $db->query("

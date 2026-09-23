@@ -1418,7 +1418,23 @@ Structures détaillées aux §6.2.4 à §6.2.6 de l'audit.
 
 ### DATA-06 — Suppression logique et conservation
 
-**Charge :** 1 j · **Dépend de :** `DATA-01`
+**Charge :** 1 j · **Dépend de :** `DATA-01` · **Statut :** fait le 23/09/2026
+
+> **Bilan.** `deleted_at` existe sur `users`, `artists`, `tracks`, `releases` et `playlists` — plus `anonymized_at` sur `users`. La vue `albums` expose la colonne, et `streams.user_id` devient facultative : une écoute doit pouvoir survivre à son auteur, sinon le baromètre par genre et les revenus des artistes s'effondrent dès qu'un auditeur s'en va.
+>
+> **Trois gestes, désormais distincts.** *Retirer* fait disparaître un contenu des pages publiques sans le sortir de la base, et se répare (`retablir`). *Anonymiser* remplace ce qui désigne une personne et conserve les écritures comptables — définitif. *Purger* n'existe pas encore : les durées de conservation sont une politique déclarée, pas une tâche automatique, et le document le dit.
+>
+> **Les trente-six lectures publiques filtrent.** C'est le point qu'il est facile de croire sur parole et facile de rater : une seule requête oubliée laisse le contenu retiré à l'écran. Chaque `status = 'approved'` et chaque `is_active = 1` de `includes/database.php` est désormais accompagné du filtre de retrait, et le test appelle **chaque** fonction de lecture publique avant de relire les pages elles-mêmes.
+>
+> **Le droit à l'effacement ne s'oppose pas à la conservation comptable.** `Effacement::anonymiser()` remplace nom, courriel, téléphone, ville, pays, date de naissance et photo ; rend le mot de passe inutilisable ; ferme sessions, jetons « se souvenir de moi », second facteur et notifications. Restent, sans lien avec une personne : commandes, lignes, factures, droits d'accès, événements de paiement, versements, et les écoutes **détachées de leur auteur**. Le journal d'audit conserve l'identifiant numérique et le motif, jamais le nom — il faut pouvoir prouver que la demande a été honorée.
+>
+> **La base refusait déjà de supprimer un acheteur** depuis `DATA-05` (`orders.user_id` en `ON DELETE RESTRICT`) : le test le constate en essayant le `DELETE`. Anonymiser est donc la seule voie, ce qui est le bon comportement.
+>
+> **Livrés :** `includes/effacement.php`, `scripts/effacement.php` (retirer, rétablir, état, anonymiser — hors du web, tracé au journal, et qui **annonce ce qui sera conservé avant d'agir**), et `docs/exploitation/conservation.md` : durée par catégorie, ce qui part, ce qui reste, et ce qui n'est pas encore fait.
+>
+> **Un test défectueux corrigé au passage.** `SEC-12` vérifiait qu'une réponse à la question de vérification ne se rejoue pas, en renvoyant l'ancienne somme. Or la page de confirmation arme déjà une nouvelle question, et les sommes vont de 4 à 18 : l'ancienne réponse tombait juste par hasard environ une fois sur dix, faisant échouer le contrôle au hasard. Le test tire désormais jusqu'à obtenir une question différente — le refus devient certain, et le contrôle garde son sens. Trois exécutions de suite pour le confirmer.
+>
+> **Vérifié :** `tests/schema/data06-effacement.php` (86 contrôles). Les dix-neuf autres suites au vert : **1 083 contrôles** au total.
 
 Aucune table ne porte de `deleted_at`. Les suppressions en cascade détruisent l'historique de ventes et d'écoutes rattaché — incompatible avec une obligation de conservation comptable et avec la résolution de litiges artistes.
 

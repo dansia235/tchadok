@@ -83,14 +83,14 @@ try {
     }
 
     if ($db && tableExists('playlists')) {
-        $stmt = $db->prepare("SELECT COUNT(*) FROM playlists WHERE user_id = ?");
+        $stmt = $db->prepare("SELECT COUNT(*) FROM playlists WHERE user_id = ? AND deleted_at IS NULL");
         $stmt->execute([$userId]);
         $stats['playlists_created'] = (int) $stmt->fetchColumn();
 
         $stmt = $db->prepare("
             SELECT id, name, total_tracks, total_duration, updated_at, is_public
             FROM playlists
-            WHERE user_id = ?
+            WHERE user_id = ? AND deleted_at IS NULL
             ORDER BY updated_at DESC
             LIMIT 5
         ");

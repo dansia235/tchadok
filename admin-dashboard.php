@@ -112,7 +112,7 @@ try {
         'total_albums' => $db->query("SELECT COUNT(*) FROM albums")->fetchColumn(),
         'total_streams' => $db->query("SELECT COALESCE(SUM(total_streams), 0) FROM tracks")->fetchColumn(),
         'premium_users' => $db->query("SELECT COUNT(*) FROM users WHERE premium_status = 1")->fetchColumn(),
-        'total_playlists' => $db->query("SELECT COUNT(*) FROM playlists")->fetchColumn(),
+        'total_playlists' => $db->query("SELECT COUNT(*) FROM playlists WHERE deleted_at IS NULL")->fetchColumn(),
         'total_revenue' => $db->query("SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE status = 'completed'")->fetchColumn(),
         'total_podcasts' => tableExists('podcasts') ? $db->query("SELECT COUNT(*) FROM podcasts")->fetchColumn() : 0,
         'total_podcast_episodes' => tableExists('podcast_episodes') ? $db->query("SELECT COUNT(*) FROM podcast_episodes")->fetchColumn() : 0,

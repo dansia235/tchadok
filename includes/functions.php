@@ -1367,6 +1367,9 @@ require_once __DIR__ . '/tarifs.php';
 // DATA-05 : commandes, factures et droits d'acces.
 require_once __DIR__ . '/commandes.php';
 
+// DATA-06 : suppression logique et droit a l'effacement.
+require_once __DIR__ . '/effacement.php';
+
 // Initialisation de la session
 startSecureSession();
 

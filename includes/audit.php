@@ -37,6 +37,9 @@ final class JournalAudit
         'compte.cree'              => 'Compte cree',
         'compte.modifie'           => 'Compte modifie',
         'compte.supprime'          => 'Compte supprime',
+        // DATA-06 : le droit a l'effacement est honore par une anonymisation,
+        // pas par une suppression -- les ecritures comptables doivent survivre.
+        'compte.anonymise'         => 'Compte anonymise (droit a l\'effacement)',
         'compte.mot-de-passe'      => 'Mot de passe reinitialise',
         'role.attribue'            => 'Role attribue',
         'role.retire'              => 'Role retire',
@@ -44,6 +47,7 @@ final class JournalAudit
         'contenu.approuve'         => 'Contenu approuve',
         'contenu.rejete'           => 'Contenu rejete',
         'contenu.supprime'         => 'Contenu supprime',
+        'contenu.restaure'         => 'Contenu remis en ligne',
         'tarif.modifie'            => 'Tarif ou commission modifie',
         'taxonomie.modifiee'       => 'Genres ou categories modifies',
         'versement.prepare'        => 'Versement prepare',

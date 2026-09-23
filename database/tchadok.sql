@@ -4,7 +4,7 @@
 -- Le schema fait foi dans database/migrations/ ; ce fichier n'en est que
 -- la photographie, regeneree apres chaque migration (DATA-01).
 --
--- Genere le 23/09/2026 a 19h31 depuis la base tchadok_local.
+-- Genere le 23/09/2026 a 20h03 depuis la base tchadok_local.
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
@@ -50,9 +50,11 @@ CREATE TABLE IF NOT EXISTS `artists` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `slug` varchar(220) DEFAULT NULL,
+  `deleted_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `user_id` (`user_id`),
   UNIQUE KEY `slug` (`slug`),
+  KEY `retire` (`deleted_at`),
   CONSTRAINT `artists_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -406,8 +408,10 @@ CREATE TABLE IF NOT EXISTS `playlists` (
   `total_plays` bigint(20) DEFAULT 0,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `deleted_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `user_id` (`user_id`),
+  KEY `retire` (`deleted_at`),
   CONSTRAINT `playlists_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -558,12 +562,14 @@ CREATE TABLE IF NOT EXISTS `releases` (
   `total_sales` int(11) NOT NULL DEFAULT 0,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `deleted_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `slug` (`slug`),
   KEY `artiste` (`artist_id`),
   KEY `genre` (`genre_id`),
   KEY `format_statut` (`format`,`status`),
   KEY `releases_ibfk_3` (`reviewed_by`),
+  KEY `retire` (`deleted_at`),
   CONSTRAINT `releases_ibfk_1` FOREIGN KEY (`artist_id`) REFERENCES `artists` (`id`) ON DELETE CASCADE,
   CONSTRAINT `releases_ibfk_2` FOREIGN KEY (`genre_id`) REFERENCES `genres` (`id`),
   CONSTRAINT `releases_ibfk_3` FOREIGN KEY (`reviewed_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
@@ -725,12 +731,14 @@ CREATE TABLE IF NOT EXISTS `tracks` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `slug` varchar(220) DEFAULT NULL,
+  `deleted_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `slug` (`slug`),
   KEY `idx_tracks_artist` (`artist_id`),
   KEY `idx_tracks_album` (`album_id`),
   KEY `idx_tracks_genre` (`genre_id`),
   KEY `sortie` (`release_id`),
+  KEY `retire` (`deleted_at`),
   CONSTRAINT `tracks_ibfk_2` FOREIGN KEY (`artist_id`) REFERENCES `artists` (`id`) ON DELETE CASCADE,
   CONSTRAINT `tracks_ibfk_3` FOREIGN KEY (`genre_id`) REFERENCES `genres` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -802,9 +810,12 @@ CREATE TABLE IF NOT EXISTS `users` (
   `last_login` datetime DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `deleted_at` datetime DEFAULT NULL,
+  `anonymized_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`),
-  UNIQUE KEY `email` (`email`)
+  UNIQUE KEY `email` (`email`),
+  KEY `retire` (`deleted_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Table `user_2fa_settings`
@@ -860,7 +871,7 @@ CREATE TABLE IF NOT EXISTS `user_sessions` (
 
 -- Vue `albums`
 DROP VIEW IF EXISTS `albums`;
-CREATE ALGORITHM=UNDEFINED VIEW `albums` AS select `r`.`id` AS `id`,`r`.`artist_id` AS `artist_id`,`r`.`title` AS `title`,`r`.`description` AS `description`,`r`.`cover_image` AS `cover_image`,`r`.`genre_id` AS `genre_id`,`r`.`format` AS `type`,coalesce(`r`.`price_bundle`,0.00) AS `price`,`r`.`release_date` AS `release_date`,`r`.`language` AS `language`,`r`.`total_tracks` AS `total_tracks`,`r`.`total_duration` AS `total_duration`,`r`.`is_free` AS `is_free`,`r`.`is_featured` AS `is_featured`,`r`.`status` AS `status`,`r`.`total_streams` AS `total_streams`,`r`.`total_sales` AS `total_sales`,`r`.`created_at` AS `created_at`,`r`.`updated_at` AS `updated_at` from `releases` `r`;
+CREATE ALGORITHM=UNDEFINED VIEW `albums` AS select `r`.`id` AS `id`,`r`.`artist_id` AS `artist_id`,`r`.`title` AS `title`,`r`.`description` AS `description`,`r`.`cover_image` AS `cover_image`,`r`.`genre_id` AS `genre_id`,`r`.`format` AS `type`,coalesce(`r`.`price_bundle`,0.00) AS `price`,`r`.`release_date` AS `release_date`,`r`.`language` AS `language`,`r`.`total_tracks` AS `total_tracks`,`r`.`total_duration` AS `total_duration`,`r`.`is_free` AS `is_free`,`r`.`is_featured` AS `is_featured`,`r`.`status` AS `status`,`r`.`total_streams` AS `total_streams`,`r`.`total_sales` AS `total_sales`,`r`.`deleted_at` AS `deleted_at`,`r`.`created_at` AS `created_at`,`r`.`updated_at` AS `updated_at` from `releases` `r`;
 
 -- Vue `top_artists`
 DROP VIEW IF EXISTS `top_artists`;
