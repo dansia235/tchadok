@@ -52,16 +52,18 @@ C:\xampp\php\php.exe tests\securite\sec20-deux-facteurs.php
 
 | Script | Tache | Couvre |
 |---|---|---|
-| `schema/data01-migrations.php` | `DATA-01` | Systeme de migrations : base vide devenue complete par `migrate.php up`, rejeu sans effet, registre et empreintes, annulation puis reapplication, refus d'annuler la photographie du schema, detection d'une migration modifiee apres application, refus d'execution par le web, proprietes de l'export de reference. **37 controles.** Tout se passe dans une base jetable, creee et supprimee par le test ; `DB_DATABASE` est devie le temps des essais puis restaure. |
+| `schema/data01-migrations.php` | `DATA-01` | Systeme de migrations : base vide devenue complete par `migrate.php up`, rejeu sans effet, registre et empreintes, annulation puis reapplication, refus d'annuler la photographie du schema, detection d'une migration modifiee apres application, refus d'execution par le web, proprietes de l'export de reference. **40 controles.** Tout se passe dans une base jetable, creee et supprimee par le test ; `DB_DATABASE` est devie le temps des essais puis restaure. |
 | `schema/data02-mot-de-passe.php` | `DATA-02` | Disparition de la colonne `password` ; **essai de connexion réel avec l'ancien mot de passe après changement** ; absence de lecture et d'écriture de la colonne dans huit fichiers ; `checkAdminCredentials()` réduite à `password_hash` et contrôlant `is_active` ; jeux de données à jour ; script d'analyse et migration réversible. **18 contrôles.** |
 | `schema/data03-sorties.php` | `DATA-03` | Entité « sortie » et formats de vente : schéma de `releases`, `albums` devenue vue de compatibilité, règles de composition **sans base puis sur la base réelle** (album d'un titre refusé, maxi single sans prix refusé, remise minimale du bundle, compilation multi-artistes), migration des albums sans perte vérifiée par `getAlbums()` et la page publique, chemins d'écriture basculés sur `releases`, slugs et script de rattrapage avec mode simulation. **109 contrôles.** |
 | `schema/data04-tarifs.php` | `DATA-04` | Grille tarifaire administrée : schéma de `pricing_rules`, disparition des trois copies de prix et de commission dans le code, **changement de tarif en base constaté sur la page publique relue**, **prix hors grille soumis par le vrai formulaire artiste avec session ouverte**, enveloppe appliquée à un format inconnu, commission par produit, écran d'administration (permissions, contrôles de cohérence, journalisation), mise en cache et migration. **100 contrôles.** Modifie la grille puis la remet exactement en état, y compris en cas d'échec. |
+| `schema/data05-commerce.php` | `DATA-05` | Tables commerciales : les six tables et leurs contraintes uniques, **prix et commission figés vérifiés en changeant le tarif en base**, **seconde référence opérateur refusée par la base**, callback rejoué sans double encaissement, numérotation de facture continue, **modification et suppression d'un événement de paiement refusées**, quota de téléchargement épuisé puis droit expiré et révoqué, double validation des versements, suppression d'un acheteur refusée, compteurs de vente, disparition de `purchases`. **109 contrôles.** |
 
 `
 C:\xampp\php\php.exe tests\schema\data01-migrations.php
 C:\xampp\php\php.exe tests\schema\data02-mot-de-passe.php
 C:\xampp\php\php.exe tests\schema\data03-sorties.php
 C:\xampp\php\php.exe tests\schema\data04-tarifs.php
+C:\xampp\php\php.exe tests\schema\data05-commerce.php
 `
 
 ### Pièges de PowerShell 5.1 rencontrés
@@ -108,6 +110,19 @@ des plages réservées :
 | `artists` | 901 – 999 |
 | `releases` | 901 – 999 |
 | `tracks` | 9001 – 9999 |
+| `orders` | 9001 – 9599 |
+
+### `purchases` n'existe plus
+
+Depuis `DATA-05`, les achats vivent dans `orders`, `order_items` et
+`entitlements`. Un jeu d'essai qui simule un achat cree une commande `paid`,
+sa ligne, puis le droit d'acces -- c'est ce que lit `MediaAccess`. Ces
+ecritures **refusent la cascade** : une ligne comptable ne disparait pas parce
+qu'un compte est supprime, donc le nettoyage les retire explicitement, dans
+l'ordre (droits, lignes, commandes).
+
+`payment_events`, lui, refuse `DELETE` : les lignes d'essai y restent. C'est
+exactement ce qu'on attend d'un journal de preuve.
 
 ### `albums` est une vue, plus une table
 

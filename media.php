@@ -97,7 +97,7 @@ if (!$db) {
 }
 
 $stmt = $db->prepare(
-    'SELECT id, status, is_free, artist_id, album_id, audio_file, preview_file
+    'SELECT id, status, is_free, artist_id, album_id, release_id, audio_file, preview_file
        FROM tracks WHERE id = ? LIMIT 1'
 );
 $stmt->execute([$trackId]);

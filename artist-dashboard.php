@@ -86,11 +86,15 @@ try {
         $stats['followers'] = (int) $stmt->fetchColumn();
     }
 
-    if (tableExists('purchases')) {
+    // DATA-05 : les revenus se lisent dans les lignes de commande payees. La table
+    // purchases a disparu : elle n'etait jamais ecrite, ces chiffres etaient
+    // donc toujours nuls.
+    if (tableExists('order_items')) {
         $stmt = $db->prepare("
-            SELECT COALESCE(SUM(amount), 0), COALESCE(SUM(amount - commission), 0)
-            FROM purchases
-            WHERE artist_id = ? AND payment_status = 'completed'
+            SELECT COALESCE(SUM(oi.unit_price * oi.quantity), 0), COALESCE(SUM(oi.artist_net), 0)
+            FROM order_items oi
+            JOIN orders o ON o.id = oi.order_id
+            WHERE oi.artist_id = ? AND o.status = 'paid'
         ");
         $stmt->execute([$artistId]);
         $revenueRollup = $stmt->fetch(PDO::FETCH_NUM);
@@ -132,11 +136,13 @@ try {
         $monthKey = date('Y-m', strtotime("-$i months"));
         $monthlyLabels[] = date('M Y', strtotime($monthKey . '-01'));
 
-        if (tableExists('purchases')) {
+        if (tableExists('order_items')) {
             $stmt = $db->prepare("
-                SELECT COALESCE(SUM(amount - commission), 0)
-                FROM purchases
-                WHERE artist_id = ? AND payment_status = 'completed' AND DATE_FORMAT(created_at, '%Y-%m') = ?
+                SELECT COALESCE(SUM(oi.artist_net), 0)
+                FROM order_items oi
+                JOIN orders o ON o.id = oi.order_id
+                WHERE oi.artist_id = ? AND o.status = 'paid'
+                  AND DATE_FORMAT(o.paid_at, '%Y-%m') = ?
             ");
             $stmt->execute([$artistId, $monthKey]);
             $monthlyValues[] = (float) $stmt->fetchColumn();

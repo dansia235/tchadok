@@ -100,6 +100,12 @@ function EstConnecteAdmin($ap) { return ((Obtenir $ap '/admin-dashboard.php').Co
 $envOrigine = [System.IO.File]::ReadAllText($envLocalPath)
 Sql (Join-Path $PSScriptRoot 'sec10-nettoyage.sql')
 Sql (Join-Path $PSScriptRoot 'sec10-fixtures.sql')
+# SEC-12 : la limitation de debit est partagee par toute la plateforme. Une
+# suite executee juste avant celle-ci (SEC-09 en fait des centaines de requetes)
+# laisse le compteur charge, et les connexions d'ici repartent en 429. Le
+# compteur est donc remis a zero : ce test porte sur les sessions, pas sur le
+# debit.
+& $mysql -u root -D $baseDb -e "DELETE FROM login_attempts; DELETE FROM rate_limit_hits;" 2>$null | Out-Null
 $appareils = @()
 
 try {

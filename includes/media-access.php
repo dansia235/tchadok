@@ -131,25 +131,29 @@ final class MediaAccess
     }
 
     /**
-     * Achat du titre, ou de l'album qui le contient, avec paiement confirme.
+     * Achat du titre, ou de la sortie qui le contient, avec paiement confirme.
      *
-     * S'appuie sur la table purchases existante. La table entitlements
-     * (SHOP-04) la remplacera ; seule cette methode sera a modifier.
+     * DATA-05 : la decision se lit dans `entitlements`, la table des droits.
+     * Elle porte ce que `purchases` ne savait pas dire -- expiration, revocation,
+     * et l'origine du droit (achat, abonnement, cadeau, promotion). L'ancienne
+     * lecture de `purchases` ignorait la peremption : un droit expire ouvrait
+     * encore le fichier.
      */
     private static function aAchete(PDO $db, int $userId, array $titre): bool
     {
         $trackId = (int) ($titre['id'] ?? 0);
-        $albumId = (int) ($titre['album_id'] ?? 0);
+        $sortieId = (int) ($titre['release_id'] ?? $titre['album_id'] ?? 0);
 
         $stmt = $db->prepare(
-            "SELECT 1 FROM purchases
+            "SELECT 1 FROM entitlements
               WHERE user_id = ?
-                AND payment_status = 'completed'
+                AND revoked_at IS NULL
+                AND (expires_at IS NULL OR expires_at > NOW())
                 AND ( (item_type = 'track' AND item_id = ?)
-                   OR (item_type = 'album' AND item_id = ? AND ? > 0) )
+                   OR (item_type = 'release' AND item_id = ? AND ? > 0) )
               LIMIT 1"
         );
-        $stmt->execute([$userId, $trackId, $albumId, $albumId]);
+        $stmt->execute([$userId, $trackId, $sortieId, $sortieId]);
         return (bool) $stmt->fetchColumn();
     }
 

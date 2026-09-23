@@ -87,7 +87,15 @@ try {
     // compatibilite au-dessus de `releases`.
     verif('Les vues existent', compte("SELECT COUNT(*) FROM information_schema.views WHERE table_schema='{$baseEssai}'") === 3);
     verif('... dont la vue de compatibilite `albums`', compte("SELECT COUNT(*) FROM information_schema.views WHERE table_schema='{$baseEssai}' AND table_name='albums'") === 1);
-    verif('Les declencheurs sont crees (corps a points-virgules)', compte("SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema='{$baseEssai}'") === 3);
+    // Les declencheurs sont nommes plutot que comptes : leur nombre change a
+    // chaque migration, et ce que ce test doit prouver, c'est que le decoupeur
+    // de migrate.php sait lire un corps a points-virgules.
+    foreach (['update_album_tracks_count', 'update_stream_stats', 'compter_vente_payee', 'payment_events_sans_modification'] as $declencheur) {
+        verif(
+            "Le declencheur `{$declencheur}` est cree (corps a points-virgules)",
+            compte("SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema='{$baseEssai}' AND trigger_name='{$declencheur}'") === 1
+        );
+    }
     verif('users.remember_token a bien ete retiree', compte("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='{$baseEssai}' AND table_name='users' AND column_name='remember_token'") === 0);
     verif('Aucun DEFINER fige dans les vues', compte("SELECT COUNT(*) FROM information_schema.views WHERE table_schema='{$baseEssai}' AND definer LIKE 'root@%'") >= 0);
 

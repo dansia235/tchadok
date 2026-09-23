@@ -82,11 +82,12 @@ try {
         $walletStats['completed_transactions'] = (int) ($summaryRow['completed_count'] ?? 0);
     }
 
-    if ($db && tableExists('purchases')) {
+    // DATA-05 : la depense totale vient des commandes payees.
+    if ($db && tableExists('orders')) {
         $stmt = $db->prepare("
-            SELECT COALESCE(SUM(amount), 0)
-            FROM purchases
-            WHERE user_id = ? AND payment_status = 'completed'
+            SELECT COALESCE(SUM(total), 0)
+            FROM orders
+            WHERE user_id = ? AND status = 'paid'
         ");
         $stmt->execute([$userId]);
         $walletStats['total_spent'] = (float) $stmt->fetchColumn();

@@ -98,11 +98,12 @@ try {
         $userPlaylists = $stmt->fetchAll();
     }
 
-    if ($db && tableExists('purchases')) {
+    // DATA-05 : les achats se comptent sur les commandes payees.
+    if ($db && tableExists('orders')) {
         $stmt = $db->prepare("
-            SELECT COUNT(*), COALESCE(SUM(amount), 0)
-            FROM purchases
-            WHERE user_id = ? AND payment_status = 'completed'
+            SELECT COUNT(DISTINCT o.id), COALESCE(SUM(o.total), 0)
+            FROM orders o
+            WHERE o.user_id = ? AND o.status = 'paid'
         ");
         $stmt->execute([$userId]);
         $purchaseRow = $stmt->fetch(PDO::FETCH_NUM);

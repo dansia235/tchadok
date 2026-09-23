@@ -1373,7 +1373,28 @@ Les prix Premium sont écrits en dur à trois endroits avec **deux valeurs contr
 
 ### DATA-05 — Créer les tables commerciales
 
-**Charge :** 1,5 j · **Dépend de :** `DATA-01`, `DATA-03`, `DATA-04` · **Bloque :** `LOT 6`, `LOT 7`, `LOT 8`
+**Charge :** 1,5 j · **Dépend de :** `DATA-01`, `DATA-03`, `DATA-04` · **Bloque :** `LOT 6`, `LOT 7`, `LOT 8` · **Statut :** fait le 23/09/2026
+
+> **Bilan.** Les six tables existent — `orders`, `order_items`, `entitlements`, `payouts`, `payment_intents`, `payment_events` — plus `invoice_counters`, qui porte la numérotation de facture. `includes/commandes.php` tient les quelques règles que le schéma ne peut pas exprimer.
+>
+> **Les cinq points non négociables sont tenus, et vérifiés en les attaquant.**
+> - `gateway_ref` **UNIQUE** : la seconde commande portant la même référence est refusée par la base (`Duplicate entry`), pas par un test applicatif qui perdrait la course entre deux callbacks simultanés. Le code, lui, renvoie un message lisible avant d'y arriver.
+> - `unit_price` et `commission_rate` **figés à la vente** : le test change la commission de 15 % à 40 % en base, puis relit la ligne de commande — elle porte toujours 15 % et la part nette promise à l'artiste.
+> - `payment_events` **immuable** : deux déclencheurs refusent `UPDATE` et `DELETE` avec un message explicite, quels que soient les droits du compte — y compris `root` en local. Une preuve modifiable n'est pas une preuve.
+> - **Double validation des versements** : la contrainte `double_validation` refuse, au niveau de la base, un versement dont l'approbateur est celui qui l'a préparé. La colonne `created_by` a été ajoutée pour cela.
+> - **Facture sans trou** : `AUTO_INCREMENT` saute des valeurs dès qu'une transaction échoue. Le numéro vient donc d'un compteur verrouillé (`SELECT … FOR UPDATE`) et n'est attribué **qu'à l'encaissement** — une commande abandonnée ne consomme pas de numéro. Le test encaisse cinq commandes et vérifie que la suite est continue.
+>
+> **L'idempotence est traitée comme la règle, pas comme un cas limite.** Les opérateurs mobile money rejouent leurs callbacks : `marquerPayee()` appelée deux fois avec la même référence encaisse une fois, ne renvoie pas d'erreur — l'opérateur attend un accusé de réception — et n'ouvre pas un second droit. Le quota de téléchargement se décrémente en **une seule requête SQL conditionnelle**, pour que deux téléchargements simultanés ne passent pas tous les deux.
+>
+> **Le contrôle d'accès aux médias lit enfin les droits.** `MediaAccess::aAchete()` interrogeait `purchases` sans regarder la péremption : un droit expiré ouvrait encore le fichier. Il lit maintenant `entitlements`, avec expiration et révocation.
+>
+> **Écart assumé par rapport au plan : `purchases` est supprimée, pas transformée en vue.** Le plan prévoyait une vue de compatibilité. Mais la migration `0001`, photographie du schéma, crée un **déclencheur sur `purchases`** — et un déclencheur ne se pose pas sur une vue. Rejouer les migrations depuis un registre vide, le scénario de reprise que `DATA-01` garantit, échouait alors avec « purchases is not of type BASE TABLE ». Défaut trouvé par le test `DATA-01`. Plutôt que de corriger une migration déjà appliquée ailleurs — ce qui invaliderait son empreinte et obligerait chaque serveur à la ré-enregistrer à la main — la table est supprimée : `0001` la recrée vide et inoffensive, `0009` la retire de nouveau. Les **quatre écrans** qui la lisaient (dashboard artiste, dashboard membre, portefeuille, et le contrôle d'accès) lisent désormais `orders`, `order_items` et `entitlements`. Ils y gagnent : `purchases` n'étant écrite par personne, ces chiffres affichaient **toujours zéro**.
+>
+> **Le compteur de ventes compte enfin au bon moment.** `update_purchase_stats` incrémentait à l'`INSERT` : une commande créée, même jamais payée, comptait comme une vente. Le nouveau déclencheur `compter_vente_payee` suit le **passage à `paid`**, une seule fois, et crédite l'artiste de sa part nette.
+>
+> **Une fragilité de test corrigée au passage.** `SEC-10` échouait quand il suivait `SEC-09` : la limitation de débit, partagée par toute la plateforme, était encore chargée par les centaines de requêtes du test précédent, et les connexions repartaient en 429. Il remet le compteur à zéro avant de commencer.
+>
+> **Vérifié :** `tests/schema/data05-commerce.php` (109 contrôles). Chaque interdit est vérifié **en essayant l'écriture** et en constatant le refus du serveur : seconde référence opérateur, modification d'un événement, suppression d'un événement, versement auto-approuvé, période versée deux fois, suppression d'un acheteur ayant commandé. Les dix-huit autres suites au vert : **993 contrôles** au total.
 
 Structures détaillées aux §6.2.4 à §6.2.6 de l'audit.
 

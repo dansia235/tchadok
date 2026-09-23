@@ -4,7 +4,7 @@
 -- Le schema fait foi dans database/migrations/ ; ce fichier n'en est que
 -- la photographie, regeneree apres chaque migration (DATA-01).
 --
--- Genere le 23/09/2026 a 19h02 depuis la base tchadok_local.
+-- Genere le 23/09/2026 a 19h31 depuis la base tchadok_local.
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
@@ -138,6 +138,27 @@ CREATE TABLE IF NOT EXISTS `charts` (
   KEY `idx_chart_date_type` (`chart_date`,`chart_type`,`item_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- Table `entitlements`
+CREATE TABLE IF NOT EXISTS `entitlements` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
+  `item_type` enum('track','release') NOT NULL,
+  `item_id` int(11) NOT NULL,
+  `order_item_id` int(11) DEFAULT NULL,
+  `source` enum('purchase','subscription','gift','promo') NOT NULL,
+  `downloads_used` int(11) NOT NULL DEFAULT 0,
+  `max_downloads` int(11) NOT NULL DEFAULT 5,
+  `granted_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `expires_at` datetime DEFAULT NULL,
+  `revoked_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `droit_unique` (`user_id`,`item_type`,`item_id`,`source`),
+  KEY `ligne` (`order_item_id`),
+  KEY `expiration` (`expires_at`),
+  CONSTRAINT `entitlements_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `entitlements_ibfk_2` FOREIGN KEY (`order_item_id`) REFERENCES `order_items` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 -- Table `favorites`
 CREATE TABLE IF NOT EXISTS `favorites` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -178,6 +199,14 @@ CREATE TABLE IF NOT EXISTS `genres` (
   UNIQUE KEY `name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- Table `invoice_counters`
+CREATE TABLE IF NOT EXISTS `invoice_counters` (
+  `year` smallint(6) NOT NULL,
+  `last_number` int(11) NOT NULL DEFAULT 0,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`year`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 -- Table `login_attempts`
 CREATE TABLE IF NOT EXISTS `login_attempts` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -208,6 +237,98 @@ CREATE TABLE IF NOT EXISTS `notifications` (
   CONSTRAINT `notifications_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- Table `orders`
+CREATE TABLE IF NOT EXISTS `orders` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `reference` varchar(40) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `subtotal` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `platform_fee` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `gateway_fee` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `total` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `currency` char(3) NOT NULL DEFAULT 'XAF',
+  `status` enum('cart','awaiting_payment','paid','failed','cancelled','refunded') NOT NULL DEFAULT 'cart',
+  `payment_method` varchar(30) DEFAULT NULL,
+  `gateway_ref` varchar(100) DEFAULT NULL,
+  `paid_at` datetime DEFAULT NULL,
+  `invoice_number` varchar(30) DEFAULT NULL,
+  `refunded_at` datetime DEFAULT NULL,
+  `refund_reason` varchar(500) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `reference` (`reference`),
+  UNIQUE KEY `gateway_ref` (`gateway_ref`),
+  UNIQUE KEY `invoice_number` (`invoice_number`),
+  KEY `acheteur` (`user_id`,`status`),
+  KEY `paiement` (`paid_at`),
+  CONSTRAINT `orders_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Table `order_items`
+CREATE TABLE IF NOT EXISTS `order_items` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `order_id` int(11) NOT NULL,
+  `item_type` enum('track','release','subscription') NOT NULL,
+  `item_id` int(11) NOT NULL,
+  `artist_id` int(11) DEFAULT NULL,
+  `label` varchar(200) DEFAULT NULL,
+  `unit_price` decimal(8,2) NOT NULL,
+  `quantity` int(11) NOT NULL DEFAULT 1,
+  `commission_rate` decimal(4,2) NOT NULL,
+  `commission` decimal(8,2) NOT NULL,
+  `artist_net` decimal(8,2) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `article_unique` (`order_id`,`item_type`,`item_id`),
+  KEY `artiste` (`artist_id`),
+  CONSTRAINT `order_items_ibfk_1` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`),
+  CONSTRAINT `order_items_ibfk_2` FOREIGN KEY (`artist_id`) REFERENCES `artists` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Table `payment_events`
+CREATE TABLE IF NOT EXISTS `payment_events` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `order_id` int(11) DEFAULT NULL,
+  `intent_id` int(11) DEFAULT NULL,
+  `gateway` varchar(30) NOT NULL,
+  `direction` enum('request','response','callback','reconciliation') NOT NULL,
+  `event_type` varchar(60) DEFAULT NULL,
+  `http_status` smallint(6) DEFAULT NULL,
+  `payload` text DEFAULT NULL,
+  `signature` varchar(255) DEFAULT NULL,
+  `signature_valid` tinyint(1) DEFAULT NULL,
+  `ip_address` varchar(45) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `commande` (`order_id`),
+  KEY `tentative` (`intent_id`),
+  KEY `horodatage` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Table `payment_intents`
+CREATE TABLE IF NOT EXISTS `payment_intents` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `order_id` int(11) NOT NULL,
+  `attempt` int(11) NOT NULL DEFAULT 1,
+  `gateway` varchar(30) NOT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `currency` char(3) NOT NULL DEFAULT 'XAF',
+  `status` enum('created','pending','succeeded','failed','expired','cancelled') NOT NULL DEFAULT 'created',
+  `gateway_ref` varchar(100) DEFAULT NULL,
+  `msisdn` varchar(30) DEFAULT NULL,
+  `error_code` varchar(60) DEFAULT NULL,
+  `error_message` varchar(500) DEFAULT NULL,
+  `expires_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `tentative_unique` (`order_id`,`attempt`),
+  UNIQUE KEY `gateway_ref` (`gateway_ref`),
+  KEY `etat` (`status`),
+  CONSTRAINT `payment_intents_ibfk_1` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 -- Table `payment_transactions`
 CREATE TABLE IF NOT EXISTS `payment_transactions` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -226,6 +347,38 @@ CREATE TABLE IF NOT EXISTS `payment_transactions` (
   KEY `transaction_id` (`transaction_id`),
   CONSTRAINT `payment_transactions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `payment_transactions_ibfk_2` FOREIGN KEY (`subscription_id`) REFERENCES `subscriptions` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Table `payouts`
+CREATE TABLE IF NOT EXISTS `payouts` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `artist_id` int(11) NOT NULL,
+  `period_start` date NOT NULL,
+  `period_end` date NOT NULL,
+  `gross` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `commission` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `adjustments` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `net` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `currency` char(3) NOT NULL DEFAULT 'XAF',
+  `method` enum('airtel_money','moov_money','bank_transfer') NOT NULL,
+  `destination` varchar(255) NOT NULL,
+  `status` enum('draft','approved','processing','paid','failed','on_hold') NOT NULL DEFAULT 'draft',
+  `created_by` int(11) DEFAULT NULL,
+  `approved_by` int(11) DEFAULT NULL,
+  `approved_at` datetime DEFAULT NULL,
+  `statement_url` varchar(255) DEFAULT NULL,
+  `failure_reason` varchar(500) DEFAULT NULL,
+  `paid_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `periode_unique` (`artist_id`,`period_start`,`period_end`),
+  KEY `redacteur` (`created_by`),
+  KEY `approbateur` (`approved_by`),
+  CONSTRAINT `payouts_ibfk_1` FOREIGN KEY (`artist_id`) REFERENCES `artists` (`id`),
+  CONSTRAINT `payouts_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `payouts_ibfk_3` FOREIGN KEY (`approved_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `double_validation` CHECK (`approved_by` is null or `created_by` is null or `approved_by` <> `created_by`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Table `permissions`
@@ -332,33 +485,6 @@ CREATE TABLE IF NOT EXISTS `pricing_rules` (
   KEY `portee` (`scope`,`format`,`active_from`),
   KEY `redacteur` (`updated_by`),
   CONSTRAINT `pricing_rules_ibfk_1` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- Table `purchases`
-CREATE TABLE IF NOT EXISTS `purchases` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `user_id` int(11) NOT NULL,
-  `item_type` enum('track','album') NOT NULL,
-  `item_id` int(11) NOT NULL,
-  `artist_id` int(11) NOT NULL,
-  `amount` decimal(8,2) NOT NULL,
-  `commission` decimal(8,2) NOT NULL,
-  `payment_method` enum('airtel_money','moov_money','ecobank','visa','gimac','wallet') NOT NULL,
-  `payment_reference` varchar(100) DEFAULT NULL,
-  `payment_status` enum('pending','completed','failed','refunded') DEFAULT 'pending',
-  `transaction_fee` decimal(8,2) DEFAULT 0.00,
-  `currency` varchar(3) DEFAULT 'XAF',
-  `download_count` int(11) DEFAULT 0,
-  `max_downloads` int(11) DEFAULT 5,
-  `expires_at` datetime DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  PRIMARY KEY (`id`),
-  KEY `artist_id` (`artist_id`),
-  KEY `idx_purchases_user` (`user_id`),
-  KEY `idx_purchases_date` (`created_at`),
-  CONSTRAINT `purchases_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `purchases_ibfk_2` FOREIGN KEY (`artist_id`) REFERENCES `artists` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Table `radio_live`
@@ -744,6 +870,56 @@ CREATE ALGORITHM=UNDEFINED VIEW `top_artists` AS select `a`.`id` AS `id`,`a`.`st
 DROP VIEW IF EXISTS `top_tracks`;
 CREATE ALGORITHM=UNDEFINED VIEW `top_tracks` AS select `t`.`id` AS `id`,`t`.`title` AS `title`,`t`.`total_streams` AS `total_streams`,`t`.`total_sales` AS `total_sales`,`a`.`stage_name` AS `artist_name`,`g`.`name` AS `genre_name` from ((`tracks` `t` join `artists` `a` on(`t`.`artist_id` = `a`.`id`)) left join `genres` `g` on(`t`.`genre_id` = `g`.`id`)) where `t`.`status` = 'approved' order by `t`.`total_streams` desc;
 
+-- Declencheur `compter_vente_payee`
+DROP TRIGGER IF EXISTS `compter_vente_payee`;
+DELIMITER $$
+CREATE TRIGGER `compter_vente_payee` AFTER UPDATE ON `orders`
+FOR EACH ROW
+BEGIN
+    IF NEW.status = 'paid' AND OLD.status <> 'paid' THEN
+        UPDATE `tracks` t
+           SET t.total_sales = t.total_sales + 1
+         WHERE t.id IN (SELECT item_id FROM `order_items`
+                         WHERE order_id = NEW.id AND item_type = 'track');
+
+        UPDATE `releases` r
+           SET r.total_sales = r.total_sales + 1
+         WHERE r.id IN (SELECT item_id FROM `order_items`
+                         WHERE order_id = NEW.id AND item_type = 'release');
+
+        UPDATE `artists` a
+           SET a.total_sales = a.total_sales + (
+                   SELECT COALESCE(SUM(oi.artist_net), 0) FROM `order_items` oi
+                    WHERE oi.order_id = NEW.id AND oi.artist_id = a.id
+               )
+         WHERE a.id IN (SELECT artist_id FROM `order_items`
+                         WHERE order_id = NEW.id AND artist_id IS NOT NULL);
+    END IF;
+END$$
+DELIMITER ;
+
+-- Declencheur `payment_events_sans_modification`
+DROP TRIGGER IF EXISTS `payment_events_sans_modification`;
+DELIMITER $$
+CREATE TRIGGER `payment_events_sans_modification` BEFORE UPDATE ON `payment_events`
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'payment_events est immuable : aucune modification autorisee.';
+END$$
+DELIMITER ;
+
+-- Declencheur `payment_events_sans_suppression`
+DROP TRIGGER IF EXISTS `payment_events_sans_suppression`;
+DELIMITER $$
+CREATE TRIGGER `payment_events_sans_suppression` BEFORE DELETE ON `payment_events`
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'payment_events est immuable : aucune suppression autorisee.';
+END$$
+DELIMITER ;
+
 -- Declencheur `update_album_tracks_count`
 DROP TRIGGER IF EXISTS `update_album_tracks_count`;
 DELIMITER $$
@@ -753,19 +929,6 @@ CREATE TRIGGER `update_album_tracks_count` AFTER INSERT ON `tracks` FOR EACH ROW
             SELECT COUNT(*) FROM tracks WHERE album_id = NEW.album_id
         ) WHERE id = NEW.album_id;
     END IF;
-END$$
-DELIMITER ;
-
--- Declencheur `update_purchase_stats`
-DROP TRIGGER IF EXISTS `update_purchase_stats`;
-DELIMITER $$
-CREATE TRIGGER `update_purchase_stats` AFTER INSERT ON `purchases` FOR EACH ROW BEGIN
-    IF NEW.item_type = 'track' THEN
-        UPDATE tracks SET total_sales = total_sales + 1 WHERE id = NEW.item_id;
-    ELSEIF NEW.item_type = 'album' THEN
-        UPDATE albums SET total_sales = total_sales + 1 WHERE id = NEW.item_id;
-    END IF;
-    UPDATE artists SET total_sales = total_sales + NEW.amount WHERE id = NEW.artist_id;
 END$$
 DELIMITER ;
 

@@ -31,5 +31,17 @@ INSERT INTO tracks (id, artist_id, title, audio_file, preview_file, duration, pr
  (9006, 901, 'Traversee',            '../../../../xampp/php/php.ini',          NULL, 180, 0,   1, 'approved'),
  (9007, 901, 'Fichier historique',   'uploads/audio/test-historique.mp3',      NULL, 180, 0,   1, 'approved');
 
-INSERT INTO purchases (user_id, item_type, item_id, artist_id, amount, commission, payment_method, payment_status)
-VALUES (904, 'track', 9002, 901, 500, 75, 'airtel_money', 'completed');
+-- DATA-05 : l'achat s'ecrit dans une commande payee, et le droit d'acces dans
+-- `entitlements` -- ce que MediaAccess lit desormais. `purchases` est devenue
+-- une vue de compatibilite, non inscriptible.
+INSERT INTO orders (id, reference, user_id, subtotal, platform_fee, total, status,
+                    payment_method, gateway_ref, paid_at, invoice_number)
+VALUES (9001, 'TCHK-2026-SEC06001', 904, 500, 75, 500, 'paid',
+        'airtel_money', 'SEC06-REF-0001', NOW(), 'FAC-2026-900001');
+
+INSERT INTO order_items (id, order_id, item_type, item_id, artist_id, unit_price,
+                         commission_rate, commission, artist_net)
+VALUES (9001, 9001, 'track', 9002, 901, 500, 15.00, 75, 425);
+
+INSERT INTO entitlements (user_id, item_type, item_id, order_item_id, source, max_downloads, granted_at)
+VALUES (904, 'track', 9002, 9001, 'purchase', 5, NOW());
