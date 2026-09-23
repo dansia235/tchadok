@@ -2,10 +2,9 @@
 require_once 'includes/functions.php';
 require_once 'includes/auth.php';
 
-if (!isLoggedIn() || !isAdmin()) {
-    header('Location: ' . SITE_URL . '/login.php');
-    exit();
-}
+// SEC-19 : l'acces depend d'une permission nommee, verifiee cote serveur.
+// Masquer l'entree de menu ne protege rien : l'adresse se tape.
+Autorisations::exiger('editorial.gerer');
 
 $pageTitle = 'Gestion Playlists';
 $pageDescription = 'Créer et enrichir les playlists.';

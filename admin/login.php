@@ -37,6 +37,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!empty($result['success'])) {
                 if (isAdmin()) {
                     VerrouConnexion::reussite($username);
+                    // La trace de connexion est posee par Auth::login(), qui
+                    // couvre aussi la page publique.
                     header('Location: ' . SITE_URL . '/admin-dashboard.php');
                     exit;
                 }
@@ -44,9 +46,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // tentative compte comme un echec ici, sinon la console
                 // servirait a tester des mots de passe sans limite.
                 VerrouConnexion::echec($username);
+                JournalAudit::enregistrer('admin.connexion.echec', [
+                    'cible_type' => 'identifiant',
+                    'cible_id'   => substr($username, 0, 60),
+                    'raison'     => 'identifiants valides mais compte non administrateur',
+                ]);
                 $auth->logout();
                 $error = 'Acces reserve aux administrateurs';
             } else {
+                // L'echec est trace par Auth::login() quand le compte vise est
+                // un compte d'administration.
                 VerrouConnexion::echec($username);
                 $error = $result['error'] ?? 'Identifiants incorrects';
             }

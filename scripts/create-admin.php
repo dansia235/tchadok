@@ -328,6 +328,22 @@ try {
     );
     $admin->execute([$userId, $role, $role === 'super_admin' ? '["all"]' : '[]']);
 
+    // SEC-19 : depuis les roles nommes, c'est user_roles qui fait foi. La ligne
+    // `admins` est conservee tant que DATA-* ne l'a pas retiree, mais elle
+    // n'ouvre plus aucun droit a elle seule : sans cette attribution, le compte
+    // cree ici n'aurait acces a rien.
+    $slug = $role === 'super_admin' ? 'super_admin' : 'admin_plateforme';
+    $attribution = $pdo->prepare(
+        'INSERT IGNORE INTO user_roles (user_id, role_id) SELECT ?, id FROM roles WHERE slug = ?'
+    );
+    $attribution->execute([$userId, $slug]);
+
+    if ($attribution->rowCount() === 0) {
+        throw new RuntimeException(
+            "Le role « {$slug} » est introuvable : appliquez d'abord les migrations (php scripts/migrate.php up)."
+        );
+    }
+
     $pdo->commit();
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {

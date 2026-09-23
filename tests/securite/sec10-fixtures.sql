@@ -9,3 +9,8 @@ VALUES
  (932, 'essai10_admin', 'admin10@essai.local', '$2y$12$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG', '$2y$12$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG', 'Essai', 'Admin', 1, 1);
 
 INSERT INTO admins (user_id, role, permissions) VALUES (932, 'admin', '[]');
+
+-- SEC-19 : c'est le role qui ouvre les droits, plus la table admins.
+-- Sans cette ligne, le compte 932 n'aurait acces a aucun ecran d'administration.
+INSERT IGNORE INTO user_roles (user_id, role_id)
+SELECT 932, id FROM roles WHERE slug = 'admin_plateforme';

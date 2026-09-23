@@ -2,10 +2,9 @@
 require_once 'includes/functions.php';
 require_once 'includes/auth.php';
 
-if (!isLoggedIn() || !isAdmin()) {
-    header('Location: ' . SITE_URL . '/login.php');
-    exit();
-}
+// SEC-19 : l'acces depend d'une permission nommee, verifiee cote serveur.
+// Masquer l'entree de menu ne protege rien : l'adresse se tape.
+Autorisations::exiger('catalogue.editer');
 
 $pageTitle = 'Ajouter un album';
 $pageDescription = 'Ajoutez un nouvel album à la plateforme.';
@@ -83,6 +82,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $isFeatured,
                 $status
             ]);
+            // SEC-19 : trace de l'ajout, avec le statut initial et le prix.
+            JournalAudit::enregistrer('contenu.cree', [
+                'cible_type' => 'album',
+                'cible_id'   => $db->lastInsertId(),
+                'apres'      => ['titre' => $title, 'artiste_id' => $artistId, 'statut' => $status, 'prix' => $price],
+            ]);
+
             $success = 'Album ajouté avec succès !';
             header('refresh:2;url=' . SITE_URL . '/admin-dashboard.php');
         } catch (Exception $e) {

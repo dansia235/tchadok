@@ -1021,7 +1021,23 @@ Les deux `.htaccess` référencent `404.php`, `403.php`, `500.php` : **les trois
 
 ### SEC-19 — Rôles, permissions et journal d'audit
 
-**Charge :** 5 j · **Dépend de :** `DATA-01`
+**Charge :** 5 j · **Dépend de :** `DATA-01` · **Statut :** fait le 23/09/2026
+
+> **Bilan.** Les sept rôles du §8.3 de l'audit existent, avec un catalogue de **24 permissions nommées** réparties en cinq domaines. `Autorisations::peut('finance.versement.executer')` remplace le booléen ; `Autorisations::exiger()` refuse en **403 côté serveur**, à l'entrée de l'écran — masquer une entrée de menu ne protège rien, l'adresse se tape.
+>
+> **La table `admins` n'ouvre plus aucun droit.** C'est `user_roles` qui fait foi. La migration convertit les lignes existantes (`super_admin` → `super_admin`, `moderator` → `moderateur_catalogue`, le reste → `admin_plateforme`), de sorte que personne ne perd l'accès au moment de la bascule ; `scripts/create-admin.php` attribue désormais un rôle et **refuse de créer un compte** si les migrations n'ont pas été appliquées, plutôt que de fabriquer un administrateur sans droits.
+>
+> **Le super-administrateur reçoit aussi les permissions ajoutées plus tard.** Sans cette règle, créer une permission la rendrait inaccessible à tout le monde — y compris au seul rôle censé pouvoir tout faire — jusqu'à ce que quelqu'un pense à l'attribuer. Les lignes sont malgré tout semées en base, pour que la lecture directe de `role_permissions` reste parlante.
+>
+> **Séparation des pouvoirs sur l'argent** (point 4) : `verifierSeparationVersement()` refuse qu'un même compte prépare et exécute le même versement. Le responsable finance détient bien les deux permissions — c'est son métier — et reste soumis à la règle. Elle vit dans la couche d'autorisation, pas dans un écran, pour que le `LOT 8` et une future API la trouvent aussi.
+>
+> **Journal d'audit** : table `audit_log` (auteur, rôles au moment de l'action, action, cible, états avant/après, motif, adresse, navigateur). L'application n'y fait **que des `INSERT`** — un test vérifie qu'aucun code ne contient d'`UPDATE` ni de `DELETE` sur cette table. Les clés sensibles (mot de passe, jeton, secret) sont **masquées** avant écriture : un journal ne doit pas devenir l'endroit où traîne un hash. Écran de consultation `admin/journal.php`, filtrable, réservé à `journal.lire`.
+>
+> **La connexion d'administration est tracée depuis `Auth::login()`**, pas depuis la page : la console, la page publique et une future API empruntent toutes ce point. Sont également journalisés les échecs sur un compte d'administration, les refus d'autorisation (avec la permission refusée), les attributions et retraits de rôle, les ajouts au catalogue depuis la console, et les réinitialisations de mot de passe.
+>
+> **Écart au plan :** pas d'écran d'attribution des rôles — `scripts/roles.php` (`liste`, `voir`, `attribuer`, `retirer`) le fait en ligne de commande, ce qui suffit pour amorcer le serveur et laisse une trace au journal, là où une requête SQL manuelle n'en laisserait aucune. L'écran viendra avec la gestion des comptes. Les écrans finance n'existant pas encore, le critère « un modérateur ne peut pas les atteindre » est vérifié sur les écrans existants (édition du catalogue, éditorial, journal) et sur la couche d'autorisation.
+>
+> **Vérifié :** `tests/securite/sec19-roles-audit.php` (59 contrôles) — modèle complet, cumul de rôles, permission inconnue accordée au seul super-administrateur, refus 403 réellement prononcés sur quatre écrans, règle des deux comptes, journal alimenté par six types d'actions avec auteur et rôles, masquage des valeurs sensibles, écran de consultation et son filtre. Les quatorze autres suites au vert.
 
 `isAdmin()` est binaire. La colonne `admins.permissions` contient `'["all"]'` et n'est **jamais lue** : tout administrateur peut tout faire, y compris valider des transactions. Aucun journal d'audit n'existe — impossible de savoir qui a approuvé un titre, validé un versement ou supprimé un compte.
 

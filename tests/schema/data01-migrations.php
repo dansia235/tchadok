@@ -90,9 +90,10 @@ try {
 
     echo "\n=== C. Registre ===\n";
     verif('Le registre existe', compte("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='{$baseEssai}' AND table_name='schema_migrations'") === 1);
-    verif('Trois migrations enregistrees', compte('SELECT COUNT(*) FROM schema_migrations') === 3);
-    verif('Chaque ligne porte une empreinte', compte("SELECT COUNT(*) FROM schema_migrations WHERE CHAR_LENGTH(checksum) = 64") === 3);
-    verif('La duree est mesuree', compte('SELECT COUNT(*) FROM schema_migrations WHERE duree_ms >= 0') === 3);
+    $attendues = count(glob($racine . '/database/migrations/*.sql') ?: []);
+    verif("Toutes les migrations du depot sont enregistrees ($attendues)", compte('SELECT COUNT(*) FROM schema_migrations') === $attendues, (string) compte('SELECT COUNT(*) FROM schema_migrations'));
+    verif('Chaque ligne porte une empreinte', compte("SELECT COUNT(*) FROM schema_migrations WHERE CHAR_LENGTH(checksum) = 64") === $attendues);
+    verif('La duree est mesuree', compte('SELECT COUNT(*) FROM schema_migrations WHERE duree_ms >= 0') === $attendues);
 
     echo "\n=== D. Rejouer ne casse rien ===\n";
     $r = commande($migrate . ' up');
@@ -109,12 +110,12 @@ try {
     echo "\n=== E. Annulation ===\n";
     $r = commande($migrate . ' down --steps=1');
     verif('down annule la derniere migration', $r['code'] === 0, $r['texte']);
-    verif('Les tables de limitation ont disparu', compte("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='{$baseEssai}' AND table_name IN ('login_attempts','rate_limit_hits')") === 0);
-    verif('Le registre ne compte plus que deux lignes', compte('SELECT COUNT(*) FROM schema_migrations') === 2);
+    verif('Les tables de la derniere migration ont disparu', compte("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='{$baseEssai}' AND table_name IN ('roles','permissions','role_permissions','user_roles','audit_log')") === 0);
+    verif('Le registre a perdu une ligne', compte('SELECT COUNT(*) FROM schema_migrations') === $attendues - 1);
     $r = commande($migrate . ' up');
-    verif('up la remet en place', $r['code'] === 0 && compte("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='{$baseEssai}' AND table_name='login_attempts'") === 1);
+    verif('up la remet en place', $r['code'] === 0 && compte("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='{$baseEssai}' AND table_name='audit_log'") === 1);
 
-    $r = commande($migrate . ' down --steps=3');
+    $r = commande($migrate . ' down --steps=' . $attendues);
     verif('down refuse d\'annuler la photographie du schema', $r['code'] !== 0, $r['texte']);
     verif('... en disant pourquoi', str_contains($r['texte'], 'DOWN'), $r['texte']);
     commande($migrate . ' up');

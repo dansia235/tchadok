@@ -122,6 +122,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // qui reinitialise n'est pas connectee : rien a conserver.
                 revoquerSessionsUtilisateur((int) $user['id'], false);
 
+                // SEC-19 : reinitialiser le mot de passe d'un administrateur
+                // est exactement le genre d'action qu'il faut pouvoir
+                // reconstituer apres coup. L'acteur n'est pas connecte : la
+                // trace retient le compte vise et l'adresse d'ou vient la
+                // demande.
+                JournalAudit::enregistrer('compte.mot-de-passe', [
+                    'cible_type' => 'utilisateur',
+                    'cible_id'   => $user['id'],
+                    'raison'     => 'reinitialisation par lien de recuperation',
+                ]);
+
                 // Cette page se supprimait elle-meme ici (unlink(__FILE__)) apres
                 // chaque succes. Or admin/login.php n'affiche le lien "mot de passe
                 // oublie" que si ce fichier existe : apres UNE reinitialisation,

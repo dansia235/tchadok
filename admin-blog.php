@@ -3,10 +3,9 @@ require_once 'includes/functions.php';
 require_once 'includes/auth.php';
 require_once 'includes/blog-manager.php';
 
-if (!isLoggedIn() || !isAdmin()) {
-    header('Location: ' . SITE_URL . '/login.php');
-    exit();
-}
+// SEC-19 : l'acces depend d'une permission nommee, verifiee cote serveur.
+// Masquer l'entree de menu ne protege rien : l'adresse se tape.
+Autorisations::exiger('editorial.gerer');
 
 function adminBlogRedirect(array $params = []) {
     $url = SITE_URL . '/admin-blog.php';

@@ -51,6 +51,19 @@ class Auth {
         }
 
         if (!$passwordValid) {
+            // SEC-19 : un echec sur un compte d'administration est un
+            // evenement a tracer. Journalise ici, et non dans une page : la
+            // console, la page publique et une future API passent toutes par
+            // ce point.
+            if (class_exists('Autorisations') && Autorisations::estAdministrateur((int) $user['id'])) {
+                JournalAudit::enregistrer('admin.connexion.echec', [
+                    'cible_type' => 'utilisateur',
+                    'cible_id'   => $user['id'],
+                    'raison'     => 'mot de passe incorrect',
+                    'acteur'     => (int) $user['id'],
+                ]);
+            }
+
             return ['success' => false, 'error' => 'Identifiants incorrects'];
         }
 
@@ -60,6 +73,15 @@ class Auth {
         // Mise à jour de la dernière connexion
         $stmt = $this->db->prepare("UPDATE users SET last_login = NOW() WHERE id = ?");
         $stmt->execute([$user['id']]);
+
+        // SEC-19 : toute entree dans l'administration laisse une trace, quel
+        // que soit le chemin emprunte (console, page publique, API a venir).
+        if (class_exists('Autorisations') && Autorisations::estAdministrateur((int) $user['id'])) {
+            JournalAudit::enregistrer('admin.connexion', [
+                'cible_type' => 'utilisateur',
+                'cible_id'   => $user['id'],
+            ]);
+        }
 
         return ['success' => true, 'user' => $user];
     }

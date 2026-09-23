@@ -2,10 +2,9 @@
 require_once 'includes/functions.php';
 require_once 'includes/auth.php';
 
-if (!isLoggedIn() || !isAdmin()) {
-    header('Location: ' . SITE_URL . '/login.php');
-    exit();
-}
+// SEC-19 : l'acces depend d'une permission nommee, verifiee cote serveur.
+// Masquer l'entree de menu ne protege rien : l'adresse se tape.
+Autorisations::exiger('catalogue.editer');
 
 $pageTitle = 'Ajouter une chanson';
 $pageDescription = 'Ajoutez une chanson à la bibliothèque.';
@@ -111,6 +110,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $explicitContent,
                 $status,
                 $isFeatured
+            ]);
+
+            // SEC-19 : l'ajout au catalogue depuis la console est trace, avec
+            // le statut donne au depart (un titre publie directement en
+            // "approved" saute la file de moderation).
+            JournalAudit::enregistrer('contenu.cree', [
+                'cible_type' => 'titre',
+                'cible_id'   => $db->lastInsertId(),
+                'apres'      => ['titre' => $title, 'artiste_id' => $artistId, 'statut' => $status, 'prix' => $price],
             ]);
 
             $success = 'Chanson ajoutée avec succès !';

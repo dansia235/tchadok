@@ -4,7 +4,7 @@
 -- Le schema fait foi dans database/migrations/ ; ce fichier n'en est que
 -- la photographie, regeneree apres chaque migration (DATA-01).
 --
--- Genere le 23/09/2026 a 12h14 depuis la base tchadok_local.
+-- Genere le 23/09/2026 a 12h45 depuis la base tchadok_local.
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
@@ -80,6 +80,27 @@ CREATE TABLE IF NOT EXISTS `artists` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `user_id` (`user_id`),
   CONSTRAINT `artists_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Table `audit_log`
+CREATE TABLE IF NOT EXISTS `audit_log` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `actor_id` int(11) DEFAULT NULL,
+  `actor_role` varchar(120) DEFAULT NULL,
+  `action` varchar(80) NOT NULL,
+  `target_type` varchar(60) DEFAULT NULL,
+  `target_id` varchar(60) DEFAULT NULL,
+  `before_state` text DEFAULT NULL,
+  `after_state` text DEFAULT NULL,
+  `reason` varchar(500) DEFAULT NULL,
+  `ip_address` varchar(45) DEFAULT NULL,
+  `user_agent` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `action_date` (`action`,`created_at`),
+  KEY `acteur_date` (`actor_id`,`created_at`),
+  KEY `cible` (`target_type`,`target_id`),
+  CONSTRAINT `audit_log_ibfk_1` FOREIGN KEY (`actor_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Table `blog_comments`
@@ -231,6 +252,17 @@ CREATE TABLE IF NOT EXISTS `payment_transactions` (
   KEY `transaction_id` (`transaction_id`),
   CONSTRAINT `payment_transactions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `payment_transactions_ibfk_2` FOREIGN KEY (`subscription_id`) REFERENCES `subscriptions` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Table `permissions`
+CREATE TABLE IF NOT EXISTS `permissions` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `slug` varchar(80) NOT NULL,
+  `domaine` varchar(40) NOT NULL,
+  `libelle` varchar(160) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `slug` (`slug`),
+  KEY `domaine` (`domaine`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Table `playlists`
@@ -418,6 +450,27 @@ CREATE TABLE IF NOT EXISTS `reports` (
   CONSTRAINT `reports_ibfk_1` FOREIGN KEY (`reporter_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- Table `roles`
+CREATE TABLE IF NOT EXISTS `roles` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `slug` varchar(60) NOT NULL,
+  `nom` varchar(120) NOT NULL,
+  `description` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `slug` (`slug`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Table `role_permissions`
+CREATE TABLE IF NOT EXISTS `role_permissions` (
+  `role_id` int(11) NOT NULL,
+  `permission_id` int(11) NOT NULL,
+  PRIMARY KEY (`role_id`,`permission_id`),
+  KEY `permission_id` (`permission_id`),
+  CONSTRAINT `role_permissions_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `role_permissions_ibfk_2` FOREIGN KEY (`permission_id`) REFERENCES `permissions` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 -- Table `site_stats`
 CREATE TABLE IF NOT EXISTS `site_stats` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -591,6 +644,18 @@ CREATE TABLE IF NOT EXISTS `users` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`),
   UNIQUE KEY `email` (`email`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Table `user_roles`
+CREATE TABLE IF NOT EXISTS `user_roles` (
+  `user_id` int(11) NOT NULL,
+  `role_id` int(11) NOT NULL,
+  `attribue_par` int(11) DEFAULT NULL,
+  `attribue_le` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`user_id`,`role_id`),
+  KEY `role_id` (`role_id`),
+  CONSTRAINT `user_roles_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `user_roles_ibfk_2` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Table `user_sessions`

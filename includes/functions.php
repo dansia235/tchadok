@@ -445,10 +445,33 @@ function isArtist() {
 }
 
 /**
- * Vérifie si l'utilisateur est un administrateur
+ * Vérifie si l'utilisateur dispose d'un rôle d'administration.
+ *
+ * SEC-19 : la fonction ne dit plus que « oui ou non ». Elle repose desormais
+ * sur les roles, et ne sert qu'a savoir s'il faut afficher une entree de menu
+ * ou une console. **Un controle d'acces ne doit jamais s'y limiter** : chaque
+ * ecran exige la permission qui le concerne, par Autorisations::exiger().
  */
 function isAdmin() {
-    return isLoggedIn() && isset($_SESSION['user_type']) && $_SESSION['user_type'] === USER_TYPE_ADMIN;
+    if (!isLoggedIn()) {
+        return false;
+    }
+
+    if (class_exists('Autorisations')) {
+        return Autorisations::estAdministrateur();
+    }
+
+    return isset($_SESSION['user_type']) && $_SESSION['user_type'] === USER_TYPE_ADMIN;
+}
+
+/**
+ * Raccourci de lecture : la personne connectee a-t-elle cette permission ?
+ * Sert a l'affichage (montrer ou non un bouton). Le controle d'acces reel se
+ * fait avec Autorisations::exiger().
+ */
+function peut(string $permission): bool
+{
+    return class_exists('Autorisations') && Autorisations::peut($permission);
 }
 
 /**
@@ -1326,6 +1349,11 @@ require_once __DIR__ . '/remember-me.php';
 
 // SEC-12 : limitation de debit et verrouillage des tentatives de connexion.
 require_once __DIR__ . '/rate-limit.php';
+
+// SEC-19 : roles, permissions et journal d'audit. Charges avant la session :
+// isAdmin() s'appuie desormais sur les roles.
+require_once __DIR__ . '/autorisations.php';
+require_once __DIR__ . '/audit.php';
 
 // Initialisation de la session
 startSecureSession();
