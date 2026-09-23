@@ -922,7 +922,17 @@ L'implémentation réelle de la 2FA est traitée en `SEC-20`.
 
 ### SEC-16 — Créer les pages d'erreur
 
-**Charge :** 3 h
+**Charge :** 3 h · **Statut :** fait le 23/09/2026
+
+> **Bilan.** `403.php`, `404.php`, `429.php` et `500.php` créés, habillés aux couleurs du site, avec le bon code HTTP réellement envoyé. `show404()` pointait sur `pages/404.php`, fichier absent : elle produisait une erreur d'inclusion au lieu d'une page 404. Corrigée, avec un chemin absolu — le chemin relatif dépendait du répertoire de la page appelante. `ErrorDocument 429` ajouté aux deux `.htaccess`.
+>
+> **Aucune page 419** (point 1) : le refus CSRF répond 403 depuis `SEC-09`, Apache ne connaissant pas le code 419. Une page pour un code jamais émis n'aurait servi à rien.
+>
+> **Ces pages ne chargent rien de l'application.** C'est le point de conception : une page 500 qui démarrerait la configuration, la session et la base de données échouerait précisément dans le cas où elle sert — Apache n'aurait alors que sa page par défaut à montrer, qui annonce sa version. L'identité visuelle est donc reproduite en CSS interne (`includes/page-erreur.php`), et le chemin du site est déduit de l'emplacement du fichier, ce qui fonctionne en local (`/tchadok/`) comme à la racine d'un domaine. Un test coupe la base de données et vérifie que les pages restent servies.
+>
+> **Effet visible :** les chemins bloqués par le `.htaccess` (`includes/`, `config/`, `storage/`, `database/`) affichaient la page d'Apache ; ils affichent maintenant la page 403 du site.
+>
+> **Vérifié :** `tests/securite/sec16-pages-erreur.php` (60 contrôles) — codes HTTP réels, habillage, `noindex`, absence de signature serveur, de version PHP et de chemin, indépendance vis-à-vis de l'application, base de données coupée, déclarations `ErrorDocument` des deux `.htaccess`. Les dix autres suites au vert ; 18 pages publiques en 200.
 
 Les deux `.htaccess` référencent `404.php`, `403.php`, `500.php` : **les trois sont absents**. `show404()` inclut `pages/404.php`, également absent — la fonction produit donc une erreur au lieu d'une page 404.
 
@@ -1790,6 +1800,35 @@ Recommandation forte pour le marché visé : le coût et la friction d'une trans
 - Un remboursement retire l'accès et ajuste le solde artiste.
 - L'historique d'origine reste intact et consultable.
 - Aucun remboursement n'est possible sans motif saisi.
+
+---
+
+### SHOP-08 — Téléchargement hors ligne, lisible seulement dans la plateforme
+
+**Charge :** 4 j · **Dépend de :** `SHOP-04`, `SHOP-05`, `SEO-04` (service worker)
+
+**Exigence produit (23/09/2026) :** « télécharger » met le contenu à disposition **hors connexion dans l'application**, comme Netflix. Cela ne produit **jamais** un fichier réutilisable ailleurs. Une application Android suivra et devra se comporter de la même façon : l'API est donc conçue pour servir les deux clients dès le départ.
+
+Sans cette règle, un bouton « télécharger » annulerait tout le travail de `SEC-06` et `SHOP-05` : le premier acheteur redistribuerait le catalogue.
+
+**À faire :**
+1. Table `offline_downloads` : `user_id`, `track_id` ou `release_id`, `device_id`, `key_id`, `downloaded_at`, `expires_at`, `last_seen_at`, `revoked_at`, `bytes`. Un compte est limité à **3 appareils** et à un nombre de titres configurable.
+2. Points d'entrée `api/offline/*` : demande de mise hors ligne → contrôle du droit d'accès (`SHOP-04`), enregistrement, puis remise d'un jeton de contenu à durée limitée et d'une clé **dérivée pour cet appareil**.
+3. Le média part chiffré (AES-GCM par morceaux) depuis `media.php`. Côté navigateur, la clé est une `CryptoKey` **non exportable** (WebCrypto) conservée en IndexedDB : le code de la page peut déchiffrer pour lire, pas récupérer la clé.
+4. Web : service worker + Cache/IndexedDB, lecture par `MediaSource` à partir du flux déchiffré. **Aucun lien direct, aucun `Content-Disposition: attachment`** sur un média, à aucun moment.
+5. Expiration à 30 jours, renouvelée silencieusement à la première connexion suivante. Révocation immédiate côté serveur (remboursement, litige, fin d'abonnement) : l'appareil efface le contenu à son prochain contact, et au plus tard à l'expiration.
+6. Écran « Téléchargements » : liste, espace occupé, suppression, et appareils enregistrés — le même écran que « Appareils connectés » (`SEC-11`), pour n'avoir qu'un endroit où révoquer.
+7. Parité Android : mêmes points d'API, stockage privé de l'application, clé dans le **Keystore Android**, lecture par ExoPlayer sur source chiffrée.
+
+**Ce que cela protège, et ce que cela ne protège pas.** Un contenu mis hors ligne dans un navigateur ne peut pas être rendu inviolable : la clé vit dans le navigateur de la personne, et un utilisateur déterminé, outils de développement ouverts, finira par extraire le flux déchiffré. Le dispositif élève fortement le coût — clé non exportable, liée à l'appareil, expirante et révocable — et rend la redistribution de masse impraticable ; il ne remplace pas un DRM industriel (Widevine). Sur Android, le Keystore et le bac à sable de l'application donnent une garantie sensiblement meilleure. **Annoncer cette limite aux artistes est préférable à leur laisser croire à une protection absolue.**
+
+**Critères d'acceptation :**
+- Un titre mis hors ligne se lit sans réseau, dans l'application.
+- Les fichiers du cache local, copiés ailleurs, sont illisibles.
+- Aucune réponse du serveur ne porte `Content-Disposition: attachment` pour un média.
+- Révoquer un droit rend le contenu illisible au prochain contact de l'appareil.
+- Un quatrième appareil est refusé tant qu'un des trois n'a pas été retiré.
+- Les mêmes points d'API servent l'application Android sans modification du serveur.
 
 ---
 
@@ -2680,7 +2719,9 @@ Les métadonnées Open Graph référencent `assets/images/og-image.jpg` et `twit
 
 - Produire `manifest.json` (nom, nom court, icônes **PNG** 192 et 512 plus maskable — les icônes actuelles sont en SVG, que plusieurs navigateurs mobiles refusent pour l'écran d'accueil, `start_url`, `display: standalone`, `theme_color`, `lang: fr`).
 - Durcir le service worker : réseau-d'abord pour le HTML, cache-d'abord pour les seuls actifs versionnés, **exclusion stricte** de `/admin*`, `*-dashboard.php` et `/api/*` — le cache actuel ne distingue pas les pages authentifiées, avec un risque de servir à un utilisateur le contenu d'un autre sur appareil partagé, situation courante.
-- Mise en cache hors ligne du contenu sous droit valide.
+- Service worker préparé pour le mode hors ligne de `SHOP-08` : c'est lui qui servira le contenu chiffré mis de côté. **Aucun média en clair dans le cache du service worker** — le cache d'un navigateur se copie trop facilement.
+
+> **`SHOP-08` dépend de cette tâche** (le mode hors ligne « à la Netflix » demandé le 23/09/2026 s'appuie sur ce service worker). Faire les deux dans cet ordre.
 
 ---
 

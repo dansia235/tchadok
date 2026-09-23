@@ -506,11 +506,16 @@ function redirect($url) {
 }
 
 /**
- * Affiche une erreur 404
+ * Affiche une erreur 404.
+ *
+ * SEC-16 : la fonction incluait "pages/404.php", fichier absent -- elle
+ * produisait donc une erreur d'inclusion au lieu d'une page 404, et le chemin
+ * relatif dependait du repertoire du point d'entree appelant.
  */
-function show404() {
+function show404(): never
+{
     http_response_code(404);
-    include 'pages/404.php';
+    require __DIR__ . '/../404.php';
     exit();
 }
 
