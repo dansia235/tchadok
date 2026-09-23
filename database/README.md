@@ -1,31 +1,88 @@
 # Base de données Tchadok
 
-Ce dossier fournit le dump SQL principal à importer pour initialiser la plateforme.
+## Installation
 
-## Installation rapide
+Le schéma est défini par les **migrations**, pas par un export. Sur une base
+vide comme sur une base existante, une seule commande suffit :
 
-1. Créez la base `tchadok` (ou adaptez selon votre `.env`).
-2. Importez `database/tchadok.sql` via phpMyAdmin ou la console MySQL.
+```
+php scripts/migrate.php up
+```
+
+La commande crée ce qui manque et n'écrase rien : chaque migration est écrite
+pour pouvoir être rejouée sans effet.
+
+`database/tchadok.sql` reste disponible pour une installation manuelle
+(phpMyAdmin, import direct), mais ce fichier est **généré** — voir plus bas.
 
 ## Migrations
 
-`database/tchadok.sql` décrit le schéma **à jour**. Une base déjà installée se
-met à niveau avec les fichiers de `database/migrations/`, à appliquer dans
-l'ordre de leur date :
+| Commande | Effet |
+|---|---|
+| `php scripts/migrate.php status` | liste ce qui est appliqué et ce qui attend |
+| `php scripts/migrate.php up` | applique les migrations en attente, dans l'ordre |
+| `php scripts/migrate.php down --steps=1` | annule la dernière migration appliquée |
+| `php scripts/migrate.php verify` | signale une migration modifiée après son application |
 
+Le script refuse de s'exécuter autrement qu'en ligne de commande.
+
+### Écrire une migration
+
+Un fichier par changement, dans `database/migrations/`, nommé
+`AAAA_MM_JJ_NNNN_description.sql`, avec deux sections :
+
+```sql
+-- UP
+CREATE TABLE IF NOT EXISTS `exemple` ( ... );
+
+-- DOWN
+DROP TABLE IF EXISTS `exemple`;
 ```
-mysql -u <utilisateur> -p <base> < database/migrations/2026-09-22-sec11-remember-tokens.sql
-```
+
+Trois règles :
+
+1. **Idempotence.** `CREATE TABLE IF NOT EXISTS`, `DROP ... IF EXISTS`, et pour
+   un `ALTER`, un test préalable sur `information_schema` — MySQL ne connaît pas
+   `DROP COLUMN IF EXISTS`. Une migration interrompue doit pouvoir être relancée.
+2. **Une section `DOWN`** dès que l'annulation a un sens. Sans elle, `down`
+   refuse — c'est voulu : mieux vaut un refus clair qu'une annulation partielle.
+3. **Ne jamais modifier une migration déjà appliquée.** `verify` compare
+   l'empreinte du fichier à celle enregistrée : un fichier retouché signifie que
+   le serveur ne porte pas ce que le dépôt décrit. La correction se fait par une
+   **nouvelle** migration.
+
+### Migrations existantes
 
 | Fichier | Effet |
 |---|---|
-| `2026-09-22-sec11-remember-tokens.sql` | Table `remember_tokens` (connexion automatique, SEC-11) et suppression de `users.remember_token`. Les personnes qui avaient coché « se souvenir de moi » se reconnectent une fois. |
-| `2026-09-23-sec12-limitation-debit.sql` | Tables `login_attempts` et `rate_limit_hits` (limitation de débit et verrouillage des connexions, SEC-12). |
+| `2026_09_23_0001_photographie_du_schema.sql` | Point de départ commun : tout le schéma, en créations conditionnelles. Sans section `DOWN` — revenir en arrière à ce niveau, c'est restaurer une sauvegarde. |
+| `2026_09_23_0002_sec11_remember_tokens.sql` | Table `remember_tokens`, suppression de `users.remember_token` (`SEC-11`). Sans effet sur une base créée après. |
+| `2026_09_23_0003_sec12_limitation_debit.sql` | Tables `login_attempts` et `rate_limit_hits` (`SEC-12`). |
+
+## Fichier de référence
+
+`database/tchadok.sql` est **généré** par :
+
+```
+php scripts/export-schema.php
+```
+
+Il est régénéré après chaque migration et ne doit pas être modifié à la main.
+L'export retire le `DEFINER` des vues et des déclencheurs : cet attribut fige un
+compte MySQL (`root@localhost`) qui n'existera pas sur le serveur.
 
 ## Données
 
-Aucune donnée de démonstration n’est fournie (sauf comptes utilisateurs). Les contenus
-artistes, albums, podcasts, émissions, playlists, etc. se créent depuis les pages admin.
+Aucune donnée de démonstration n'est installée par défaut. Pour le poste local
+uniquement, `database/seeds/demo.sql` crée deux comptes d'essai ; il ne doit
+**jamais** être importé en production, et `scripts/env-switch.php production`
+refuse la bascule s'il est présent sur le serveur.
+
+Le premier administrateur se crée avec :
+
+```
+php scripts/create-admin.php
+```
 
 ## Tables clés
 
@@ -35,3 +92,6 @@ artistes, albums, podcasts, émissions, playlists, etc. se créent depuis les pa
 - `radio_shows`, `radio_live`
 - `podcasts`, `podcast_episodes`
 - `streams`, `purchases`, `transactions`
+- `user_sessions`, `remember_tokens` (sessions et connexion automatique)
+- `login_attempts`, `rate_limit_hits` (verrouillage et limitation de débit)
+- `schema_migrations` (registre des migrations appliquées)

@@ -1162,7 +1162,21 @@ Les 14 fichiers de `sql/` sont des correctifs successifs sans ordre d'applicatio
 
 ### DATA-01 — Mettre en place un système de migrations
 
-**Charge :** 2 j · **Bloque :** `DATA-02` à `DATA-08`, `SEC-19`, tous les lots suivants
+**Charge :** 2 j · **Bloque :** `DATA-02` à `DATA-08`, `SEC-19`, tous les lots suivants · **Statut :** fait le 23/09/2026
+
+> **Pourquoi cette tâche est passée avant `SEC-19`.** Le plan se contredisait : l'annexe C place le LOT 2 (jusqu'à `SEC-20`) en semaine 2 et le LOT 4 en semaines 3-4, alors que `SEC-19` déclare dépendre de `DATA-01`. `SEC-19` ajoute cinq tables ; les écrire à la main aurait multiplié les scripts appliqués un par un, exactement ce que cette tâche supprime. Elle sert aussi directement la mise en production sur VPS : `php scripts/migrate.php up` remplace une série de commandes `mysql` passées à la main.
+>
+> **Livré.** `scripts/migrate.php` (`status`, `up`, `down --steps=N`, `verify`), en ligne de commande uniquement — une requête web reçoit un 404. Registre `schema_migrations` (`version`, `nom`, `applique_le`, `duree_ms`, `checksum`), créé par le script lui-même. Trois migrations : la **photographie du schéma** — point de départ commun, en créations conditionnelles, qui rend une base neuve complète sans toucher une base existante — puis les deux changements de `SEC-11` et `SEC-12`, qui rattrapent les installations antérieures et ne font rien ailleurs.
+>
+> **Idempotence réelle, pas déclarative.** MySQL ne connaît pas `DROP COLUMN IF EXISTS` : la suppression de `users.remember_token` passe par un test sur `information_schema` et une instruction préparée. Un test vide le registre et rejoue les trois migrations sur une base déjà à jour : rien n'échoue, rien ne change.
+>
+> **Le découpage SQL gère les déclencheurs.** Trois déclencheurs contiennent des points-virgules dans leur corps ; un découpage naïf sur `;` les casserait. Le script suit les changements de `DELIMITER`, les chaînes et les commentaires.
+>
+> **`database/tchadok.sql` n'est plus la source** (point 5) : il est **généré** par `scripts/export-schema.php`, qui interroge la base et écrit des créations conditionnelles, sans `AUTO_INCREMENT` courant et **sans `DEFINER`** — cet attribut fige un compte MySQL (`root@localhost`) qui n'existera pas sur le serveur.
+>
+> **Écart au plan :** pas de fichier `0001_creer_registre_migrations.sql` — le registre est créé par le script, sinon la première migration ne pourrait pas être enregistrée avant d'exister. La photographie du schéma n'a pas de section `DOWN` : annuler la création d'un schéma entier par commande n'a pas de sens, à ce niveau on restaure une sauvegarde. `down` le refuse en le disant.
+>
+> **Vérifié :** `tests/schema/data01-migrations.php` (36 contrôles) — base vide devenue complète par une seule commande, rejeu sans effet, registre et empreintes, annulation puis réapplication, refus d'annuler la photographie, détection d'une migration modifiée après application, refus par le web, et propriétés de l'export. Tout dans une base jetable, créée et supprimée par le test. Les treize suites de sécurité restent au vert.
 
 **À faire :**
 1. Créer `database/migrations/` avec des fichiers numérotés et horodatés : `2026_09_22_0001_creer_registre_migrations.sql`, etc. Chaque migration est **idempotente** et porte une section `-- UP` et une section `-- DOWN`.

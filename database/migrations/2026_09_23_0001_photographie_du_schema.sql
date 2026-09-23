@@ -1,10 +1,25 @@
+-- Photographie du schema (DATA-01, point 4).
+--
+-- Point de depart commun a toutes les installations : une base vide devient un
+-- schema complet, une base existante n'est pas touchee (toutes les creations
+-- sont conditionnelles). C'est ce qui fait converger le poste local, le
+-- serveur, et une future installation neuve.
+--
+-- Contenu genere par scripts/export-schema.php le 23/09/2026, a partir de la base
+-- locale telle qu'elle etait apres SEC-11 et SEC-12. Les deux migrations qui
+-- suivent rattrapent les installations plus anciennes ; elles ne font rien ici.
+--
+-- Pas de section DOWN : on n'annule pas la creation d'un schema entier par
+-- commande. Revenir en arriere, a ce niveau, c'est restaurer une sauvegarde.
+
+-- UP
 -- Schema Tchadok
 --
 -- Fichier GENERE par scripts/export-schema.php : ne pas modifier a la main.
 -- Le schema fait foi dans database/migrations/ ; ce fichier n'en est que
 -- la photographie, regeneree apres chaque migration (DATA-01).
 --
--- Genere le 23/09/2026 a 12h14 depuis la base tchadok_local.
+-- Genere le 23/09/2026 a 12h12 depuis la base tchadok_local.
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
