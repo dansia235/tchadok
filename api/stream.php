@@ -102,7 +102,7 @@ function recordStream() {
         $userId ?: null,
         $trackId,
         (int)$track['artist_id'],
-        getClientIP(),
+        clientIp(),
         $_SERVER['HTTP_USER_AGENT'] ?? null,
         $country,
         $city,

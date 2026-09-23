@@ -820,7 +820,17 @@ Aucune limitation de débit n'existe dans le projet (0 occurrence de `rate_limit
 
 ### SEC-13 — Supprimer les valeurs client de confiance sur l'IP
 
-**Charge :** 3 h · **Fichiers :** `includes/auth.php` (l. 155-165), `includes/functions.php` (l. 339-353)
+**Charge :** 3 h · **Fichiers :** `includes/auth.php` (l. 155-165), `includes/functions.php` (l. 339-353) · **Statut :** fait le 23/09/2026
+
+> **Bilan.** Une seule fonction, `clientIp()` dans `includes/functions.php` ; la méthode privée de `includes/auth.php` et l'ancienne `getClientIP()` ont disparu. Par défaut, **seule `REMOTE_ADDR` fait foi** : c'est la seule valeur établie par la connexion elle-même. `X-Forwarded-For` n'est lu que si la requête arrive d'un proxy déclaré dans `TRUSTED_PROXIES` ; la chaîne est alors parcourue **de droite à gauche**, en sautant les proxys connus, jusqu'à la première adresse qui ne l'est pas. Tout ce qui se trouve à gauche a pu être écrit par le client. `HTTP_CLIENT_IP` n'est plus lu du tout : cet en-tête n'a aucun émetteur légitime dans une chaîne de proxys.
+>
+> **`TRUSTED_PROXIES` accepte des plages CIDR**, en IPv4 comme en IPv6 : un CDN ne s'énumère pas adresse par adresse. La comparaison est binaire (`inet_pton` puis comparaison de préfixe), donc les deux familles suivent le même chemin.
+>
+> **Tous les consommateurs passent par elle :** registre des sessions (`includes/auth.php`), écoutes (`api/stream.php`), jetons de connexion automatique (`includes/remember-me.php`), limitation de débit et verrouillage (`includes/rate-limit.php`), vues du blog, journaux de `media.php` et de la garde CSRF. Le point important est le dernier : tant que la limitation lisait un en-tête modifiable, **il suffisait d'en changer à chaque requête pour repartir d'un compteur neuf**. C'est vérifié par un test dédié.
+>
+> **Vérifié :** `tests/securite/sec13-adresse.php` (31 contrôles) — en-têtes falsifiés ignorés, chaîne de proxys, entrées illisibles, plages CIDR et IPv6, câblage réel avec et sans `TRUSTED_PROXIES`, verrouillage non contournable, absence de seconde implémentation. Suites `SEC-06` (39), `SEC-08` (36), `SEC-09` (64 + 17), `SEC-10` (35), `SEC-11` (50), `SEC-12` (38) au vert ; 18 pages publiques en 200.
+>
+> **Pour la mise en production :** si le site passe derrière un reverse proxy ou un CDN, renseigner `TRUSTED_PROXIES` dans `.env.production`, **sinon toutes les visites seront enregistrées sous l'adresse du proxy** — la géographie du baromètre deviendrait un point unique, et la limitation de débit s'appliquerait à tout le monde d'un coup. Laisser vide si le serveur web est joint directement.
 
 Deux implémentations divergentes lisent `HTTP_CLIENT_IP` et `X-Forwarded-For`, en-têtes fournis par le client et falsifiables. Ces valeurs alimentent `user_sessions.ip_address`, `streams.ip_address` et le journal API — donc la géographie du baromètre, la détection d'abus et la piste d'audit.
 

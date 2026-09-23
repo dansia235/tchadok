@@ -501,7 +501,9 @@ final class RememberMe
 
     private static function adresseClient(): string
     {
-        return substr((string) ($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45);
+        // SEC-13 : clientIp() n'accorde de credit a X-Forwarded-For que
+        // derriere un proxy declare. Ailleurs, REMOTE_ADDR seule.
+        return substr(function_exists('clientIp') ? clientIp() : (string) ($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45);
     }
 
     private static function signaler(string $message): void

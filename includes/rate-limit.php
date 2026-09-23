@@ -201,13 +201,13 @@ final class LimiteDebit
     /**
      * Adresse du client.
      *
-     * REMOTE_ADDR uniquement : les en-tetes X-Forwarded-For et Client-IP sont
-     * fournis par le client et se falsifient, donc contourneraient la limite.
-     * Leur usage encadre derriere un proxy declare releve de SEC-13.
+     * Passe par clientIp() (SEC-13) : REMOTE_ADDR, sauf derriere un proxy
+     * declare dans TRUSTED_PROXIES. Un en-tete ajoute par le client ne permet
+     * donc pas de repartir a zero a chaque requete.
      */
     public static function adresse(): string
     {
-        return substr((string) ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0'), 0, 45);
+        return substr(function_exists('clientIp') ? clientIp() : (string) ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0'), 0, 45);
     }
 
     /**

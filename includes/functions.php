@@ -691,22 +691,135 @@ function logActivity($level, $message, $context = []) {
 }
 
 /**
- * Obtient l'adresse IP du client
+ * Adresse du client (SEC-13).
+ *
+ * Deux implementations coexistaient, toutes deux fondees sur des en-tetes que
+ * le client ecrit lui-meme (`Client-IP`, `X-Forwarded-For`). Il suffisait donc
+ * d'ajouter un en-tete pour choisir l'adresse inscrite dans le registre des
+ * sessions, dans les ecoutes -- donc dans la geographie du barometre -- et
+ * pour echapper a toute limitation par adresse.
+ *
+ * Par defaut, seule REMOTE_ADDR fait foi : c'est la seule valeur etablie par
+ * la connexion elle-meme. `X-Forwarded-For` n'est lu que si la requete arrive
+ * d'un proxy declare dans TRUSTED_PROXIES ; la chaine est alors parcourue de
+ * droite a gauche, en sautant les proxys connus, jusqu'a la premiere adresse
+ * qui ne l'est pas : celle du client. Tout ce qui se trouve a gauche a pu
+ * etre ecrit par le client et n'est pas exploitable.
+ *
+ * `HTTP_CLIENT_IP` n'est plus lu du tout : cet en-tete n'a aucun emetteur
+ * legitime dans une chaine de proxys, il ne sert qu'a la falsification.
+ *
+ * @param array|null $proxysDeConfiance liste explicite (adresses ou CIDR) ;
+ *                                      par defaut celle du fichier d'environnement
  */
-function getClientIP() {
-    $ipKeys = ['HTTP_CLIENT_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR'];
-    foreach ($ipKeys as $key) {
-        if (array_key_exists($key, $_SERVER) === true) {
-            foreach (explode(',', $_SERVER[$key]) as $ip) {
-                $ip = trim($ip);
-                if (filter_var($ip, FILTER_VALIDATE_IP, 
-                    FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false) {
-                    return $ip;
-                }
-            }
+function clientIp(?array $proxysDeConfiance = null): string
+{
+    $distante = trim((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+    if ($distante === '' || filter_var($distante, FILTER_VALIDATE_IP) === false) {
+        return '0.0.0.0';
+    }
+
+    $proxys = $proxysDeConfiance ?? proxysDeConfiance();
+    if (!$proxys || !adresseCorrespond($distante, $proxys)) {
+        return $distante;
+    }
+
+    $chaine = trim((string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ''));
+    if ($chaine === '') {
+        return $distante;
+    }
+
+    foreach (array_reverse(array_map('trim', explode(',', $chaine))) as $entree) {
+        if ($entree === '' || filter_var($entree, FILTER_VALIDATE_IP) === false) {
+            // Entree illisible : la chaine n'est plus interpretable, on s'en
+            // tient a l'adresse etablie par la connexion.
+            return $distante;
+        }
+        if (adresseCorrespond($entree, $proxys)) {
+            continue;
+        }
+
+        return $entree;
+    }
+
+    // Toute la chaine est faite de proxys declares : aucune adresse cliente.
+    return $distante;
+}
+
+/**
+ * Proxys declares dans TRUSTED_PROXIES : adresses ou plages CIDR, separees
+ * par des virgules. Vide par defaut -- le cas d'un serveur expose directement.
+ */
+function proxysDeConfiance(): array
+{
+    if (!class_exists('EnvLoader')) {
+        return [];
+    }
+
+    $brut = trim((string) EnvLoader::get('TRUSTED_PROXIES', ''));
+    if ($brut === '') {
+        return [];
+    }
+
+    return array_values(array_filter(array_map('trim', explode(',', $brut)), static fn ($v) => $v !== ''));
+}
+
+/**
+ * L'adresse correspond-elle a l'une des regles (adresse exacte ou CIDR) ?
+ */
+function adresseCorrespond(string $ip, array $regles): bool
+{
+    foreach ($regles as $regle) {
+        if (adresseDansPlage($ip, (string) $regle)) {
+            return true;
         }
     }
-    return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+
+    return false;
+}
+
+/**
+ * Comparaison binaire, valable en IPv4 comme en IPv6 : inet_pton ramene les
+ * deux familles a une suite d'octets, et le prefixe se compare bit a bit.
+ */
+function adresseDansPlage(string $ip, string $regle): bool
+{
+    $binIp = @inet_pton($ip);
+    if ($binIp === false) {
+        return false;
+    }
+
+    if (!str_contains($regle, '/')) {
+        $binRegle = @inet_pton($regle);
+
+        return $binRegle !== false && $binIp === $binRegle;
+    }
+
+    [$reseau, $prefixe] = explode('/', $regle, 2);
+    $binReseau = @inet_pton(trim($reseau));
+    if ($binReseau === false || strlen($binIp) !== strlen($binReseau) || !ctype_digit(trim($prefixe))) {
+        return false;
+    }
+
+    $bits = (int) trim($prefixe);
+    $maximum = strlen($binIp) * 8;
+    if ($bits < 0 || $bits > $maximum) {
+        return false;
+    }
+
+    $octetsPleins = intdiv($bits, 8);
+    if ($octetsPleins > 0 && substr($binIp, 0, $octetsPleins) !== substr($binReseau, 0, $octetsPleins)) {
+        return false;
+    }
+
+    $bitsRestants = $bits % 8;
+    if ($bitsRestants === 0) {
+        return true;
+    }
+
+    $masque = ~((1 << (8 - $bitsRestants)) - 1) & 0xFF;
+
+    return (ord($binIp[$octetsPleins]) & $masque) === (ord($binReseau[$octetsPleins]) & $masque);
 }
 
 /**

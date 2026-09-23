@@ -39,7 +39,7 @@ function refuser(int $code, string $motifJournal): never
         $motifJournal,
         $_GET['id'] ?? '-',
         $_GET['t'] ?? '-',
-        $_SERVER['REMOTE_ADDR'] ?? '-'
+        function_exists('clientIp') ? clientIp() : ($_SERVER['REMOTE_ADDR'] ?? '-')
     ));
     http_response_code($code);
     header('Content-Type: text/plain; charset=utf-8');

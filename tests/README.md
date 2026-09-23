@@ -19,6 +19,7 @@ configurée ne ressemble pas à une base locale.
 | `securite/sec10-session.ps1` | `SEC-10` | Cookie `TCHADOKSESSID` (`HttpOnly`, `SameSite=Lax`, sans `Secure` en HTTP local) ; identifiant régénéré à la connexion ; identifiant forgé refusé ; fixation de session ; registre des sessions sans copie des données ; changement de mot de passe fermant les autres appareils et leur connexion automatique ; pas de connexion automatique pour un administrateur ; délai d'inactivité propre à l'administration ; réinitialisation du mot de passe administrateur ; refus d'un non-administrateur sur la console sans casser le formulaire suivant. **35 contrôles**, dont une attente réelle de 65 s : le script abaisse `ADMIN_SESSION_LIFETIME` à 60 dans `.env.local` et restaure la valeur d'origine en fin de script, même en cas d'échec. |
 | `securite/sec11-souvenir.ps1` | `SEC-11` | Format du cookie (sélecteur + vérificateur) et ses attributs ; coût d'un cookie inconnu mesuré avec 61 jetons en base (aucun `bcrypt`) ; connexion automatique sans création d'un second jeton ; rotation du vérificateur, tolérance pour les requêtes parallèles, révocation générale sur vérificateur périmé ; jeton expiré ; déconnexion limitée à un appareil ; changement de mot de passe ; écran « Appareils connectés » (liste, révocation unitaire et globale, aucun identifiant de session dans la page, jeton d'un autre compte intouchable) ; aucun jeton pour un administrateur. **50 contrôles.** Jeu d'essai partagé avec `SEC-10`. |
 | `securite/sec12-limitation.ps1` | `SEC-12` | Verrouillage après 5 puis 10 échecs de connexion (page publique et console), message identique que le compte existe ou non, bon mot de passe sans effet pendant le verrou, remise à zéro après une connexion réussie, garde par adresse, impossibilité de verrouiller le compte d'un tiers depuis une autre adresse ; limitation de débit des API (429, `Retry-After`, JSON) et des pages (HTML), requêtes refusées non comptées ; question de vérification après deux envois, non rejouable ; purge ; interrupteur `RATE_LIMIT_ENABLED`. **38 contrôles.** Vide `login_attempts` et `rate_limit_hits` entre les sections. |
+| `securite/sec13-adresse.php` | `SEC-13` | Lecture de l'adresse du client : en-têtes `X-Forwarded-For` et `Client-IP` ignorés sans proxy déclaré, chaîne de proxys parcourue de droite à gauche, entrées illisibles, plages CIDR et IPv6, câblage réel avec et sans `TRUSTED_PROXIES`, verrouillage de connexion non contournable par en-tête, absence d'une seconde implémentation. **31 contrôles.** Modifie temporairement `TRUSTED_PROXIES` dans `.env.local` et restaure la valeur d'origine. |
 
 ### Exécution
 
@@ -30,6 +31,7 @@ node tests\securite\sec09-fetch-patch.js
 powershell -ExecutionPolicy Bypass -File tests\securite\sec10-session.ps1
 powershell -ExecutionPolicy Bypass -File tests\securite\sec11-souvenir.ps1
 powershell -ExecutionPolicy Bypass -File tests\securite\sec12-limitation.ps1
+C:\xampp\php\php.exe tests\securite\sec13-adresse.php
 ```
 
 ### Pièges de PowerShell 5.1 rencontrés

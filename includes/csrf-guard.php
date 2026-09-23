@@ -87,7 +87,7 @@ final class CsrfGuard
                 $methode,
                 self::chemin(),
                 $recu === '' ? 'absent' : 'invalide',
-                $_SERVER['REMOTE_ADDR'] ?? '-'
+                function_exists('clientIp') ? clientIp() : ($_SERVER['REMOTE_ADDR'] ?? '-')
             ));
             self::refuser(403, $recu === '' ? 'jeton absent' : 'jeton invalide');
         }

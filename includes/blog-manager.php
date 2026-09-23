@@ -1455,7 +1455,7 @@ function blogRegisterView($postId) {
     try {
         if (blogTableExists('blog_post_views')) {
             $userId = isLoggedIn() ? (int) ($_SESSION['user_id'] ?? 0) : null;
-            $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+            $ip = function_exists('clientIp') ? clientIp() : ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
             $agent = $_SERVER['HTTP_USER_AGENT'] ?? 'ua';
             $viewerSeed = ($userId ?: session_id()) . '|' . $ip . '|' . $agent;
             $viewerHash = hash('sha256', $viewerSeed);

@@ -169,7 +169,7 @@ class Auth {
             $stmt->execute([
                 $sessionId,
                 $user['id'],
-                $this->getClientIP(),
+                clientIp(),
                 substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 500),
             ]);
             $_SESSION['session_id'] = $sessionId;
@@ -200,21 +200,6 @@ class Auth {
             // SEC-11 : un jeton par appareil, verificateur tournant.
             RememberMe::creer((int) $user['id']);
         }
-    }
-
-    /**
-     * Obtient l'adresse IP du client
-     */
-    private function getClientIP() {
-        $ip = '';
-        if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
-            $ip = $_SERVER['HTTP_CLIENT_IP'];
-        } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            $ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
-        } else {
-            $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
-        }
-        return $ip;
     }
 
     /**
