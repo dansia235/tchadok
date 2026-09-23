@@ -223,7 +223,7 @@ try {
     Verif "Changement de mot de passe accepte" ($r.Corps -match 'modifie avec succes')
     Verif "Aucun appareil ne peut plus se reconnecter sans mot de passe" ((SqlValeur "SELECT COUNT(*) FROM remember_tokens WHERE user_id = 931 AND revoked_at IS NULL") -eq '0')
     Verif "Le cookie du telephone est sans effet" ((VisiteAvecCookie $cTel2).Code -ne 200)
-    SqlExec "UPDATE users SET password = '`$2y`$12`$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG', password_hash = '`$2y`$12`$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG' WHERE id = 931;"
+    SqlExec "UPDATE users SET password_hash = '`$2y`$12`$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG' WHERE id = 931;"
 
     Write-Output "`n=== I. Ecran « Appareils connectes » ==="
     $poste = Appareil; $autre = Appareil; $appareils += $poste, $autre

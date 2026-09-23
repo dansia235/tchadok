@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Le mot de passe est redemande : desactiver un second facteur depuis
         // une session laissee ouverte annulerait la protection.
         $db = TchadokDatabase::getInstance()->getConnection();
-        $stmt = $db->prepare("SELECT COALESCE(NULLIF(password_hash, ''), password) FROM users WHERE id = ?");
+        $stmt = $db->prepare('SELECT password_hash FROM users WHERE id = ?');
         $stmt->execute([$userId]);
         $empreinte = (string) $stmt->fetchColumn();
 

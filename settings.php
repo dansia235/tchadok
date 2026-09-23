@@ -78,15 +78,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             } else {
                 $newPasswordHash = hashPassword($newPassword);
 
-                $stmt = $db->prepare("
-                    UPDATE users
-                    SET password = ?,
-                        password_hash = ?,
-                        updated_at = NOW()
-                    WHERE id = ?
-                ");
-
-                $stmt->execute([$newPasswordHash, $newPasswordHash, $userId]);
+                // DATA-02 : une seule colonne de mot de passe.
+                $stmt = $db->prepare('UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?');
+                $stmt->execute([$newPasswordHash, $userId]);
 
                 // SEC-10 : les autres appareils sont deconnectes, et la session
                 // courante recoit un nouvel identifiant. Si le mot de passe est

@@ -1257,7 +1257,19 @@ Les 14 fichiers de `sql/` sont des correctifs successifs sans ordre d'applicatio
 
 ### DATA-02 — Supprimer la double colonne de mot de passe
 
-**Charge :** 1 j · **Dépend de :** `DATA-01`, `PREP-02`
+**Charge :** 1 j · **Dépend de :** `DATA-01`, `PREP-02` · **Statut :** fait le 23/09/2026
+
+> **Bilan.** La colonne `password` est retirée ; `password_hash` fait seule foi. L'authentification acceptait l'une **ou** l'autre : toute divergence donnait au compte un **second mot de passe valide, permanent et invisible** — précisément ce que produisait l'ancien `admin/update-passwords.php`.
+>
+> **Les trois temps du plan sont respectés.** `scripts/analyser-mots-de-passe.php` produit le rapport **avant** toute écriture : comptes dont les deux colonnes diffèrent, colonnes vides, valeurs qui ne sont pas des hash bcrypt, et la liste nominative des comptes porteurs de deux mots de passe utilisables. La migration ne converge que là où `password_hash` est vide ou illisible — pour ne verrouiller personne — puis supprime la colonne.
+>
+> **Sur les comptes en conflit, `password_hash` l'emporte** : l'ancien mot de passe cesse de fonctionner, ce qui est l'objectif. Comme une migration ne peut pas prévenir les gens, le script offre `--reinitialiser-conflits` : mot de passe rendu inutilisable, sessions fermées, opération journalisée. La marche à suivre est écrite dans le script lui-même.
+>
+> **Code basculé** : `includes/auth.php`, `checkAdminCredentials()`, `register.php`, `settings.php`, `security-settings.php`, `2fa.php`, `admin/reset-password.php`, `scripts/create-admin.php`, plus le jeu de démonstration et trois jeux d'essai. `checkAdminCredentials()` **contrôle enfin `is_active`** : un compte désactivé ouvrait encore l'administration.
+>
+> **Un défaut trouvé par les tests, et corrigé.** La migration n'était pas rejouable : relancée sur une base déjà migrée, elle échouait sur « Unknown column 'password' ». Le test `DATA-01` qui vide le registre et rejoue tout l'a signalé. La convergence est désormais conditionnée à l'existence de la colonne.
+>
+> **Vérifié :** `tests/schema/data02-mot-de-passe.php` (18 contrôles). Le critère central est vérifié de la seule façon qui compte — **en essayant réellement de se connecter** avec l'ancien mot de passe d'un compte d'essai après changement : le refus est constaté sur le site en fonctionnement, pas déduit du code. Les seize autres suites au vert : **692 contrôles**.
 
 La table `users` porte `password` **et** `password_hash`, toutes deux `NOT NULL`, et l'authentification accepte l'une **ou** l'autre. Toute divergence crée un second mot de passe valide permanent : après passage de l'ancien `admin/update-passwords.php`, l'ancien mot de passe reste valide via la colonne `password`.
 

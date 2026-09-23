@@ -81,9 +81,9 @@ nettoyer($pdo);
 $hash = '$2y$10$abcdefghijklmnopqrstuuJ7x1Yw3m0Z5eZkQeXQkqG9o8x7a6b5C';
 
 $pdo->exec("INSERT INTO genres (id, name, is_active) VALUES (991, 'ZZSEC08 Genre', 1)");
-$pdo->exec("INSERT INTO users (id, username, email, password, password_hash, first_name, last_name, is_active)
-            VALUES (911, 'zzsec08_actif', 'actif@sec08.local', '$hash', '$hash', 'A', 'A', 1),
-                   (912, 'zzsec08_inactif', 'inactif@sec08.local', '$hash', '$hash', 'I', 'I', 1)");
+$pdo->exec("INSERT INTO users (id, username, email, password_hash, first_name, last_name, is_active)
+            VALUES (911, 'zzsec08_actif', 'actif@sec08.local', '$hash', 'A', 'A', 1),
+                   (912, 'zzsec08_inactif', 'inactif@sec08.local', '$hash', 'I', 'I', 1)");
 $pdo->exec("INSERT INTO artists (id, user_id, stage_name, is_active, featured, verified, genres)
             VALUES (911, 911, 'ZZSEC08 Actif', 1, 1, 1, 'ZZSEC08 Genre'),
                    (912, 912, 'ZZSEC08 Inactif', 0, 1, 1, 'ZZSEC08 Genre')");

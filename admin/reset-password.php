@@ -113,10 +113,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $newHash = hashPassword($password);
                 $update = $db->prepare(
                     "UPDATE users
-                     SET password = ?, password_hash = ?, reset_token = NULL, reset_expires = NULL
+                     SET password_hash = ?, reset_token = NULL, reset_expires = NULL
                      WHERE id = ?"
                 );
-                $update->execute([$newHash, $newHash, $user['id']]);
+                $update->execute([$newHash, $user['id']]);
 
                 // SEC-10 : toutes les sessions du compte sont fermees. La personne
                 // qui reinitialise n'est pas connectee : rien a conserver.

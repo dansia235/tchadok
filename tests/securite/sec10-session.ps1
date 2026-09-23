@@ -170,7 +170,7 @@ try {
     # SEC-11 : les jetons vivent dans remember_tokens, plus dans users.
     $token = SqlValeur "SELECT COUNT(*) FROM remember_tokens WHERE user_id = 931 AND revoked_at IS NULL"
     Verif "Jeton de connexion automatique invalide en base" ("$token".Trim() -eq '0') "$token"
-    & $mysql -u root -D $baseDb -e "UPDATE users SET password = password_hash, password_hash = '`$2y`$12`$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG', password = '`$2y`$12`$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG' WHERE id = 931" 2>$null
+    & $mysql -u root -D $baseDb -e "UPDATE users SET password_hash = '`$2y`$12`$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG' WHERE id = 931" 2>$null
 
     Write-Output "`n=== G. Administrateur : pas de connexion automatique ==="
     $ad = Appareil; $appareils += $ad

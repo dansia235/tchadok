@@ -53,9 +53,11 @@ C:\xampp\php\php.exe tests\securite\sec20-deux-facteurs.php
 | Script | Tache | Couvre |
 |---|---|---|
 | `schema/data01-migrations.php` | `DATA-01` | Systeme de migrations : base vide devenue complete par `migrate.php up`, rejeu sans effet, registre et empreintes, annulation puis reapplication, refus d'annuler la photographie du schema, detection d'une migration modifiee apres application, refus d'execution par le web, proprietes de l'export de reference. **36 controles.** Tout se passe dans une base jetable, creee et supprimee par le test ; `DB_DATABASE` est devie le temps des essais puis restaure. |
+| `schema/data02-mot-de-passe.php` | `DATA-02` | Disparition de la colonne `password` ; **essai de connexion réel avec l'ancien mot de passe après changement** ; absence de lecture et d'écriture de la colonne dans huit fichiers ; `checkAdminCredentials()` réduite à `password_hash` et contrôlant `is_active` ; jeux de données à jour ; script d'analyse et migration réversible. **18 contrôles.** |
 
 `
 C:\xampp\php\php.exe tests\schema\data01-migrations.php
+C:\xampp\php\php.exe tests\schema\data02-mot-de-passe.php
 `
 
 ### Pièges de PowerShell 5.1 rencontrés

@@ -31,16 +31,14 @@ SET NAMES utf8mb4;
 START TRANSACTION;
 
 INSERT INTO `users`
-  (`id`, `username`, `email`, `password`, `password_hash`,
+  (`id`, `username`, `email`, `password_hash`,
    `first_name`, `last_name`, `country`, `city`, `preferred_language`,
    `premium_status`, `email_verified`, `is_active`, `created_at`, `updated_at`)
 VALUES
   (1, 'admin', 'admin@tchadok.td',
    '$2y$12$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG',
-   '$2y$12$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG',
    'Admin', 'Tchadok', 'Tchad', 'N''Djamena', 'fr', 0, 1, 1, NOW(), NOW()),
   (2, 'user_demo', 'user@tchadok.td',
-   '$2y$12$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG',
    '$2y$12$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG',
    'Utilisateur', 'Demo', 'Tchad', 'N''Djamena', 'fr', 0, 1, 1, NOW(), NOW())
 ON DUPLICATE KEY UPDATE `username` = VALUES(`username`);

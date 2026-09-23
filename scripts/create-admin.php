@@ -311,16 +311,16 @@ unset($mdp, $confirmation);
 try {
     $pdo->beginTransaction();
 
-    // Les colonnes password ET password_hash existent encore (toutes deux
-    // NOT NULL) : on ecrit la meme valeur dans les deux. DATA-02 retirera
-    // la colonne password.
+    // DATA-02 : une seule colonne de mot de passe. `password` a ete retiree :
+    // deux colonnes acceptees a la connexion donnaient a un compte un second
+    // mot de passe valide des qu'elles divergeaient.
     $insert = $pdo->prepare(
         'INSERT INTO users
-            (username, email, password, password_hash, first_name, last_name,
+            (username, email, password_hash, first_name, last_name,
              country, email_verified, is_active, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, NOW())'
+         VALUES (?, ?, ?, ?, ?, ?, 1, 1, NOW())'
     );
-    $insert->execute([$username, $email, $hash, $hash, $prenom, $nom, 'Tchad']);
+    $insert->execute([$username, $email, $hash, $prenom, $nom, 'Tchad']);
     $userId = (int) $pdo->lastInsertId();
 
     $admin = $pdo->prepare(

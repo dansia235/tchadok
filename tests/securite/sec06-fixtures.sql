@@ -11,14 +11,14 @@
 
 SET NAMES utf8mb4;
 
-INSERT INTO users (id, username, email, password, password_hash, first_name, last_name,
+INSERT INTO users (id, username, email, password_hash, first_name, last_name,
                    is_active, email_verified, premium_status, premium_expires_at)
 VALUES
- (901, 'essai_artiste',  'artiste@essai.local',  '$2y$12$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG', '$2y$12$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG', 'Essai', 'Artiste',  1, 1, 0, NULL),
- (902, 'essai_premium',  'premium@essai.local',  '$2y$12$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG', '$2y$12$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG', 'Essai', 'Premium',  1, 1, 1, DATE_ADD(NOW(), INTERVAL 30 DAY)),
- (903, 'essai_expire',   'expire@essai.local',   '$2y$12$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG', '$2y$12$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG', 'Essai', 'Expire',   1, 1, 1, DATE_SUB(NOW(), INTERVAL 1 DAY)),
- (904, 'essai_acheteur', 'acheteur@essai.local', '$2y$12$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG', '$2y$12$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG', 'Essai', 'Acheteur', 1, 1, 0, NULL),
- (905, 'essai_fan',      'fan@essai.local',      '$2y$12$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG', '$2y$12$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG', 'Essai', 'Fan',      1, 1, 0, NULL);
+ (901, 'essai_artiste',  'artiste@essai.local',  '$2y$12$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG', 'Essai', 'Artiste',  1, 1, 0, NULL),
+ (902, 'essai_premium',  'premium@essai.local',  '$2y$12$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG', 'Essai', 'Premium',  1, 1, 1, DATE_ADD(NOW(), INTERVAL 30 DAY)),
+ (903, 'essai_expire',   'expire@essai.local',   '$2y$12$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG', 'Essai', 'Expire',   1, 1, 1, DATE_SUB(NOW(), INTERVAL 1 DAY)),
+ (904, 'essai_acheteur', 'acheteur@essai.local', '$2y$12$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG', 'Essai', 'Acheteur', 1, 1, 0, NULL),
+ (905, 'essai_fan',      'fan@essai.local',      '$2y$12$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG', 'Essai', 'Fan',      1, 1, 0, NULL);
 
 INSERT INTO artists (id, user_id, stage_name, is_active) VALUES (901, 901, 'Artiste Essai', 1);
 

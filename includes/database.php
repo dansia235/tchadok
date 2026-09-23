@@ -1498,19 +1498,20 @@ function checkAdminCredentials($username, $password) {
     if (!$db->isConnected()) return false;
 
     try {
+        // DATA-02 : `password_hash` seule fait foi (la colonne `password` a ete
+        // retiree). Et `is_active` est enfin controle : un compte desactive
+        // continuait d'ouvrir l'administration.
         $stmt = $db->getConnection()->prepare("
-            SELECT u.id, u.password, u.password_hash, a.role
+            SELECT u.id, u.password_hash, a.role
             FROM users u
             JOIN admins a ON u.id = a.user_id
-            WHERE (u.username = ? OR u.email = ?)
+            WHERE (u.username = ? OR u.email = ?) AND u.is_active = 1
         ");
         $stmt->execute([$username, $username]);
         $admin = $stmt->fetch();
 
-        if ($admin) {
-            if (password_verify($password, $admin['password']) || password_verify($password, $admin['password_hash'])) {
-                return $admin['id'];
-            }
+        if ($admin && !empty($admin['password_hash']) && password_verify($password, $admin['password_hash'])) {
+            return $admin['id'];
         }
 
         return false;

@@ -41,14 +41,11 @@ class Auth {
             return ['success' => false, 'error' => 'Identifiants incorrects'];
         }
 
-        // Vérifier le mot de passe avec les deux colonnes (password ET password_hash)
-        // La table users a les deux colonnes pour compatibilité
-        $passwordValid = false;
-        if (!empty($user['password_hash']) && verifyPassword($password, $user['password_hash'])) {
-            $passwordValid = true;
-        } elseif (!empty($user['password']) && verifyPassword($password, $user['password'])) {
-            $passwordValid = true;
-        }
+        // DATA-02 : une seule colonne fait foi. L'ancienne version acceptait
+        // `password` OU `password_hash` : toute divergence entre les deux
+        // donnait a un compte un second mot de passe valide, permanent et
+        // invisible.
+        $passwordValid = !empty($user['password_hash']) && verifyPassword($password, $user['password_hash']);
 
         if (!$passwordValid) {
             // SEC-19 : un echec sur un compte d'administration est un

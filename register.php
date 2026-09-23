@@ -74,16 +74,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $stmt = $db->prepare("
                     INSERT INTO users (
-                        username, email, password, password_hash,
+                        username, email, password_hash,
                         first_name, last_name, country,
                         email_verified, is_active, created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
                 ");
 
                 $stmt->execute([
                     $username,
                     $email,
-                    $passwordHash,
                     $passwordHash,
                     $firstName,
                     $lastName,

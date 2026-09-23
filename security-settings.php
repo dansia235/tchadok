@@ -61,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'chang
                 $db = TchadokDatabase::getInstance()->getConnection();
 
                 $stmt = $db->prepare(
-                    "SELECT COALESCE(NULLIF(password_hash, ''), password) AS current_hash FROM users WHERE id = ?"
+                    'SELECT password_hash FROM users WHERE id = ?'
                 );
                 $stmt->execute([$userId]);
                 $currentHash = $stmt->fetchColumn();
@@ -72,9 +72,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'chang
                 } else {
                     $newPasswordHash = hashPassword($newPassword);
                     $stmt = $db->prepare(
-                        'UPDATE users SET password = ?, password_hash = ?, updated_at = NOW() WHERE id = ?'
+                        'UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?'
                     );
-                    $stmt->execute([$newPasswordHash, $newPasswordHash, $userId]);
+                    $stmt->execute([$newPasswordHash, $userId]);
 
                     // SEC-10 / SEC-11 : autres appareils deconnectes, connexion
                     // automatique retiree, nouvel identifiant pour la session.
