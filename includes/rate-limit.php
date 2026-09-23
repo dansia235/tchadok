@@ -49,6 +49,10 @@ final class LimiteDebit
         'mot-de-passe' => [5, 900],    // demande et reinitialisation
         'recherche'    => [60, 60],
         'ecoute'       => [60, 60],
+        // SEC-18 : rapports de politique de contenu. Genereux (une page peut
+        // en produire plusieurs), mais borne : le journal ne doit pas servir
+        // de depotoir a qui veut le remplir.
+        'rapport-csp'  => [120, 60],
     ];
 
     private static ?bool $tableDisponible = null;

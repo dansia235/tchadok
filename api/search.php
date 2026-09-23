@@ -7,17 +7,14 @@
 require_once '../includes/functions.php';
 require_once '../includes/auth.php';
 
-// Headers pour API JSON
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+require_once '../includes/cors.php';
 
-// Gestion des requêtes OPTIONS (CORS preflight)
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit();
-}
+header('Content-Type: application/json');
+
+// SEC-18 : recherche publique en lecture. Ouverte aux seules origines
+// declarees dans CORS_ALLOWED_ORIGINS ; liste vide = meme origine seulement.
+// Le prevol (OPTIONS) est traite la.
+Cors::ouvrirEnLecture(['GET']);
 
 // SEC-12 : chaque recherche declenche plusieurs requetes SQL avec LIKE.
 // Soixante par minute couvrent la frappe au clavier la plus rapide.

@@ -986,7 +986,21 @@ Les deux `.htaccess` référencent `404.php`, `403.php`, `500.php` : **les trois
 
 ### SEC-18 — Nettoyer les en-têtes CORS et ajouter les en-têtes de sécurité
 
-**Charge :** 4 h · **Dépend de :** `CFG-04`
+**Charge :** 4 h · **Dépend de :** `CFG-04` · **Statut :** fait le 23/09/2026
+
+> **Bilan.** Les points 1, 4 et 6 étaient déjà traités au `LOT 1` (ouverture globale retirée des deux `.htaccess`, en-têtes de sécurité posés, `X-XSS-Protection` jamais réintroduit). Cette tâche livre les points 2, 3 et 5.
+>
+> **Plus aucune API n'ouvre à `*`.** Six d'entre elles reposaient l'en-tête de leur côté, y compris celles qui agissent au nom de la personne connectée : `api/stream.php`, `api/playlists.php`, `api/follows.php`, `api/notifications.php` n'ont plus aucun en-tête CORS, et leur requête de prévol répond 405 — il n'y a plus rien à négocier.
+>
+> **Ouverture explicite pour la lecture publique** (`includes/cors.php`) : `api/search.php` et `api/radio/metadata.php` déclarent une ouverture, accordée **uniquement** aux origines de `CORS_ALLOWED_ORIGINS`. Liste vide par défaut, y compris en production : même origine seulement. L'en-tête `Vary: Origin` accompagne la réponse, sans quoi un cache partagé servirait la réponse d'une origine à une autre. Jamais de `Access-Control-Allow-Credentials` : répondre une origine précise **avec** les cookies reviendrait à exposer les sessions.
+>
+> **L'application Android n'a pas besoin de cette liste** : le CORS est une règle appliquée par les navigateurs, pas par un client natif. La liste reste donc vide même quand l'application existera.
+>
+> **Politique de contenu et collecte** (point 5) : la CSP `Report-Only` est désormais posée **aussi en local** — c'est pendant le développement qu'on veut voir les violations, pas le jour de la bascule en mode bloquant. Les deux environnements pointent sur `api/csp-report.php`, qui écrit dans `storage/logs/csp-report.log`. Cet endpoint est exempté de CSRF (le navigateur n'envoie ni session ni jeton, exemption déclarée et journalisée), limité en débit, borné à 16 Ko de corps, et neutralise les retours à la ligne pour qu'un rapport ne puisse pas fabriquer une fausse entrée de journal. Il accepte les deux formats, `csp-report` et Reporting API, et ne répond rien (204).
+>
+> **Vérifié :** `tests/securite/sec18-entetes.php` (41 contrôles) — en-têtes de sécurité, absence d'ouverture par défaut sur huit points d'entrée avec une origine tierce, ouverture accordée puis retirée en modifiant la liste blanche, prévol accepté puis refusé, collecte des rapports, tentative d'injection de ligne dans le journal, et configuration des deux `.htaccess`. Les douze autres suites au vert ; 18 pages publiques en 200.
+>
+> **Reste avant la mise en production :** passer la CSP en mode bloquant une fois les violations corrigées (`UX-03`). Les scripts en ligne et `unsafe-eval` autorisés aujourd'hui viennent du CDN Tailwind, à remplacer par une feuille compilée.
 
 `.htaccess` pose `Access-Control-Allow-Origin: *` **globalement**, sur toutes les réponses, pages HTML comprises, avec `GET, POST, PUT, DELETE`. Plusieurs API le reposent individuellement.
 

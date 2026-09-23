@@ -114,6 +114,12 @@
     # incoherent avec le fichier d'environnement charge.
     Header always set X-Tchadok-Env "local"
 
+    # SEC-18 : meme politique de contenu qu'en production, en Report-Only.
+    # Les violations remontent a /tchadok/api/csp-report.php et sont ecrites
+    # dans storage/logs/csp-report.log : c'est ici, pendant le developpement,
+    # qu'on veut les voir -- pas le jour de la bascule en mode bloquant.
+    Header always set Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; img-src 'self' data: https:; media-src 'self' https:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; report-uri /tchadok/api/csp-report.php"
+
     # Ne jamais mettre en cache une reponse d'API
     # setifempty et non set : un script qui definit lui-meme sa politique
     # de cache doit la conserver. media.php pose "private, max-age=3600" pour

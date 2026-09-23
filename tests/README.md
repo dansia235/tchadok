@@ -24,6 +24,7 @@ configurée ne ressemble pas à une base locale.
 | `securite/sec15-erreurs.php` | `SEC-15` | Référence de corrélation (format, unicité) ; message d'exception remplacé à l'écran et retrouvé dans le journal par sa référence ; erreurs d'API 4xx conservées, pannes masquées ; exception non interceptée et erreur fatale rendues en 500 avec référence, en HTML comme en JSON ; détail conservé en local ; absence de `getMessage()` affiché ; script de diagnostic retiré ; réglages des deux `.htaccess`. **46 contrôles.** Se déclare en mode production, et dépose puis retire une page qui échoue volontairement. |
 | `securite/sec16-pages-erreur.php` | `SEC-16` | Existence et code HTTP réel des pages 403, 404, 429 et 500 ; habillage, `noindex`, `Cache-Control` ; URL inexistante et chemins bloqués par le `.htaccess` ; absence de signature serveur, de version PHP et de chemin ; indépendance des pages vis-à-vis de l'application, vérifiée **base de données coupée** ; `show404()` ; déclarations `ErrorDocument` des deux `.htaccess`. **60 contrôles.** Modifie temporairement `DB_HOST` dans `.env.local` et restaure la valeur d'origine. |
 | `securite/sec17-depots.php` | `SEC-17` | Contrôle du contenu déposé : PHP déguisé en `.mp3`, `.jpg`, `.png`, texte déguisé en audio, MP3 en `.wav`, JPEG en `.png`, extensions hors liste, fichier vide, dépassement de taille, répertoire impossible ; charge utile retirée des images par ré-encodage ; noms de stockage aléatoires ; bornes de prix (négatif, absurde, hors grille) ; absence des champs URL dans les neuf points d'entrée, et essai de bout en bout forçant `audio_file_url` depuis la console. **38 contrôles.** |
+| `securite/sec18-entetes.php` | `SEC-18` | En-têtes de sécurité ; absence d'ouverture CORS par défaut sur huit points d'entrée interrogés avec une origine tierce ; ouverture accordée à une origine déclarée puis retirée (liste blanche modifiée à la volée), prévol accepté puis refusé, jamais de credentials ; collecte des rapports de politique de contenu, corps illisible, tentative d'injection de ligne dans le journal ; configuration des deux `.htaccess`. **41 contrôles.** Modifie temporairement `CORS_ALLOWED_ORIGINS` dans `.env.local` et restaure la valeur d'origine. |
 
 ### Exécution
 
@@ -40,6 +41,7 @@ C:\xampp\php\php.exe tests\securite\sec14-securite-simulee.php
 C:\xampp\php\php.exe tests\securite\sec15-erreurs.php
 C:\xampp\php\php.exe tests\securite\sec16-pages-erreur.php
 C:\xampp\php\php.exe tests\securite\sec17-depots.php
+C:\xampp\php\php.exe tests\securite\sec18-entetes.php
 ```
 
 ### Pièges de PowerShell 5.1 rencontrés

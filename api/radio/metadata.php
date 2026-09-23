@@ -7,10 +7,14 @@
 require_once '../../includes/database.php';
 require_once '../../includes/radio-engine.php';
 
+require_once '../../includes/cors.php';
+
 header('Content-Type: application/json');
 header('Cache-Control: no-cache, no-store, must-revalidate');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET');
+
+// SEC-18 : metadonnees de la radio, publiques en lecture. Ouverture limitee
+// aux origines de CORS_ALLOWED_ORIGINS (vide par defaut : meme origine).
+Cors::ouvrirEnLecture(['GET']);
 
 $dbInstance = TchadokDatabase::getInstance();
 $db = $dbInstance->getConnection();

@@ -8,12 +8,13 @@ require_once '../includes/functions.php';
 require_once '../includes/auth.php';
 
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token');
+// SEC-18 : aucune ouverture entre origines. Cette API agit au nom de la
+// personne connectee ; l'ouvrir a un autre site reviendrait a le laisser
+// agir sur les comptes de ses visiteurs.
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
+    // SEC-18 : plus rien a negocier entre origines.
+    http_response_code(405);
     exit();
 }
 
@@ -91,4 +92,3 @@ function getFollowersCount($db, $followedId, $followedType) {
     return (int) $stmt->fetchColumn();
 }
 ?>
-
