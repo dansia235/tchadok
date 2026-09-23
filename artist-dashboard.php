@@ -137,14 +137,21 @@ try {
         $monthlyLabels[] = date('M Y', strtotime($monthKey . '-01'));
 
         if (tableExists('order_items')) {
+            // DATA-07 : un intervalle, pas un formatage de la colonne. Appliquer
+            // une fonction a la colonne filtree interdit a MySQL d'utiliser l'index
+            // `encaissees` : il parcourrait toutes les commandes de la
+            // plateforme pour chacun des six mois affiches.
+            $debutMois = $monthKey . '-01 00:00:00';
+            $moisSuivant = date('Y-m-d H:i:s', strtotime($monthKey . '-01 +1 month'));
+
             $stmt = $db->prepare("
                 SELECT COALESCE(SUM(oi.artist_net), 0)
                 FROM order_items oi
                 JOIN orders o ON o.id = oi.order_id
                 WHERE oi.artist_id = ? AND o.status = 'paid'
-                  AND DATE_FORMAT(o.paid_at, '%Y-%m') = ?
+                  AND o.paid_at >= ? AND o.paid_at < ?
             ");
-            $stmt->execute([$artistId, $monthKey]);
+            $stmt->execute([$artistId, $debutMois, $moisSuivant]);
             $monthlyValues[] = (float) $stmt->fetchColumn();
         } else {
             $monthlyValues[] = 0;

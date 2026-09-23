@@ -610,7 +610,11 @@ function getUserDiscoveryStats($userId) {
     try {
         $pdo = $db->getConnection();
 
-        // Artistes distincts ecoutes ce mois
+        // Artistes distincts ecoutes ce mois.
+        // DATA-07 : la fonction s'applique a NOW(), PAS a la colonne. La
+        // comparaison reste donc utilisable par l'index (user_id, created_at).
+        // L'inverse serait fautif : appliquer la fonction a la COLONNE filtree
+        // interdirait tout index.
         $stmt = $pdo->prepare("
             SELECT COUNT(DISTINCT artist_id) FROM streams
             WHERE user_id = ? AND created_at >= DATE_FORMAT(NOW(), '%Y-%m-01')

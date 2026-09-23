@@ -1453,7 +1453,32 @@ Aucune table ne porte de `deleted_at`. Les suppressions en cascade détruisent l
 
 ### DATA-07 — Index manquants et intégrité
 
-**Charge :** 4 h · **Dépend de :** `DATA-01`
+**Charge :** 4 h · **Dépend de :** `DATA-01` · **Statut :** fait le 23/09/2026
+
+> **Bilan.** Huit index composites, et l'ordre des colonnes est le point qui compte : un index sert **de gauche à droite**. Toutes les requêtes du catalogue s'écrivent « égalité d'abord, tri ensuite » — `WHERE status = 'approved' AND deleted_at IS NULL ORDER BY <date>` — donc `(status, deleted_at, created_at)`, et non l'inverse. MySQL peut alors filtrer **et** trier avec le même index, sans tri en mémoire.
+>
+> | Table | Index | Colonnes | Sert à |
+> |---|---|---|---|
+> | `tracks` | `catalogue` | `status, deleted_at, created_at` | nouveautés |
+> | `tracks` | `classement` | `status, deleted_at, total_streams` | tendances |
+> | `tracks` | `genre_statut` | `genre_id, status, deleted_at` | baromètre par genre |
+> | `releases` | `catalogue` | `status, deleted_at, release_date` | catalogue des sorties |
+> | `releases` | `genre_statut` | `genre_id, status, deleted_at` | sorties par genre |
+> | `artists` | `visible` | `is_active, deleted_at, total_streams` | la jointure que **toutes** les requêtes font |
+> | `order_items` | `artiste_commande` | `artist_id, order_id` | revenus de l'artiste |
+> | `orders` | `encaissees` | `status, paid_at` | revenus par période |
+>
+> **Le test fabrique du volume avant de mesurer.** Sur une table de dix lignes, MySQL parcourt tout — c'est le plan le moins cher, et `EXPLAIN` dirait « ALL » même avec les bons index. Le test insère donc **3 000 titres et 600 sorties**, dont un sur vingt retiré et trois statuts mêlés, lance `ANALYZE TABLE`, mesure, puis nettoie. Sans volume, cette vérification ne voudrait rien dire.
+>
+> **Et il nomme l'index attendu.** Constater qu'un index quelconque est utilisé ne dirait pas si c'est le bon : un index composé dans le mauvais ordre serait « utilisé » tout en forçant un tri en mémoire. Les trois requêtes du catalogue choisissent bien `catalogue`, `classement` et `genre_statut`, en **couverture d'index** (`Using index` : la table n'est pas ouverte), et le tri par date **ne passe pas** par un `Using filesort`.
+>
+> **Une fonction sur une colonne filtrée interdit l'index.** Le calcul mensuel des revenus de l'artiste écrivait `DATE_FORMAT(o.paid_at, '%Y-%m') = ?` : il aurait parcouru toutes les commandes de la plateforme, six fois par affichage. Il utilise désormais un intervalle `>= début AND < mois suivant`. Le seul `DATE_FORMAT` restant s'applique à `NOW()`, pas à la colonne — la comparaison reste utilisable par l'index, et c'est expliqué sur place pour qu'on ne le « corrige » pas à tort.
+>
+> **Prémisse de l'audit corrigée.** L'audit annonçait un mélange de collations. Vérification faite : les **45 tables et les 204 colonnes** textuelles sont toutes en `utf8mb4_general_ci` — le schéma est homogène, et le test le vérifie désormais à chaque exécution. Convertir l'ensemble en `utf8mb4_unicode_ci` réécrirait chaque table pour un gain limité au tri des ligatures ; la différence n'est pas nulle, mais elle ne justifie pas l'opération aujourd'hui.
+>
+> **Un test défectueux corrigé au passage.** Le détecteur de « fonction sur une colonne » signalait `includes/database.php` et `artist-dashboard.php`… à cause des **commentaires** qui avertissent du piège en citant le motif fautif. Il ignore maintenant les commentaires, et deux contrôles vérifient le détecteur lui-même : il doit repérer la forme fautive et laisser passer la forme correcte.
+>
+> **Vérifié :** `tests/schema/data07-index.php` (45 contrôles).
 
 Le schéma est globalement bien indexé (34 clés étrangères, index pertinents sur `streams` et `purchases`), mais il manque l'essentiel pour le catalogue public.
 

@@ -58,6 +58,7 @@ C:\xampp\php\php.exe tests\securite\sec20-deux-facteurs.php
 | `schema/data04-tarifs.php` | `DATA-04` | Grille tarifaire administrée : schéma de `pricing_rules`, disparition des trois copies de prix et de commission dans le code, **changement de tarif en base constaté sur la page publique relue**, **prix hors grille soumis par le vrai formulaire artiste avec session ouverte**, enveloppe appliquée à un format inconnu, commission par produit, écran d'administration (permissions, contrôles de cohérence, journalisation), mise en cache et migration. **100 contrôles.** Modifie la grille puis la remet exactement en état, y compris en cas d'échec. |
 | `schema/data05-commerce.php` | `DATA-05` | Tables commerciales : les six tables et leurs contraintes uniques, **prix et commission figés vérifiés en changeant le tarif en base**, **seconde référence opérateur refusée par la base**, callback rejoué sans double encaissement, numérotation de facture continue, **modification et suppression d'un événement de paiement refusées**, quota de téléchargement épuisé puis droit expiré et révoqué, double validation des versements, suppression d'un acheteur refusée, compteurs de vente, disparition de `purchases`. **109 contrôles.** |
 | `schema/data06-effacement.php` | `DATA-06` | Suppression logique et conservation : colonnes `deleted_at`, retrait puis rétablissement d'un contenu, **absence du contenu retiré dans chaque fonction de lecture publique puis sur les pages elles-mêmes**, playlist retirée sans perte de ligne, **suppression d'un acheteur refusée par la base**, anonymisation (ce qui part, ce qui reste), journal d'audit sans nom, script hors du web et note de conservation. **86 contrôles.** |
+| `schema/data07-index.php` | `DATA-07` | Index du catalogue : les huit index composites et l'ordre de leurs colonnes, **3 000 titres et 600 sorties fabriqués avant de mesurer** (sans volume, `EXPLAIN` dirait « ALL » même avec les bons index), plan de chacune des cinq requêtes publiques, **index attendu nommé** et couverture d'index, absence de tri en mémoire, aucune fonction appliquée à une colonne filtrée (commentaires exclus, détecteur lui-même vérifié), collations homogènes. **45 contrôles.** Insère puis retire son jeu de volume, et relance `ANALYZE TABLE`. |
 
 `
 C:\xampp\php\php.exe tests\schema\data01-migrations.php
@@ -66,6 +67,7 @@ C:\xampp\php\php.exe tests\schema\data03-sorties.php
 C:\xampp\php\php.exe tests\schema\data04-tarifs.php
 C:\xampp\php\php.exe tests\schema\data05-commerce.php
 C:\xampp\php\php.exe tests\schema\data06-effacement.php
+C:\xampp\php\php.exe tests\schema\data07-index.php
 `
 
 ### Pièges de PowerShell 5.1 rencontrés

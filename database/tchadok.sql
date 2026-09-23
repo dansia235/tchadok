@@ -4,7 +4,7 @@
 -- Le schema fait foi dans database/migrations/ ; ce fichier n'en est que
 -- la photographie, regeneree apres chaque migration (DATA-01).
 --
--- Genere le 23/09/2026 a 20h03 depuis la base tchadok_local.
+-- Genere le 23/09/2026 a 20h49 depuis la base tchadok_local.
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS `artists` (
   UNIQUE KEY `user_id` (`user_id`),
   UNIQUE KEY `slug` (`slug`),
   KEY `retire` (`deleted_at`),
+  KEY `visible` (`is_active`,`deleted_at`,`total_streams`),
   CONSTRAINT `artists_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -264,6 +265,7 @@ CREATE TABLE IF NOT EXISTS `orders` (
   UNIQUE KEY `invoice_number` (`invoice_number`),
   KEY `acheteur` (`user_id`,`status`),
   KEY `paiement` (`paid_at`),
+  KEY `encaissees` (`status`,`paid_at`),
   CONSTRAINT `orders_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -284,6 +286,7 @@ CREATE TABLE IF NOT EXISTS `order_items` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `article_unique` (`order_id`,`item_type`,`item_id`),
   KEY `artiste` (`artist_id`),
+  KEY `artiste_commande` (`artist_id`,`order_id`),
   CONSTRAINT `order_items_ibfk_1` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`),
   CONSTRAINT `order_items_ibfk_2` FOREIGN KEY (`artist_id`) REFERENCES `artists` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -570,6 +573,8 @@ CREATE TABLE IF NOT EXISTS `releases` (
   KEY `format_statut` (`format`,`status`),
   KEY `releases_ibfk_3` (`reviewed_by`),
   KEY `retire` (`deleted_at`),
+  KEY `catalogue` (`status`,`deleted_at`,`release_date`),
+  KEY `genre_statut` (`genre_id`,`status`,`deleted_at`),
   CONSTRAINT `releases_ibfk_1` FOREIGN KEY (`artist_id`) REFERENCES `artists` (`id`) ON DELETE CASCADE,
   CONSTRAINT `releases_ibfk_2` FOREIGN KEY (`genre_id`) REFERENCES `genres` (`id`),
   CONSTRAINT `releases_ibfk_3` FOREIGN KEY (`reviewed_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
@@ -739,6 +744,9 @@ CREATE TABLE IF NOT EXISTS `tracks` (
   KEY `idx_tracks_genre` (`genre_id`),
   KEY `sortie` (`release_id`),
   KEY `retire` (`deleted_at`),
+  KEY `catalogue` (`status`,`deleted_at`,`created_at`),
+  KEY `genre_statut` (`genre_id`,`status`,`deleted_at`),
+  KEY `classement` (`status`,`deleted_at`,`total_streams`),
   CONSTRAINT `tracks_ibfk_2` FOREIGN KEY (`artist_id`) REFERENCES `artists` (`id`) ON DELETE CASCADE,
   CONSTRAINT `tracks_ibfk_3` FOREIGN KEY (`genre_id`) REFERENCES `genres` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
