@@ -51,10 +51,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 $coverPath = IMAGES_PATH . 'podcasts/' . $upload['filename'];
             }
-            $coverUrl = trim($_POST['cover_image_url'] ?? '');
-            if ($coverUrl) {
-                $coverPath = $coverUrl;
-            }
 
             $stmt = $db->prepare("
                 INSERT INTO podcasts
@@ -102,10 +98,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new Exception($upload['message']);
                 }
                 $audioPath = PODCAST_AUDIO_PATH . $upload['filename'];
-            }
-            $audioUrl = trim($_POST['audio_file_url'] ?? '');
-            if ($audioUrl) {
-                $audioPath = $audioUrl;
             }
             if (!$audioPath) {
                 throw new Exception('Fichier audio requis.');
@@ -269,10 +261,6 @@ include 'includes/header-tailwind.php';
                                 <label class="text-xs font-semibold text-muted">Couverture (upload)</label>
                                 <input type="file" name="cover_image" accept="image/*" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-2 text-sm text-text">
                             </div>
-                            <div>
-                                <label class="text-xs font-semibold text-muted">Ou URL couverture</label>
-                                <input type="url" name="cover_image_url" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-2 text-sm text-text" placeholder="https://...">
-                            </div>
                         </div>
                         <button class="rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white shadow-elev-1">
                             Ajouter le podcast
@@ -338,10 +326,6 @@ include 'includes/header-tailwind.php';
                             <div>
                                 <label class="text-xs font-semibold text-muted">Audio (upload)</label>
                                 <input type="file" name="audio_file" accept="audio/*" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-2 text-sm text-text">
-                            </div>
-                            <div>
-                                <label class="text-xs font-semibold text-muted">Ou URL audio</label>
-                                <input type="url" name="audio_file_url" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-2 text-sm text-text" placeholder="https://...">
                             </div>
                         </div>
                         <button class="rounded-full bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow-elev-1">

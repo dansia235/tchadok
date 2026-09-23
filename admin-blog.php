@@ -285,10 +285,6 @@ include 'includes/header-tailwind.php';
                                 <label class="text-xs font-semibold text-muted">Image de couverture (upload)</label>
                                 <input type="file" name="featured_image_file" accept="image/*" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-3 py-2 text-sm text-text">
                             </div>
-                            <div>
-                                <label class="text-xs font-semibold text-muted">Ou URL image de couverture</label>
-                                <input type="url" name="featured_image_url" value="<?php echo htmlspecialchars($postForm['featured_image']); ?>" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-2 text-sm text-text">
-                            </div>
                         </div>
 
                         <div class="grid gap-4 md:grid-cols-3">

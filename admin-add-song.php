@@ -33,14 +33,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $language = sanitizeInput($_POST['language'] ?? '');
     $description = sanitizeInput($_POST['description'] ?? '');
     $lyrics = sanitizeInput($_POST['lyrics'] ?? '');
-    $price = (float) ($_POST['price'] ?? 0);
+    $prixSaisi = validerPrix($_POST['price'] ?? 0);
+    $price = $prixSaisi['valeur'];
     $isFree = isset($_POST['is_free']) ? 1 : 0;
     $downloadAllowed = isset($_POST['download_allowed']) ? 1 : 0;
     $explicitContent = isset($_POST['explicit_content']) ? 1 : 0;
     $isFeatured = isset($_POST['is_featured']) ? 1 : 0;
     $status = sanitizeInput($_POST['status'] ?? 'draft');
 
-    if (empty($title) || $artistId <= 0) {
+    if (!$prixSaisi['valide']) {
+        $error = $prixSaisi['message'];
+    } elseif (empty($title) || $artistId <= 0) {
         $error = 'Titre et artiste obligatoires.';
     } else {
         try {
@@ -58,11 +61,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $audioPath = AUDIO_PATH . $upload['filename'];
             }
 
-            $audioUrl = trim($_POST['audio_file_url'] ?? '');
-            if ($audioUrl) {
-                $audioPath = $audioUrl;
-            }
-
             if (!$audioPath) {
                 throw new Exception('Fichier audio requis.');
             }
@@ -78,11 +76,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($uploadPreview['success']) {
                     $previewPath = AUDIO_PATH . $uploadPreview['filename'];
                 }
-            }
-
-            $previewUrl = trim($_POST['preview_file_url'] ?? '');
-            if ($previewUrl) {
-                $previewPath = $previewUrl;
             }
 
             if ($isFree) {
@@ -287,7 +280,6 @@ include 'includes/header-tailwind.php';
                     <div>
                         <label class="text-xs font-semibold text-muted" for="audio_file">Fichier audio *</label>
                         <input id="audio_file" type="file" name="audio_file" accept="audio/*" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text">
-                        <input type="url" name="audio_file_url" class="mt-3 w-full rounded-2xl border border-white/10 bg-bg px-4 py-2 text-sm text-text" placeholder="Ou URL du fichier audio" value="<?php echo htmlspecialchars($_POST['audio_file_url'] ?? ''); ?>">
                     </div>
                 </div>
 
@@ -295,7 +287,6 @@ include 'includes/header-tailwind.php';
                     <div>
                         <label class="text-xs font-semibold text-muted" for="preview_file">Extrait audio (optionnel)</label>
                         <input id="preview_file" type="file" name="preview_file" accept="audio/*" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text">
-                        <input type="url" name="preview_file_url" class="mt-3 w-full rounded-2xl border border-white/10 bg-bg px-4 py-2 text-sm text-text" placeholder="Ou URL de l'extrait" value="<?php echo htmlspecialchars($_POST['preview_file_url'] ?? ''); ?>">
                     </div>
                     <div>
                         <label class="text-xs font-semibold text-muted" for="description">Description</label>

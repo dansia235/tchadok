@@ -32,10 +32,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $type = sanitizeInput($_POST['type'] ?? 'album');
     $releaseDate = sanitizeInput($_POST['release_date'] ?? '');
     $description = sanitizeInput($_POST['description'] ?? '');
-    $price = (float) ($_POST['price'] ?? 0);
+    $prixSaisi = validerPrix($_POST['price'] ?? 0);
+    $price = $prixSaisi['valeur'];
     $isFree = isset($_POST['is_free']) ? 1 : 0;
 
-    if (empty($title)) {
+    if (!$prixSaisi['valide']) {
+        $error = $prixSaisi['message'];
+    } elseif (empty($title)) {
         $error = 'Le titre est obligatoire.';
     } else {
         try {
@@ -51,11 +54,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new Exception($upload['message']);
                 }
                 $coverPath = IMAGES_PATH . 'albums/' . $upload['filename'];
-            }
-
-            $coverUrl = trim($_POST['cover_image_url'] ?? '');
-            if ($coverUrl) {
-                $coverPath = $coverUrl;
             }
 
             if ($isFree) {
@@ -177,10 +175,6 @@ include 'includes/header-tailwind.php';
                     <div>
                         <label class="text-xs font-semibold text-muted" for="cover_image">Couverture (upload)</label>
                         <input id="cover_image" type="file" name="cover_image" accept="image/*" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text">
-                    </div>
-                    <div>
-                        <label class="text-xs font-semibold text-muted" for="cover_image_url">Ou URL de couverture</label>
-                        <input id="cover_image_url" type="url" name="cover_image_url" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text" value="<?php echo htmlspecialchars($_POST['cover_image_url'] ?? ''); ?>" placeholder="https://...">
                     </div>
                 </div>
 

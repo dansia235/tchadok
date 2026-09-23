@@ -572,44 +572,287 @@ function generateSlug($text) {
  * Upload un fichier de manière sécurisée
  */
 function uploadFile($file, $destination, $allowedTypes, $maxSize) {
-    if (!isset($file['tmp_name']) || empty($file['tmp_name'])) {
-        return ['success' => false, 'message' => 'Aucun fichier sélectionné'];
+    // SEC-17 : l'ancienne version ne regardait que l'extension du nom envoye
+    // par le client. Un fichier PHP renomme en .mp3 passait, et se retrouvait
+    // dans un repertoire servi par le serveur web.
+    if (!is_array($file) || empty($file['tmp_name'])) {
+        return ['success' => false, 'message' => 'Aucun fichier selectionne'];
     }
-    
-    $fileName = $file['name'];
-    $fileSize = $file['size'];
-    $fileTmp = $file['tmp_name'];
-    $fileError = $file['error'];
-    
-    if ($fileError !== UPLOAD_ERR_OK) {
-        return ['success' => false, 'message' => 'Erreur lors de l\'upload'];
+
+    $erreur = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
+    if ($erreur !== UPLOAD_ERR_OK) {
+        return ['success' => false, 'message' => match ($erreur) {
+            UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'Le fichier depasse la taille autorisee.',
+            UPLOAD_ERR_PARTIAL                        => 'Le transfert a ete interrompu. Reessayez.',
+            UPLOAD_ERR_NO_FILE                        => 'Aucun fichier selectionne',
+            UPLOAD_ERR_NO_TMP_DIR, UPLOAD_ERR_CANT_WRITE => 'Le serveur ne peut pas enregistrer le fichier.',
+            default                                   => 'Le fichier n\'a pas pu etre recu.',
+        }];
     }
-    
-    $fileExt = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-    
-    if (!in_array($fileExt, $allowedTypes)) {
-        return ['success' => false, 'message' => 'Type de fichier non autorisé'];
+
+    $cheminTemporaire = (string) $file['tmp_name'];
+
+    // Le fichier doit venir d'un depot HTTP : sans ce controle, un chemin
+    // choisi par l'appelant ferait copier n'importe quel fichier du serveur.
+    if (PHP_SAPI !== 'cli' && !is_uploaded_file($cheminTemporaire)) {
+        return ['success' => false, 'message' => 'Fichier invalide.'];
     }
-    
-    if ($fileSize > $maxSize) {
-        return ['success' => false, 'message' => 'Fichier trop volumineux'];
+
+    // La taille annoncee vient du client ; celle du fichier recu, non.
+    $taille = (int) @filesize($cheminTemporaire);
+    if ($taille <= 0) {
+        return ['success' => false, 'message' => 'Fichier vide.'];
     }
-    
-    // SEC-06 : uniqid() derive de l'horloge (microsecondes) : les noms
-    // etaient previsibles et enumerables. 128 bits aleatoires a la place.
-    // La validation du contenu reel du fichier est traitee en SEC-17.
-    $newFileName = bin2hex(random_bytes(16)) . '.' . $fileExt;
-    $uploadPath = $destination . $newFileName;
-    
-    if (!is_dir($destination)) {
-        mkdir($destination, 0755, true);
+    if ($taille > $maxSize) {
+        $limite = $maxSize >= 1048576
+            ? round($maxSize / 1048576) . ' Mo'
+            : max(1, (int) round($maxSize / 1024)) . ' Ko';
+
+        return ['success' => false, 'message' => "Fichier trop volumineux (maximum {$limite})."];
     }
-    
-    if (move_uploaded_file($fileTmp, $uploadPath)) {
-        return ['success' => true, 'filename' => $newFileName, 'path' => $uploadPath];
+
+    $extension = strtolower((string) pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION));
+    $autorises = array_map('strtolower', (array) $allowedTypes);
+    if ($extension === '' || !in_array($extension, $autorises, true)) {
+        return ['success' => false, 'message' => 'Type de fichier non autorise.'];
     }
-    
-    return ['success' => false, 'message' => 'Erreur lors de la sauvegarde'];
+
+    $connus = typesDeDepotConnus();
+    if (!isset($connus[$extension])) {
+        return ['success' => false, 'message' => 'Type de fichier non autorise.'];
+    }
+
+    // Type reel, lu dans le contenu et non dans le nom.
+    $typeReel = '';
+    if (function_exists('finfo_open')) {
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        if ($finfo !== false) {
+            $typeReel = (string) finfo_file($finfo, $cheminTemporaire);
+            finfo_close($finfo);
+        }
+    }
+    if ($typeReel === '' || !in_array($typeReel, $connus[$extension]['mime'], true)) {
+        error_log(sprintf('[Tchadok][depot] refus : extension .%s, type reel "%s"', $extension, $typeReel));
+        return ['success' => false, 'message' => 'Le contenu du fichier ne correspond pas a son extension.'];
+    }
+
+    if (!signatureDepotValide($cheminTemporaire, $extension)) {
+        error_log(sprintf('[Tchadok][depot] refus : signature .%s invalide', $extension));
+        return ['success' => false, 'message' => 'Le fichier ne semble pas etre un fichier ' . $extension . ' valide.'];
+    }
+
+    // jpeg et jpg designent le meme format : une seule extension au stockage.
+    $extensionFinale = $connus[$extension]['extension'];
+    $nomFinal = bin2hex(random_bytes(16)) . '.' . $extensionFinale;
+    $destination = rtrim($destination, '/\\') . DIRECTORY_SEPARATOR;
+    $cheminFinal = $destination . $nomFinal;
+
+    // Le @ est volontaire : l'echec est traite ici, et l'avertissement de PHP
+    // partirait sinon dans la page en cours de construction.
+    if (!is_dir($destination) && !@mkdir($destination, 0755, true) && !is_dir($destination)) {
+        error_log('[Tchadok][depot] repertoire impossible a creer : ' . $destination);
+        return ['success' => false, 'message' => 'Le serveur ne peut pas enregistrer le fichier.'];
+    }
+    if (!is_writable($destination)) {
+        error_log('[Tchadok][depot] repertoire non inscriptible : ' . $destination);
+        return ['success' => false, 'message' => 'Le serveur ne peut pas enregistrer le fichier.'];
+    }
+
+    if ($connus[$extension]['famille'] === 'image') {
+        // Re-encodage : ce qui sort de GD est une image et rien d'autre. Les
+        // metadonnees, ou l'on glisse volontiers du code, ne survivent pas.
+        if (!reencoderImageDeposee($cheminTemporaire, $cheminFinal, $extensionFinale)) {
+            return ['success' => false, 'message' => 'Cette image n\'a pas pu etre traitee.'];
+        }
+    } elseif (!deplacerFichierDepose($cheminTemporaire, $cheminFinal)) {
+        error_log('[Tchadok][depot] enregistrement impossible : ' . $cheminFinal);
+        return ['success' => false, 'message' => 'Erreur lors de la sauvegarde'];
+    }
+
+    @chmod($cheminFinal, 0644);
+
+    return [
+        'success'  => true,
+        'filename' => $nomFinal,
+        'path'     => $cheminFinal,
+        'mime'     => $typeReel,
+        'size'     => (int) @filesize($cheminFinal),
+    ];
+}
+
+/**
+ * Valide un prix saisi (SEC-17).
+ *
+ * `(float) $_POST['price']` acceptait n'importe quoi : une valeur negative
+ * aurait credite l'acheteur, une valeur absurde aurait traverse toute la
+ * chaine de facturation.
+ *
+ * @return array{valide:bool,valeur:float,message:string}
+ */
+function validerPrix($brut): array
+{
+    $brut = is_string($brut) ? str_replace([' ', ','], ['', '.'], trim($brut)) : $brut;
+
+    if ($brut === '' || $brut === null) {
+        return ['valide' => true, 'valeur' => 0.0, 'message' => ''];
+    }
+
+    if (!is_numeric($brut)) {
+        return ['valide' => false, 'valeur' => 0.0, 'message' => 'Le prix doit etre un nombre.'];
+    }
+
+    $valeur = (float) $brut;
+    $minimum = defined('PRIX_MINIMUM') ? (float) PRIX_MINIMUM : 0.0;
+    $maximum = defined('PRIX_MAXIMUM') ? (float) PRIX_MAXIMUM : 500000.0;
+    $pas     = defined('PRIX_PAS') ? (int) PRIX_PAS : 50;
+
+    if ($valeur < $minimum) {
+        return ['valide' => false, 'valeur' => 0.0, 'message' => 'Le prix ne peut pas etre negatif.'];
+    }
+    if ($valeur > $maximum) {
+        return ['valide' => false, 'valeur' => 0.0, 'message' => 'Le prix depasse le maximum autorise (' . number_format($maximum, 0, ',', ' ') . ' FCFA).'];
+    }
+    if ($pas > 0 && fmod($valeur, $pas) !== 0.0) {
+        return ['valide' => false, 'valeur' => 0.0, 'message' => "Le prix doit etre un multiple de {$pas} FCFA."];
+    }
+
+    return ['valide' => true, 'valeur' => $valeur, 'message' => ''];
+}
+
+/**
+ * Deplace le fichier valide vers sa destination (SEC-17).
+ *
+ * move_uploaded_file pour un depot HTTP -- c'est lui qui garantit que le
+ * fichier vient bien du formulaire. Pour une ingestion lancee en ligne de
+ * commande (import, reprise de catalogue), un deplacement ordinaire : la
+ * provenance a deja ete controlee plus haut, ou elle ne vient pas du reseau.
+ */
+function deplacerFichierDepose(string $source, string $destination): bool
+{
+    if (is_uploaded_file($source)) {
+        return move_uploaded_file($source, $destination);
+    }
+
+    if (PHP_SAPI !== 'cli') {
+        return false;
+    }
+
+    return @rename($source, $destination) || @copy($source, $destination);
+}
+
+/**
+ * Types de depot reconnus : extension -> types reels acceptes, famille et
+ * extension de stockage (SEC-17).
+ */
+function typesDeDepotConnus(): array
+{
+    return [
+        // application/octet-stream volontairement absent : accepter le type
+        // "binaire quelconque" reviendrait a ne rien verifier.
+        'mp3'  => ['mime' => ['audio/mpeg', 'audio/mp3'], 'famille' => 'audio', 'extension' => 'mp3'],
+        'wav'  => ['mime' => ['audio/wav', 'audio/x-wav', 'audio/vnd.wave', 'audio/wave'], 'famille' => 'audio', 'extension' => 'wav'],
+        'flac' => ['mime' => ['audio/flac', 'audio/x-flac'], 'famille' => 'audio', 'extension' => 'flac'],
+        'm4a'  => ['mime' => ['audio/mp4', 'audio/x-m4a', 'video/mp4'], 'famille' => 'audio', 'extension' => 'm4a'],
+        'jpg'  => ['mime' => ['image/jpeg'], 'famille' => 'image', 'extension' => 'jpg'],
+        'jpeg' => ['mime' => ['image/jpeg'], 'famille' => 'image', 'extension' => 'jpg'],
+        'png'  => ['mime' => ['image/png'], 'famille' => 'image', 'extension' => 'png'],
+        'webp' => ['mime' => ['image/webp'], 'famille' => 'image', 'extension' => 'webp'],
+    ];
+}
+
+/**
+ * Verifie l'en-tete du fichier (SEC-17).
+ *
+ * finfo se fie a des motifs ; un fichier peut commencer par une signature
+ * valide et contenir autre chose ensuite. Ce controle complementaire refuse
+ * au moins tout ce qui ne commence pas comme le format annonce -- en
+ * particulier "<?php", "<script" ou "GIF89a".
+ */
+function signatureDepotValide(string $chemin, string $extension): bool
+{
+    $flux = @fopen($chemin, 'rb');
+    if ($flux === false) {
+        return false;
+    }
+    $entete = (string) fread($flux, 16);
+    fclose($flux);
+
+    if (strlen($entete) < 4) {
+        return false;
+    }
+
+    // Rien de ce qui commence par du texte executable ne doit passer, quelle
+    // que soit la suite.
+    $debut = strtolower(substr($entete, 0, 5));
+    if ($debut === '<?php' || str_starts_with($debut, '<?') || str_starts_with($debut, '<scri') || str_starts_with($debut, '<html')) {
+        return false;
+    }
+
+    return match ($extension) {
+        'mp3'        => str_starts_with($entete, 'ID3')
+                        || (ord($entete[0]) === 0xFF && (ord($entete[1]) & 0xE0) === 0xE0),
+        'wav'        => str_starts_with($entete, 'RIFF') && substr($entete, 8, 4) === 'WAVE',
+        'flac'       => str_starts_with($entete, 'fLaC'),
+        'm4a'        => substr($entete, 4, 4) === 'ftyp',
+        'jpg', 'jpeg' => str_starts_with($entete, "\xFF\xD8\xFF"),
+        'png'        => str_starts_with($entete, "\x89PNG\r\n\x1a\n"),
+        'webp'       => str_starts_with($entete, 'RIFF') && substr($entete, 8, 4) === 'WEBP',
+        default      => false,
+    };
+}
+
+/**
+ * Re-encode une image deposee vers sa destination (SEC-17).
+ *
+ * Sans GD, le fichier est accepte apres un controle par getimagesize() -- ce
+ * qui est moins sur : l'exploitant est prevenu dans le journal.
+ */
+function reencoderImageDeposee(string $source, string $destination, string $extension): bool
+{
+    $infos = @getimagesize($source);
+    if ($infos === false) {
+        return false;
+    }
+
+    if (!extension_loaded('gd')) {
+        error_log('[Tchadok][depot] GD absente : image enregistree sans re-encodage (SEC-17)');
+        return move_uploaded_file($source, $destination) || copy($source, $destination);
+    }
+
+    $image = match ($infos[2]) {
+        IMAGETYPE_JPEG => @imagecreatefromjpeg($source),
+        IMAGETYPE_PNG  => @imagecreatefrompng($source),
+        IMAGETYPE_WEBP => function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($source) : false,
+        default        => false,
+    };
+    if ($image === false) {
+        return false;
+    }
+
+    // Borne haute : une pochette de 10 000 pixels de cote ne sert a personne
+    // et sature la memoire du serveur a chaque affichage.
+    $largeur = imagesx($image);
+    $hauteur = imagesy($image);
+    $maximum = 3000;
+    if ($largeur > $maximum || $hauteur > $maximum) {
+        $ratio = min($maximum / $largeur, $maximum / $hauteur);
+        $reduite = imagescale($image, (int) round($largeur * $ratio), (int) round($hauteur * $ratio));
+        if ($reduite !== false) {
+            imagedestroy($image);
+            $image = $reduite;
+        }
+    }
+
+    $succes = match ($extension) {
+        'jpg'   => imagejpeg($image, $destination, 88),
+        'png'   => imagepng($image, $destination, 6),
+        'webp'  => function_exists('imagewebp') ? imagewebp($image, $destination, 88) : false,
+        default => false,
+    };
+
+    imagedestroy($image);
+
+    return (bool) $succes;
 }
 
 /**

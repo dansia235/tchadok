@@ -87,6 +87,12 @@ define('PAYMENT_WALLET', 'wallet');
 // Commission par défaut
 define('DEFAULT_COMMISSION_RATE', 15.0); // 15%
 
+// SEC-17 : bornes de prix. (float) $_POST['price'] acceptait -500, ce qui
+// aurait credite l'acheteur a chaque vente.
+define('PRIX_MINIMUM', 0);
+define('PRIX_MAXIMUM', 500000);  // FCFA : au-dela, c'est une erreur de saisie
+define('PRIX_PAS', 50);          // grille tarifaire, alignee sur les formulaires
+
 // Durée de session (en secondes)
 if (!defined('SESSION_LIFETIME')) {
     if (function_exists('env')) {

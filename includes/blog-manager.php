@@ -629,11 +629,10 @@ function blogSavePost(array $payload, array $files, $authorId, $postId = 0) {
         $featuredImage = IMAGES_PATH . 'blog/' . $upload['filename'];
     }
 
-    $featuredImageUrl = trim((string) ($payload['featured_image_url'] ?? ''));
-    if ($featuredImageUrl !== '') {
-        $featuredImage = $featuredImageUrl;
-    }
-
+    // SEC-17 : la couverture ne peut plus etre une URL fournie au formulaire.
+    // Une adresse arbitraire enregistree comme chemin d'image contourne tout
+    // controle de fichier, expose le site a du contenu tiers qui change sans
+    // preavis, et sera de toute facon refusee par la politique de contenu.
     $publishedAt = $publishAtInput;
     if ($status === 'published' && !$publishedAt) {
         $publishedAt = $existing['published_at'] ?? date('Y-m-d H:i:s');

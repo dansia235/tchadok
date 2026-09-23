@@ -951,7 +951,19 @@ Les deux `.htaccess` référencent `404.php`, `403.php`, `500.php` : **les trois
 
 ### SEC-17 — Supprimer la publication par URL arbitraire et durcir les dépôts
 
-**Charge :** 1 j · **Fichiers :** `artist-add-song.php`, `artist-add-album.php`, `upload.php`, `includes/functions.php`
+**Charge :** 1 j · **Fichiers :** `artist-add-song.php`, `artist-add-album.php`, `upload.php`, `includes/functions.php` · **Statut :** fait le 23/09/2026
+
+> **Bilan.** `uploadFile()` ne regardait que l'extension du nom envoyé par le client : un fichier PHP renommé en `.mp3` passait et atterrissait dans un répertoire servi par le serveur web. Elle contrôle désormais, dans cet ordre : le code d'erreur du dépôt, la provenance (`is_uploaded_file`), la **taille réelle** du fichier reçu (celle annoncée vient du client), l'extension dans la liste blanche de l'appelant, le **type réel** lu par `finfo`, et la **signature du conteneur** (ID3 ou synchronisation MPEG, `RIFF/WAVE`, `fLaC`, `ftyp`, `FF D8 FF`, `\x89PNG`, `RIFF/WEBP`). Tout ce qui commence par `<?php`, `<script` ou `<html` est refusé quoi qu'il arrive.
+>
+> **Les images sont ré-encodées** par GD : ce qui sort est une image et rien d'autre, les métadonnées — où l'on glisse volontiers du code — ne survivent pas. Un test dépose un JPEG valide suivi d'une charge PHP et vérifie qu'elle a disparu du fichier enregistré. Les images au-delà de 3 000 pixels sont réduites. Sans GD, le fichier est accepté après contrôle par `getimagesize()`, et l'exploitant est prévenu dans le journal.
+>
+> **`mkdir()` est vérifié** (point 4), l'écriture du répertoire aussi, et l'échec produit un message compréhensible au lieu d'une erreur PHP dans la page.
+>
+> **Publication par URL supprimée** (point 1) — **et au-delà du périmètre annoncé.** Le plan visait les deux formulaires artiste ; les champs existaient en réalité dans **neuf** points d'entrée (`artist-add-song`, `artist-add-album`, `admin-add-song`, `admin-add-album`, `admin-podcasts`, `admin-manage-radio`, `admin-playlists`, `create-playlist`, `admin-blog`, plus le traitement de `includes/blog-manager.php`). N'en retirer que deux aurait laissé la faille ouverte par la console : un chemin de média pointant sur une adresse externe contourne `media.php`, donc tout le contrôle d'accès de `SEC-06`, et casserait de toute façon la politique de contenu de `SEC-18`.
+>
+> **Prix bornés** (point 5) : `validerPrix()` refuse le négatif — `(float) $_POST['price']` acceptait `-500`, ce qui aurait **crédité l'acheteur à chaque vente** —, le montant absurde (plafond 500 000 FCFA) et les valeurs hors grille (multiples de 50 FCFA, comme les formulaires l'annoncent). Appliqué aux quatre formulaires de publication.
+>
+> **Vérifié :** `tests/securite/sec17-depots.php` (38 contrôles) — PHP déguisé en `.mp3`, `.jpg` et `.png`, texte déguisé en audio, MP3 déguisé en WAV, JPEG déguisé en PNG, extensions hors liste, fichier vide, dépassement de taille, répertoire impossible, charge utile dans une image, noms de stockage aléatoires et non répétés, bornes de prix, absence des champs URL dans les neuf fichiers, et un essai de bout en bout qui force `audio_file_url` depuis la console : aucun titre n'est créé. Les onze autres suites au vert ; 18 pages publiques en 200.
 
 `$_POST['audio_file_url']` et `$_POST['cover_image_url']` sont stockés tels quels comme chemin du média, court-circuitant tout contrôle de fichier. Le contrôle de dépôt lui-même ne vérifie que **l'extension**.
 
