@@ -36,8 +36,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $price = $prixSaisi['valeur'];
     $isFree = isset($_POST['is_free']) ? 1 : 0;
 
+    // DATA-03 : les regles de format sont verifiees ici, cote serveur. Un
+    // controle qui ne vit que dans le formulaire se contourne en envoyant la
+    // requete directement.
+    $erreursFormat = Sorties::validerEnregistrement($type, $isFree ? null : $price, (bool) $isFree);
+
     if (!$prixSaisi['valide']) {
         $error = $prixSaisi['message'];
+    } elseif ($erreursFormat !== []) {
+        $error = implode(' ', $erreursFormat);
     } elseif (empty($title)) {
         $error = 'Le titre est obligatoire.';
     } else {
@@ -60,23 +67,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $price = 0;
             }
 
+            // DATA-03 : la sortie est enregistree en BROUILLON. Elle ne part en
+            // moderation qu'une fois ses titres ajoutes : un album vide ne
+            // respecte aucune regle de composition.
             $stmt = $db->prepare("
-                INSERT INTO albums
-                (artist_id, title, description, cover_image, genre_id, type, price, release_date, is_free, status, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
+                INSERT INTO releases
+                (artist_id, title, slug, description, cover_image, genre_id, format, price_bundle,
+                 release_date, is_free, status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', NOW())
             ");
             $stmt->execute([
                 $artist['id'],
                 $title,
+                Sorties::slug($title, 'releases'),
                 $description ?: null,
                 $coverPath,
                 $genreId,
                 $type,
-                $price,
+                $isFree ? null : ($price ?: null),
                 $releaseDate ?: null,
                 $isFree
             ]);
-            $success = 'Album cree avec succes !';
+            $success = sprintf(
+                '%s enregistre en brouillon. Ajoutez-y %s, puis envoyez-le en moderation.',
+                Sorties::libelle($type),
+                Sorties::attendu($type)
+            );
             header('refresh:2;url=' . SITE_URL . '/artist-dashboard.php');
         } catch (Exception $e) {
             $error = GestionErreurs::messagePublic($e, 'ajout d\'un album (artiste)');

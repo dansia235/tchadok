@@ -34,8 +34,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $isFeatured = isset($_POST['is_featured']) ? 1 : 0;
     $status = sanitizeInput($_POST['status'] ?? 'draft');
 
+    // DATA-03 : memes regles de format que du cote artiste. La console n'est
+    // pas une porte derobee.
+    $erreursFormat = Sorties::validerEnregistrement($type, $isFree ? null : $price, (bool) $isFree);
+
     if (!$prixSaisi['valide']) {
         $error = $prixSaisi['message'];
+    } elseif ($erreursFormat !== []) {
+        $error = implode(' ', $erreursFormat);
     } elseif (empty($title) || $artistId <= 0) {
         $error = 'Titre et artiste obligatoires.';
     } else {
@@ -63,33 +69,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $status = 'draft';
             }
 
+            // DATA-03 : la sortie est toujours creee en brouillon. Le statut
+            // demande n'est applique qu'ensuite, par changerStatut(), qui
+            // verifie la composition -- une sortie sans titre ne peut pas etre
+            // publiee, quel que soit le formulaire qui la cree.
             $stmt = $db->prepare("
-                INSERT INTO albums
-                (artist_id, title, description, cover_image, genre_id, type, price, release_date, language, is_free, is_featured, status, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                INSERT INTO releases
+                (artist_id, title, slug, description, cover_image, genre_id, format, price_bundle,
+                 release_date, language, is_free, is_featured, status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', NOW())
             ");
             $stmt->execute([
                 $artistId,
                 $title,
+                Sorties::slug($title, 'releases'),
                 $description ?: null,
                 $coverPath,
                 $genreId,
                 $type,
-                $price,
+                $isFree ? null : ($price ?: null),
                 $releaseDate ?: null,
                 $language ?: null,
                 $isFree,
-                $isFeatured,
-                $status
+                $isFeatured
             ]);
+            $releaseId = (int) $db->lastInsertId();
+
             // SEC-19 : trace de l'ajout, avec le statut initial et le prix.
             JournalAudit::enregistrer('contenu.cree', [
-                'cible_type' => 'album',
-                'cible_id'   => $db->lastInsertId(),
-                'apres'      => ['titre' => $title, 'artiste_id' => $artistId, 'statut' => $status, 'prix' => $price],
+                'cible_type' => 'sortie',
+                'cible_id'   => $releaseId,
+                'apres'      => ['titre' => $title, 'artiste_id' => $artistId, 'format' => $type, 'statut' => 'draft', 'prix' => $price],
             ]);
 
-            $success = 'Album ajouté avec succès !';
+            $success = sprintf('%s enregistre en brouillon.', Sorties::libelle($type));
+
+            if ($status !== 'draft') {
+                $changement = Sorties::changerStatut($releaseId, $status, (int) ($_SESSION['user_id'] ?? 0));
+                if ($changement['succes']) {
+                    $success = sprintf('%s enregistre (%s).', Sorties::libelle($type), $status);
+                } else {
+                    $success = '';
+                    $error = implode(' ', $changement['erreurs'])
+                        . ' La sortie reste en brouillon : ajoutez les titres, puis publiez-la.';
+                }
+            }
+
             header('refresh:2;url=' . SITE_URL . '/admin-dashboard.php');
         } catch (Exception $e) {
             $error = GestionErreurs::messagePublic($e, 'ajout d\'un album (admin)');

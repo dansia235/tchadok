@@ -1289,7 +1289,23 @@ La table `users` porte `password` **et** `password_hash`, toutes deux `NOT NULL`
 
 ### DATA-03 — Introduire l'entité « sortie » (release) et les formats de vente
 
-**Charge :** 2 j · **Dépend de :** `DATA-01` · **Bloque :** `SHOP-*`, `MOD-*`
+**Charge :** 2 j · **Dépend de :** `DATA-01` · **Bloque :** `SHOP-*`, `MOD-*` · **Statut :** fait le 23/09/2026
+
+> **Bilan.** La table `releases` existe et porte ce que l'artiste met en vente : `format` (single, maxi single, EP, album, compilation), `slug` unique, `price_bundle`, `allow_track_buy`, `is_preorder`, le circuit de modération (`status`, `rejected_reason`, `reviewed_by`, `reviewed_at`) et les compteurs. `tracks.release_id`, `tracks.slug` et `artists.slug` complètent le rattachement et préparent les URL parlantes de `SEO-02`.
+>
+> **Les albums existants sont repris identifiants inclus**, avec leurs compteurs d'écoutes et de ventes, puis `albums` devient une **vue de compatibilité** exposant les anciens noms de colonnes (`format AS type`, `COALESCE(price_bundle, 0) AS price`). Les quatorze lectures existantes — `getAlbums()`, `countAlbums()`, `albums.php`, `api/track.php`, `api/playlists.php`, `history.php`, les deux tableaux de bord — continuent de fonctionner sans être touchées. `tracks.album_id` est conservée le temps que le code migre ; la clé étrangère vers l'ancienne table est retirée, sans quoi la table ne pouvait pas devenir une vue.
+>
+> **Les règles de format vivent dans `includes/sorties.php`, pas dans les formulaires.** Un contrôle qui ne vit que dans l'interface se contourne en envoyant la requête directement — ce que fera l'application Android. `Sorties::verifierComposition()` ne touche pas la base : c'est le cœur testable, réutilisable par la future API. Les formulaires artiste et console appellent `validerEnregistrement()` avant d'écrire, et `changerStatut()` avant toute publication.
+>
+> **Le moment du contrôle compte.** À la création, une sortie n'a aucun titre : exiger huit titres pour un album empêcherait de le créer. Le nombre de titres est donc vérifié à la **publication** (passage en « en attente » ou « approuvé »), le prix à l'enregistrement, où il est déjà connu. Une sortie naît en **brouillon** ; un refus, lui, n'exige aucune composition — on doit pouvoir rejeter un brouillon vide.
+>
+> **La remise du bundle est une règle, pas une suggestion** : 10 % minimum pour un maxi single ou un EP, 15 % pour un album ou une compilation. Sans remise, personne n'a de raison d'acheter la sortie plutôt que les titres un par un. Le message de refus chiffre le plafond au lieu d'énoncer un principe.
+>
+> **Code basculé** : `artist-add-album.php`, `admin-add-album.php` et `upload.php` écrivent dans `releases` ; les trois `INSERT INTO tracks` (`upload.php`, `artist-add-song.php`, `admin-add-song.php`) renseignent `release_id` et le slug. `scripts/generer-slugs.php` remplit les slugs manquants sur une base existante.
+>
+> **Deux défauts trouvés par les tests, et corrigés.** Le jeu d'essai `SEC-08` écrivait dans `albums`, devenue une vue non inscriptible — il écrit désormais dans `releases`. Le test `DATA-01` comptait deux vues sur une base fraîchement migrée ; il en attend trois et vérifie nommément la vue de compatibilité.
+>
+> **Vérifié :** `tests/schema/data03-sorties.php` (109 contrôles). Les trois critères du plan sont vérifiés **deux fois** : sans base, sur le cœur de règles, puis sur la base réelle par le chemin qu'empruntent les formulaires — un album d'un titre reste en brouillon, un maxi single sans prix est refusé, la sortie migrée ressort par `getAlbums()` et s'affiche sur `albums.php`. Les seize autres suites au vert : **785 contrôles** au total.
 
 Le modèle actuel sépare `tracks` et `albums`, ce qui empêche de vendre un single comme un produit. L'énumération `albums.type` contient déjà `single`, `maxi_single`, `ep`, `album` mais n'est ni validée ni exploitée.
 

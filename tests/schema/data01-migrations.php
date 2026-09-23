@@ -83,7 +83,10 @@ try {
 
     verif('Les tables du catalogue existent', compte("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='{$baseEssai}' AND table_name IN ('users','tracks','albums','artists')") === 4);
     verif('Les tables de securite existent', compte("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='{$baseEssai}' AND table_name IN ('user_sessions','remember_tokens','login_attempts','rate_limit_hits')") === 4);
-    verif('Les vues existent', compte("SELECT COUNT(*) FROM information_schema.views WHERE table_schema='{$baseEssai}'") === 2);
+    // DATA-03 a ajoute une troisieme vue : `albums`, devenue une vue de
+    // compatibilite au-dessus de `releases`.
+    verif('Les vues existent', compte("SELECT COUNT(*) FROM information_schema.views WHERE table_schema='{$baseEssai}'") === 3);
+    verif('... dont la vue de compatibilite `albums`', compte("SELECT COUNT(*) FROM information_schema.views WHERE table_schema='{$baseEssai}' AND table_name='albums'") === 1);
     verif('Les declencheurs sont crees (corps a points-virgules)', compte("SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema='{$baseEssai}'") === 3);
     verif('users.remember_token a bien ete retiree', compte("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='{$baseEssai}' AND table_name='users' AND column_name='remember_token'") === 0);
     verif('Aucun DEFINER fige dans les vues', compte("SELECT COUNT(*) FROM information_schema.views WHERE table_schema='{$baseEssai}' AND definer LIKE 'root@%'") >= 0);

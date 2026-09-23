@@ -88,11 +88,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $stmt = $db->prepare("
                 INSERT INTO tracks
-                (album_id, artist_id, title, description, genre_id, audio_file, preview_file, lyrics, duration, track_number, price, is_free, download_allowed, language, release_date, explicit_content, status, is_featured, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                (album_id, release_id, slug, artist_id, title, description, genre_id, audio_file, preview_file, lyrics, duration, track_number, price, is_free, download_allowed, language, release_date, explicit_content, status, is_featured, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
             ");
             $stmt->execute([
                 $albumId,
+                $albumId,
+                Sorties::slug($title, 'tracks'),
                 $artistId,
                 $title,
                 $description ?: null,

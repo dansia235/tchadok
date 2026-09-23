@@ -1358,6 +1358,9 @@ require_once __DIR__ . '/audit.php';
 // SEC-20 : second facteur.
 require_once __DIR__ . '/deux-facteurs.php';
 
+// DATA-03 : sorties et formats de vente.
+require_once __DIR__ . '/sorties.php';
+
 // Initialisation de la session
 startSecureSession();
 

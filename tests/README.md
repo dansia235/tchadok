@@ -52,12 +52,14 @@ C:\xampp\php\php.exe tests\securite\sec20-deux-facteurs.php
 
 | Script | Tache | Couvre |
 |---|---|---|
-| `schema/data01-migrations.php` | `DATA-01` | Systeme de migrations : base vide devenue complete par `migrate.php up`, rejeu sans effet, registre et empreintes, annulation puis reapplication, refus d'annuler la photographie du schema, detection d'une migration modifiee apres application, refus d'execution par le web, proprietes de l'export de reference. **36 controles.** Tout se passe dans une base jetable, creee et supprimee par le test ; `DB_DATABASE` est devie le temps des essais puis restaure. |
+| `schema/data01-migrations.php` | `DATA-01` | Systeme de migrations : base vide devenue complete par `migrate.php up`, rejeu sans effet, registre et empreintes, annulation puis reapplication, refus d'annuler la photographie du schema, detection d'une migration modifiee apres application, refus d'execution par le web, proprietes de l'export de reference. **37 controles.** Tout se passe dans une base jetable, creee et supprimee par le test ; `DB_DATABASE` est devie le temps des essais puis restaure. |
 | `schema/data02-mot-de-passe.php` | `DATA-02` | Disparition de la colonne `password` ; **essai de connexion réel avec l'ancien mot de passe après changement** ; absence de lecture et d'écriture de la colonne dans huit fichiers ; `checkAdminCredentials()` réduite à `password_hash` et contrôlant `is_active` ; jeux de données à jour ; script d'analyse et migration réversible. **18 contrôles.** |
+| `schema/data03-sorties.php` | `DATA-03` | Entité « sortie » et formats de vente : schéma de `releases`, `albums` devenue vue de compatibilité, règles de composition **sans base puis sur la base réelle** (album d'un titre refusé, maxi single sans prix refusé, remise minimale du bundle, compilation multi-artistes), migration des albums sans perte vérifiée par `getAlbums()` et la page publique, chemins d'écriture basculés sur `releases`, slugs et script de rattrapage avec mode simulation. **109 contrôles.** |
 
 `
 C:\xampp\php\php.exe tests\schema\data01-migrations.php
 C:\xampp\php\php.exe tests\schema\data02-mot-de-passe.php
+C:\xampp\php\php.exe tests\schema\data03-sorties.php
 `
 
 ### Pièges de PowerShell 5.1 rencontrés
@@ -102,7 +104,16 @@ des plages réservées :
 |---|---|
 | `users` | 901 – 999 |
 | `artists` | 901 – 999 |
+| `releases` | 901 – 999 |
 | `tracks` | 9001 – 9999 |
+
+### `albums` est une vue, plus une table
+
+Depuis `DATA-03`, `albums` est une **vue de compatibilité** au-dessus de
+`releases`. Un jeu d'essai qui y insère échoue avec « The target table albums of
+the INSERT is not insertable-into » : les jeux de données écrivent dans
+`releases` (colonnes `format`, `price_bundle`, `slug`) et lisent dans `albums`
+quand ils vérifient le comportement des anciennes fonctions.
 
 ### Pourquoi `curl.exe` pour les requêtes média
 

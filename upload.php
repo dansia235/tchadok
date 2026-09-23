@@ -121,46 +121,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
+            // DATA-03 : le depot cree une SORTIE, pas un « album ». Un titre
+            // depose seul devient un single ; un titre rattache a un nom
+            // d'ensemble rejoint la sortie du meme nom, creee au besoin.
             $albumId = null;
-            if ($albumTitle !== '') {
-                $stmt = $db->prepare("SELECT id FROM albums WHERE artist_id = ? AND title = ? LIMIT 1");
-                $stmt->execute([$artist['id'], $albumTitle]);
+            $nomSortie = $albumTitle !== '' ? $albumTitle : ($coverPath ? $title : '');
+            $formatSortie = $albumTitle !== '' ? 'album' : 'single';
+
+            if ($nomSortie !== '') {
+                $stmt = $db->prepare('SELECT id FROM releases WHERE artist_id = ? AND title = ? LIMIT 1');
+                $stmt->execute([$artist['id'], $nomSortie]);
                 $albumId = $stmt->fetchColumn();
 
                 if (!$albumId) {
                     $stmt = $db->prepare("
-                        INSERT INTO albums (artist_id, title, description, cover_image, genre_id, type, price, release_date, language, is_free, status, created_at)
-                        VALUES (?, ?, ?, ?, ?, 'album', 0, ?, ?, 1, 'draft', NOW())
+                        INSERT INTO releases
+                        (artist_id, title, slug, description, cover_image, genre_id, format,
+                         release_date, language, is_free, status, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'draft', NOW())
                     ");
                     $stmt->execute([
                         $artist['id'],
-                        $albumTitle,
+                        $nomSortie,
+                        Sorties::slug($nomSortie, 'releases'),
                         $description ?: null,
                         $coverPath,
                         $genreId,
+                        $formatSortie,
                         $releaseDate ?: null,
                         $language ?: null
                     ]);
                     $albumId = (int) $db->lastInsertId();
                 } elseif ($coverPath) {
-                    $stmt = $db->prepare("UPDATE albums SET cover_image = COALESCE(cover_image, ?) WHERE id = ?");
+                    $stmt = $db->prepare('UPDATE releases SET cover_image = COALESCE(cover_image, ?) WHERE id = ?');
                     $stmt->execute([$coverPath, $albumId]);
                 }
-            } elseif ($coverPath) {
-                $stmt = $db->prepare("
-                    INSERT INTO albums (artist_id, title, description, cover_image, genre_id, type, price, release_date, language, is_free, status, created_at)
-                    VALUES (?, ?, ?, ?, ?, 'single', 0, ?, ?, 1, 'draft', NOW())
-                ");
-                $stmt->execute([
-                    $artist['id'],
-                    $title,
-                    $description ?: null,
-                    $coverPath,
-                    $genreId,
-                    $releaseDate ?: null,
-                    $language ?: null
-                ]);
-                $albumId = (int) $db->lastInsertId();
             }
 
             if ($featuring) {
@@ -182,11 +177,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $stmt = $db->prepare("
                 INSERT INTO tracks
-                (album_id, artist_id, title, description, genre_id, audio_file, preview_file, lyrics, duration, price, is_free, download_allowed, language, release_date, explicit_content, status, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
+                (album_id, release_id, slug, artist_id, title, description, genre_id, audio_file, preview_file, lyrics, duration, price, is_free, download_allowed, language, release_date, explicit_content, status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
             ");
             $stmt->execute([
                 $albumId,
+                $albumId,
+                Sorties::slug($title, 'tracks'),
                 $artist['id'],
                 $title,
                 $description ?: null,

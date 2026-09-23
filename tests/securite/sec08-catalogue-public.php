@@ -68,7 +68,9 @@ function nettoyer(PDO $pdo): void
 {
     $pdo->exec('DELETE FROM streams WHERE track_id BETWEEN 9101 AND 9199');
     $pdo->exec('DELETE FROM tracks  WHERE id BETWEEN 9101 AND 9199');
-    $pdo->exec('DELETE FROM albums  WHERE id BETWEEN 9101 AND 9199');
+    // DATA-03 : `albums` est desormais une vue ; le jeu d'essai vit dans
+    // `releases`, la table reelle.
+    $pdo->exec('DELETE FROM releases WHERE id BETWEEN 9101 AND 9199');
     $pdo->exec('DELETE FROM artists WHERE id IN (911, 912)');
     $pdo->exec('DELETE FROM users   WHERE id IN (911, 912)');
     $pdo->exec('DELETE FROM genres  WHERE id = 991');
@@ -88,17 +90,17 @@ $pdo->exec("INSERT INTO artists (id, user_id, stage_name, is_active, featured, v
             VALUES (911, 911, 'ZZSEC08 Actif', 1, 1, 1, 'ZZSEC08 Genre'),
                    (912, 912, 'ZZSEC08 Inactif', 0, 1, 1, 'ZZSEC08 Genre')");
 
-$pdo->exec("INSERT INTO albums (id, artist_id, title, genre_id, type, status, release_date) VALUES
-    (9101, 911, 'ZZSEC08 Album publie',   991, 'album', 'approved', '2026-09-01'),
-    (9102, 911, 'ZZSEC08 Album brouillon', 991, 'ep',   'draft',    '2026-09-02'),
-    (9103, 911, 'ZZSEC08 Album attente',   991, 'single','pending', '2026-09-03')");
+$pdo->exec("INSERT INTO releases (id, artist_id, title, slug, genre_id, format, status, release_date) VALUES
+    (9101, 911, 'ZZSEC08 Album publie',   'zzsec08-album-publie',    991, 'album', 'approved', '2026-09-01'),
+    (9102, 911, 'ZZSEC08 Album brouillon','zzsec08-album-brouillon', 991, 'ep',    'draft',    '2026-09-02'),
+    (9103, 911, 'ZZSEC08 Album attente',  'zzsec08-album-attente',   991, 'single','pending',  '2026-09-03')");
 
-$pdo->exec("INSERT INTO tracks (id, artist_id, album_id, genre_id, title, audio_file, duration, is_free, status, total_streams, release_date) VALUES
-    (9101, 911, 9101, 991, 'ZZSEC08 Titre publie',   'x.mp3', 200, 1, 'approved', 50, '2026-09-01'),
-    (9102, 911, 9102, 991, 'ZZSEC08 Titre brouillon', 'x.mp3', 200, 1, 'draft',    90, '2026-09-02'),
-    (9103, 911, 9103, 991, 'ZZSEC08 Titre attente',   'x.mp3', 200, 1, 'pending',  80, '2026-09-03'),
-    (9104, 911, NULL, 991, 'ZZSEC08 Titre rejete',    'x.mp3', 200, 1, 'rejected', 70, '2026-09-04'),
-    (9105, 912, NULL, 991, 'ZZSEC08 Titre artiste inactif', 'x.mp3', 200, 1, 'approved', 60, '2026-09-05')");
+$pdo->exec("INSERT INTO tracks (id, artist_id, album_id, release_id, genre_id, title, audio_file, duration, is_free, status, total_streams, release_date) VALUES
+    (9101, 911, 9101, 9101, 991, 'ZZSEC08 Titre publie',   'x.mp3', 200, 1, 'approved', 50, '2026-09-01'),
+    (9102, 911, 9102, 9102, 991, 'ZZSEC08 Titre brouillon', 'x.mp3', 200, 1, 'draft',    90, '2026-09-02'),
+    (9103, 911, 9103, 9103, 991, 'ZZSEC08 Titre attente',   'x.mp3', 200, 1, 'pending',  80, '2026-09-03'),
+    (9104, 911, NULL, NULL, 991, 'ZZSEC08 Titre rejete',    'x.mp3', 200, 1, 'rejected', 70, '2026-09-04'),
+    (9105, 912, NULL, NULL, 991, 'ZZSEC08 Titre artiste inactif', 'x.mp3', 200, 1, 'approved', 60, '2026-09-05')");
 
 $pdo->exec("INSERT INTO streams (track_id, artist_id, duration_played, completed) VALUES
     (9101, 911, 60, 1), (9102, 911, 60, 1)");
