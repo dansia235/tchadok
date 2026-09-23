@@ -51,6 +51,10 @@ final class JournalAudit
         'remboursement.execute'    => 'Remboursement execute',
         'donnees.export'           => 'Export de donnees personnelles',
         'classement.arrete'        => 'Classement arrete',
+        '2fa.active'               => 'Double authentification activee',
+        '2fa.desactive'            => 'Double authentification desactivee',
+        '2fa.code-secours'         => 'Connexion par code de secours',
+        '2fa.echec'                => 'Second facteur refuse',
     ];
 
     private static ?bool $tableDisponible = null;

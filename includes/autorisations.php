@@ -142,6 +142,31 @@ final class Autorisations
     public static function exiger(string $permission): void
     {
         if (self::peut($permission)) {
+            // SEC-20 : un droit d'ecriture en administration suppose un second
+            // facteur. Sans lui, la personne est renvoyee vers l'activation --
+            // bloquer sans proposer la sortie serait un cul-de-sac.
+            if (class_exists('DeuxFacteurs') && DeuxFacteurs::exigee() && !DeuxFacteurs::estActive()) {
+                if (class_exists('JournalAudit')) {
+                    JournalAudit::enregistrer('autorisation.refus', [
+                        'cible_type' => 'permission',
+                        'cible_id'   => $permission,
+                        'raison'     => 'double authentification obligatoire et non activee',
+                    ]);
+                }
+
+                if (!ReponseRefus::attendJson() && !headers_sent()) {
+                    header('Location: ' . (defined('SITE_URL') ? SITE_URL : '') . '/2fa.php');
+                    exit;
+                }
+
+                ReponseRefus::envoyer(
+                    403,
+                    'Double authentification requise',
+                    "Votre role impose un second facteur. Activez-le depuis votre espace securite.",
+                    'deux-facteurs'
+                );
+            }
+
             return;
         }
 

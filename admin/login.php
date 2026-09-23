@@ -34,6 +34,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Service d\'authentification indisponible';
         } else {
             $result = $auth->login($username, $password, false);
+            if (!empty($result['deux_facteurs'])) {
+                // SEC-20 : le mot de passe est juste, le second facteur reste
+                // a fournir. La session n'est pas encore ouverte.
+                VerrouConnexion::reussite($username);
+                header('Location: ' . SITE_URL . '/2fa-verification.php');
+                exit;
+            }
             if (!empty($result['success'])) {
                 if (isAdmin()) {
                     VerrouConnexion::reussite($username);

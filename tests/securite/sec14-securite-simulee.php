@@ -102,11 +102,12 @@ $sql('DELETE FROM login_attempts');
 $sql('DELETE FROM rate_limit_hits');
 $db->exec((string) file_get_contents(__DIR__ . '/sec10-nettoyage.sql'));
 foreach (explode(";\n", (string) file_get_contents(__DIR__ . '/sec10-fixtures.sql')) as $instruction) {
-    if (trim($instruction) !== '' && !str_starts_with(trim($instruction), '--')) {
+    $instruction = preg_replace('/^\s*--.*$/m', '', $instruction);
+    if (trim($instruction) !== '') {
         try {
             $db->exec($instruction);
         } catch (Throwable $e) {
-            // SET NAMES et commentaires : sans consequence
+            // SET NAMES : sans consequence
         }
     }
 }
@@ -230,9 +231,16 @@ try {
     );
 
     echo "\n=== F. La 2FA est annoncee indisponible, sans faux formulaire ===\n";
+    // SEC-20 a rendu la double authentification reelle : la page annonce
+    // desormais son etat effectif et renvoie vers l'activation, au lieu de
+    // simuler un ecran de configuration.
     verif(
-        'La page l\'annonce clairement',
-        str_contains(texte($page['corps']), 'Pas encore disponible')
+        'La page renvoie vers l\'activation reelle',
+        str_contains($page['corps'], '2fa.php')
+    );
+    verif(
+        'Aucun ecran de configuration simule',
+        !str_contains($page['corps'], 'enable_2fa') && !str_contains($page['corps'], 'JBSWY3DPEHPK3PXP')
     );
     verif('Aucun formulaire d\'activation TOTP', !str_contains($page['corps'], 'enable_2fa_totp'));
     verif('Aucun formulaire d\'activation SMS', !str_contains($page['corps'], 'enable_2fa_sms'));

@@ -110,10 +110,21 @@ try {
     echo "\n=== E. Annulation ===\n";
     $r = commande($migrate . ' down --steps=1');
     verif('down annule la derniere migration', $r['code'] === 0, $r['texte']);
-    verif('Les tables de la derniere migration ont disparu', compte("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='{$baseEssai}' AND table_name IN ('roles','permissions','role_permissions','user_roles','audit_log')") === 0);
+    // Tables citees dans la section DOWN de la derniere migration : le test ne
+    // se perime pas a chaque nouvelle migration.
+    $fichiers = glob($racine . '/database/migrations/*.sql') ?: [];
+    sort($fichiers, SORT_STRING);
+    $derniere = (string) file_get_contents(end($fichiers));
+    preg_match_all('/DROP TABLE IF EXISTS `([^`]+)`/', substr($derniere, (int) strpos($derniere, '-- DOWN')), $tablesDown);
+    $liste = implode("','", $tablesDown[1] ?? []);
+    verif(
+        'Les tables de la derniere migration ont disparu',
+        $liste === '' || compte("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='{$baseEssai}' AND table_name IN ('{$liste}')") === 0,
+        $liste
+    );
     verif('Le registre a perdu une ligne', compte('SELECT COUNT(*) FROM schema_migrations') === $attendues - 1);
     $r = commande($migrate . ' up');
-    verif('up la remet en place', $r['code'] === 0 && compte("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='{$baseEssai}' AND table_name='audit_log'") === 1);
+    verif('up la remet en place', $r['code'] === 0 && compte('SELECT COUNT(*) FROM schema_migrations') === $attendues);
 
     $r = commande($migrate . ' down --steps=' . $attendues);
     verif('down refuse d\'annuler la photographie du schema', $r['code'] !== 0, $r['texte']);

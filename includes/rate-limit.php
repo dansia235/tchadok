@@ -53,6 +53,10 @@ final class LimiteDebit
         // en produire plusieurs), mais borne : le journal ne doit pas servir
         // de depotoir a qui veut le remplir.
         'rapport-csp'  => [120, 60],
+        // SEC-20 : un code a six chiffres se devine en cent mille essais.
+        // Dix par quart d'heure laissent de la marge a qui recopie mal, et
+        // rendent la recherche exhaustive sans objet.
+        'second-facteur' => [10, 900],
     ];
 
     private static ?bool $tableDisponible = null;

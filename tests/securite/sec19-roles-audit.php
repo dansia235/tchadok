@@ -236,7 +236,10 @@ try {
     $db->exec('DELETE FROM login_attempts');
     $db->exec('DELETE FROM rate_limit_hits');
     foreach (explode(";\n", (string) file_get_contents(__DIR__ . '/sec10-nettoyage.sql')) as $instruction) {
-        if (trim($instruction) !== '' && !str_starts_with(trim($instruction), '--')) {
+        // Les lignes de commentaire sont retirees AVANT le test : une
+        // instruction precedee d'un commentaire serait sinon ignoree.
+        $instruction = preg_replace('/^\s*--.*$/m', '', $instruction);
+        if (trim($instruction) !== '') {
             try { $db->exec($instruction); } catch (Throwable $e) { /* sans consequence */ }
         }
     }

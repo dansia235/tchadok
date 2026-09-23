@@ -67,6 +67,19 @@ class Auth {
             return ['success' => false, 'error' => 'Identifiants incorrects'];
         }
 
+        // SEC-20 : second facteur. Le mot de passe est juste : la session
+        // n'est pas ouverte pour autant. L'attente est conservee cinq minutes,
+        // le temps de lire un code sur un telephone.
+        if (class_exists('DeuxFacteurs') && DeuxFacteurs::estActive((int) $user['id'])) {
+            $_SESSION['deux_facteurs_attente'] = [
+                'user_id'  => (int) $user['id'],
+                'expire'   => time() + 300,
+                'souvenir' => (bool) $rememberMe,
+            ];
+
+            return ['success' => false, 'deux_facteurs' => true, 'error' => ''];
+        }
+
         // Démarrage de la session
         $this->startUserSession($user, $rememberMe);
 
@@ -84,6 +97,77 @@ class Auth {
         }
 
         return ['success' => true, 'user' => $user];
+    }
+
+    /**
+     * Termine une connexion en attente de second facteur (SEC-20).
+     *
+     * Le mot de passe a deja ete verifie ; il reste a verifier le code, puis a
+     * ouvrir la session. L'attente expire au bout de cinq minutes : une
+     * verification laissee ouverte ne doit pas rester exploitable.
+     *
+     * @return array{success:bool, error:string}
+     */
+    public function terminerConnexionDeuxFacteurs(string $code, bool $codeDeSecours = false): array
+    {
+        $attente = $_SESSION['deux_facteurs_attente'] ?? null;
+
+        if (!is_array($attente) || ($attente['expire'] ?? 0) < time()) {
+            unset($_SESSION['deux_facteurs_attente']);
+
+            return ['success' => false, 'error' => 'La verification a expire. Reprenez la connexion.'];
+        }
+
+        $userId = (int) $attente['user_id'];
+
+        $valide = $codeDeSecours
+            ? DeuxFacteurs::verifierCodeDeSecours($userId, $code)
+            : DeuxFacteurs::verifierCode($userId, $code);
+
+        if (!$valide) {
+            JournalAudit::enregistrer('2fa.echec', [
+                'cible_type' => 'utilisateur',
+                'cible_id'   => $userId,
+                'acteur'     => $userId,
+                'raison'     => $codeDeSecours ? 'code de secours refuse' : 'code refuse',
+            ]);
+
+            return ['success' => false, 'error' => 'Code incorrect.'];
+        }
+
+        $stmt = $this->db->prepare(
+            "SELECT u.*, a.id as artist_id, a.stage_name, ad.role as admin_role
+             FROM users u
+             LEFT JOIN artists a ON u.id = a.user_id
+             LEFT JOIN admins ad ON u.id = ad.user_id
+             WHERE u.id = ? AND u.is_active = 1
+             LIMIT 1"
+        );
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$user) {
+            unset($_SESSION['deux_facteurs_attente']);
+
+            return ['success' => false, 'error' => 'Compte indisponible.'];
+        }
+
+        $souvenir = !empty($attente['souvenir']);
+        unset($_SESSION['deux_facteurs_attente']);
+
+        $this->startUserSession($user, $souvenir);
+
+        $this->db->prepare('UPDATE users SET last_login = NOW() WHERE id = ?')->execute([$userId]);
+
+        if (Autorisations::estAdministrateur($userId)) {
+            JournalAudit::enregistrer('admin.connexion', [
+                'cible_type' => 'utilisateur',
+                'cible_id'   => $userId,
+                'raison'     => $codeDeSecours ? 'second facteur : code de secours' : 'second facteur verifie',
+            ]);
+        }
+
+        return ['success' => true, 'error' => ''];
     }
 
     /**

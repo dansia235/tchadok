@@ -26,6 +26,7 @@ configurée ne ressemble pas à une base locale.
 | `securite/sec17-depots.php` | `SEC-17` | Contrôle du contenu déposé : PHP déguisé en `.mp3`, `.jpg`, `.png`, texte déguisé en audio, MP3 en `.wav`, JPEG en `.png`, extensions hors liste, fichier vide, dépassement de taille, répertoire impossible ; charge utile retirée des images par ré-encodage ; noms de stockage aléatoires ; bornes de prix (négatif, absurde, hors grille) ; absence des champs URL dans les neuf points d'entrée, et essai de bout en bout forçant `audio_file_url` depuis la console. **38 contrôles.** |
 | `securite/sec18-entetes.php` | `SEC-18` | En-têtes de sécurité ; absence d'ouverture CORS par défaut sur huit points d'entrée interrogés avec une origine tierce ; ouverture accordée à une origine déclarée puis retirée (liste blanche modifiée à la volée), prévol accepté puis refusé, jamais de credentials ; collecte des rapports de politique de contenu, corps illisible, tentative d'injection de ligne dans le journal ; configuration des deux `.htaccess`. **41 contrôles.** Modifie temporairement `CORS_ALLOWED_ORIGINS` dans `.env.local` et restaure la valeur d'origine. |
 | `securite/sec19-roles-audit.php` | `SEC-19` | Sept rôles et 24 permissions ; cumul de rôles ; permission inconnue accordée au seul super-administrateur ; refus **403 prononcés par le serveur** sur quatre écrans d'administration ; séparation des pouvoirs sur les versements ; journal d'audit alimenté par six types d'actions, avec auteur et rôles ; masquage des valeurs sensibles ; écran de consultation et filtrage. **59 contrôles.** |
+| `securite/sec20-deux-facteurs.php` | `SEC-20` | TOTP vérifié contre les quatre vecteurs de la RFC 6238 ; activation refusée sur code faux puis acceptée ; secret et codes de secours jamais stockés en clair ; connexion en deux temps ; **rejeu d'un code refusé** ; code de secours consommé une seule fois ; obligation appliquée aux rôles d'écriture puis levée après activation ; récupération en ligne de commande avec motif et journalisation. **47 contrôles.** Bascule temporairement `ADMIN_2FA_REQUIRED` dans `.env.local`. |
 
 ### Exécution
 
@@ -44,6 +45,7 @@ C:\xampp\php\php.exe tests\securite\sec16-pages-erreur.php
 C:\xampp\php\php.exe tests\securite\sec17-depots.php
 C:\xampp\php\php.exe tests\securite\sec18-entetes.php
 C:\xampp\php\php.exe tests\securite\sec19-roles-audit.php
+C:\xampp\php\php.exe tests\securite\sec20-deux-facteurs.php
 ```
 
 ## Tests de schema

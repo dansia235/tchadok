@@ -1059,7 +1059,23 @@ Les deux `.htaccess` référencent `404.php`, `403.php`, `500.php` : **les trois
 
 ### SEC-20 — Authentification à deux facteurs réelle
 
-**Charge :** 3 j · **Dépend de :** `SEC-14`, `SEC-19`
+**Charge :** 3 j · **Dépend de :** `SEC-14`, `SEC-19` · **Statut :** fait le 23/09/2026
+
+> **Bilan.** TOTP conforme à la RFC 6238, vérifié contre les **quatre vecteurs officiels** de la norme. Tables `user_2fa_settings` et `user_backup_codes`, activation après vérification d'un premier code, dix codes de secours affichés une seule fois, vérification à la connexion, protection contre le rejeu, et obligation pour les rôles disposant d'un droit d'écriture en administration.
+>
+> **Pas de QR code, et c'est délibéré.** L'écran retiré en `SEC-14` faisait fabriquer le QR par `api.qrserver.com` — en **transmettant le secret à un tiers**, ce qui annule l'intérêt du second facteur. Aucun encodeur QR n'est disponible localement (le projet n'a pas de gestionnaire de dépendances). La clé est donc affichée par groupes de quatre, avec l'URI `otpauth://` : toutes les applications acceptent la saisie manuelle. Le QR reviendra avec un encodeur servi par le site lui-même.
+>
+> **Le secret est chiffré** (AES-256-GCM, clé dérivée d'`APP_KEY` par HKDF) : une base volée ne doit pas livrer les seconds facteurs, sinon le vol de la base suffirait à se faire passer pour n'importe quel administrateur. Les codes de secours sont stockés en SHA-256 — ce sont des valeurs aléatoires, pas des mots de passe choisis : il n'y a rien à ralentir, et vérifier dix bcrypt à chaque essai coûterait cher pour rien.
+>
+> **Rejeu** (point 3) : un code vaut trente secondes, et rien n'empêche de le rejouer dans cet intervalle. Le dernier pas de temps accepté est mémorisé, et tout pas inférieur ou égal est refusé — un code capté ne sert qu'une fois. Vérifié par un test qui rejoue un code valide sur une seconde session.
+>
+> **Obligation** (point 5) : `ADMIN_2FA_REQUIRED`, `true` en production. Un compte doté d'une permission d'écriture en administration est **renvoyé vers l'activation** plutôt que simplement bloqué — bloquer sans proposer la sortie serait un cul-de-sac — et ne peut plus la retirer lui-même. `false` en local, pour ne pas imposer un téléphone à chaque essai.
+>
+> **Récupération** (point 6) : `scripts/deux-facteurs.php reinitialiser <compte> --raison="…"`, en ligne de commande sur le serveur, **motif obligatoire**, opération inscrite au journal d'audit. Quelqu'un qui perd téléphone et codes de secours reste récupérable, mais personne ne retire un second facteur sans laisser de trace ni dire pourquoi.
+>
+> **Écart au plan :** la récupération passe par la ligne de commande et non par un écran de `super_admin`. Sur un VPS administré à la main, c'est le chemin le plus sûr : il suppose un accès au serveur, ce qui est une garantie plus forte qu'une session d'administration, et il reste tracé.
+>
+> **Vérifié :** `tests/securite/sec20-deux-facteurs.php` (47 contrôles) — vecteurs RFC, activation refusée sur code faux puis acceptée, secret et codes jamais stockés en clair, connexion en deux temps, rejeu refusé, code de secours consommé une seule fois, obligation appliquée sur les écrans d'administration puis levée après activation, impossibilité de la retirer pour un rôle concerné, récupération en ligne de commande avec motif et journalisation. Les quinze autres suites au vert — **671 contrôles au total**. Deux tests plus anciens ont été mis à jour : `SEC-14` (la 2FA n'est plus « indisponible ») et `DATA-01` (une cinquième migration).
 
 Les algorithmes TOTP de `includes/advanced-auth.php` sont corrects ; seule la persistance manque.
 

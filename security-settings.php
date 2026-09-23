@@ -307,16 +307,32 @@ include 'includes/header-tailwind.php';
 
                 <div class="space-y-6">
                     <div class="rounded-3xl border border-white/10 bg-surface/75 p-6 shadow-elev-2">
-                        <h3 class="text-base font-semibold text-text">Authentification a deux facteurs</h3>
+                        <h3 class="text-base font-semibold text-text">Double authentification</h3>
+                        <?php $deuxFacteursActive = DeuxFacteurs::estActive($userId); ?>
                         <p class="mt-2 text-sm text-muted">
-                            Pas encore disponible. Elle sera proposee avec une application d'authentification,
-                            des codes de secours et la possibilite de retirer un appareil.
+                            <?php if ($deuxFacteursActive): ?>
+                                Active. Un code a six chiffres vous est demande a chaque connexion, en plus du
+                                mot de passe.
+                            <?php else: ?>
+                                Un code a six chiffres, renouvele toutes les trente secondes par une application
+                                sur votre telephone. Meme si votre mot de passe fuit, il ne suffit plus.
+                            <?php endif; ?>
                         </p>
-                        <p class="mt-3 rounded-2xl border border-white/10 bg-white/5 p-3 text-xs text-muted">
-                            Cette page affichait auparavant un ecran de configuration qui n'enregistrait rien :
-                            la protection paraissait active alors qu'elle ne l'etait pas. Elle a ete retiree en
-                            attendant la version reelle.
-                        </p>
+                        <?php if ($deuxFacteursActive): ?>
+                            <p class="mt-3 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-3 text-xs text-emerald-100">
+                                Codes de secours restants : <?php echo DeuxFacteurs::codesDeSecoursRestants($userId); ?>
+                                sur <?php echo DeuxFacteurs::CODES_DE_SECOURS; ?>.
+                            </p>
+                        <?php elseif (DeuxFacteurs::exigee($userId)): ?>
+                            <p class="mt-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-100">
+                                Votre role donne des droits d'ecriture en administration : elle est obligatoire
+                                pour y acceder.
+                            </p>
+                        <?php endif; ?>
+                        <a href="<?php echo SITE_URL; ?>/2fa.php" class="mt-4 inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2 text-xs font-semibold text-text hover:bg-white/10">
+                            <i class="fas fa-shield-halved"></i>
+                            <?php echo $deuxFacteursActive ? 'Gerer' : 'Activer'; ?>
+                        </a>
                     </div>
 
                     <?php if ($isAdminSecurityView): ?>

@@ -1355,6 +1355,9 @@ require_once __DIR__ . '/rate-limit.php';
 require_once __DIR__ . '/autorisations.php';
 require_once __DIR__ . '/audit.php';
 
+// SEC-20 : second facteur.
+require_once __DIR__ . '/deux-facteurs.php';
+
 // Initialisation de la session
 startSecureSession();
 

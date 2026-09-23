@@ -39,7 +39,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($auth) {
             $result = $auth->login($email, $password, $remember);
 
-            if ($result['success']) {
+            if (!empty($result['deux_facteurs'])) {
+                // SEC-20 : mot de passe correct, session pas encore ouverte.
+                VerrouConnexion::reussite($email);
+                redirect(SITE_URL . '/2fa-verification.php');
+            } elseif ($result['success']) {
                 // Connexion réussie
                 VerrouConnexion::reussite($email);
                 setFlashMessage(FLASH_SUCCESS, 'Connexion réussie ! Bienvenue sur Tchadok');
