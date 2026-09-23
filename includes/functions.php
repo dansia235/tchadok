@@ -691,6 +691,100 @@ function logActivity($level, $message, $context = []) {
 }
 
 /**
+ * Force d'un mot de passe : score sur 100, appreciation et conseils (SEC-14).
+ *
+ * Reprise de includes/advanced-auth.php, dont le reste etait simule. Ce
+ * calcul-la, lui, ne depend d'aucune persistance : il regarde la chaine.
+ */
+function forceMotDePasse(string $motDePasse): array
+{
+    $score = 0;
+    $conseils = [];
+
+    if (strlen($motDePasse) >= 8) {
+        $score += 25;
+    } else {
+        $conseils[] = 'au moins 8 caracteres';
+    }
+
+    if (strlen($motDePasse) >= 12) {
+        $score += 10;
+    }
+
+    foreach ([
+        '/[a-z]/'          => ['points' => 15, 'conseil' => 'des lettres minuscules'],
+        '/[A-Z]/'          => ['points' => 15, 'conseil' => 'des lettres majuscules'],
+        '/[0-9]/'          => ['points' => 15, 'conseil' => 'des chiffres'],
+        '/[^a-zA-Z0-9]/'   => ['points' => 20, 'conseil' => 'des caracteres speciaux'],
+    ] as $motif => $regle) {
+        if (preg_match($motif, $motDePasse)) {
+            $score += $regle['points'];
+        } else {
+            $conseils[] = $regle['conseil'];
+        }
+    }
+
+    if (preg_match('/^(password|motdepasse|123456|qwerty|azerty)/i', $motDePasse)) {
+        $score -= 50;
+        $conseils[] = 'eviter les mots de passe courants';
+    }
+
+    $score = max(0, min(100, $score));
+
+    return [
+        'score'       => $score,
+        'appreciation' => $score < 50 ? 'Faible' : ($score < 75 ? 'Moyen' : 'Fort'),
+        'conseils'    => $conseils,
+    ];
+}
+
+/**
+ * Tentatives de connexion enregistrees pour un compte (SEC-14).
+ *
+ * S'appuie sur login_attempts (SEC-12) : ce sont de vraies tentatives, pas un
+ * historique reconstitue. Les identifiants sont ceux que le visiteur a saisis,
+ * d'ou la recherche sur l'email ET le nom d'utilisateur.
+ *
+ * @param string[] $identifiants
+ */
+function historiqueConnexions(array $identifiants, int $limite = 12): array
+{
+    $db = TchadokDatabase::getInstance()->getConnection();
+    $identifiants = array_values(array_filter(array_map(
+        static fn ($v) => mb_strtolower(trim((string) $v)),
+        $identifiants
+    ), static fn ($v) => $v !== ''));
+
+    if (!$db || !$identifiants) {
+        return [];
+    }
+
+    $limite = max(1, min(50, $limite));
+    $marqueurs = implode(',', array_fill(0, count($identifiants), '?'));
+
+    try {
+        $stmt = $db->prepare(
+            "SELECT identifier, ip_address, user_agent, success, created_at
+             FROM login_attempts
+             WHERE identifier IN ({$marqueurs})
+             ORDER BY created_at DESC
+             LIMIT {$limite}"
+        );
+        $stmt->execute($identifiants);
+        $lignes = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $e) {
+        error_log('[Tchadok][securite] historique de connexions indisponible : ' . $e->getMessage());
+        return [];
+    }
+
+    foreach ($lignes as &$ligne) {
+        $ligne['appareil'] = etiquetteAppareil((string) ($ligne['user_agent'] ?? ''));
+    }
+
+    return $lignes;
+}
+
+/**
  * Adresse du client (SEC-13).
  *
  * Deux implementations coexistaient, toutes deux fondees sur des en-tetes que

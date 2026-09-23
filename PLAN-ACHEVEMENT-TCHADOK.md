@@ -848,7 +848,24 @@ Deux implémentations divergentes lisent `HTTP_CLIENT_IP` et `X-Forwarded-For`, 
 
 ### SEC-14 — Retirer le module de sécurité simulé
 
-**Charge :** 3 h · **Fichiers :** `security-settings.php`, `includes/advanced-auth.php`, `assets/js/security-settings.js`
+**Charge :** 3 h · **Fichiers :** `security-settings.php`, `includes/advanced-auth.php`, `assets/js/security-settings.js` · **Statut :** fait le 23/09/2026
+
+> **Bilan.** `includes/advanced-auth.php` et `assets/js/security-settings.js` sont **supprimés**. `security-settings.php` est réécrite : elle ne montre plus que ce que la plateforme sait réellement.
+>
+> **Écart au plan (points 1 et 2) : la page est conservée et rendue honnête, au lieu d'être retirée de la navigation.** La raison est qu'entre-temps, les données existent vraiment : `login_attempts` (`SEC-12`) fournit un historique de connexions authentique, le registre des sessions (`SEC-10`) et les jetons d'appareils (`SEC-11`) fournissent les compteurs. Remplacer la page par « fonctionnalité en cours de déploiement » aurait masqué des informations de sécurité réelles et utiles. Le critère qui compte — ne présenter aucune donnée fabriquée — est tenu, et vérifié par un test qui cherche nommément chaque invention de l'ancienne page.
+>
+> **Ce que la page affiche maintenant :** l'état du compte (email vérifié ou non, dernière connexion, nombre de sessions ouvertes, nombre d'appareils mémorisés), l'historique réel des tentatives de connexion avec appareil, adresse et date, le formulaire de changement de mot de passe, et un renvoi vers `settings.php#devices` pour la révocation. La 2FA est annoncée **indisponible**, avec une phrase qui dit pourquoi : l'écran précédent n'enregistrait rien.
+>
+> **Ce qui a disparu :** le faux journal d'activité (« Connexion réussie · N'Djamena · Il y a 2h »), la liste d'appareils écrite dans le HTML (« Safari sur iPhone »), le score de sécurité calculé sur une variable de session, le secret TOTP d'exemple public `JBSWY3DPEHPK3PXP` identique pour tous, et l'appel à `api.qrserver.com` **qui transmettait ce secret à un service tiers**.
+>
+> **Traité en plus :**
+> - `forceMotDePasse()` (ex-`checkPasswordStrength`) déplacée dans `includes/functions.php` : c'est le seul calcul du module qui ne dépendait d'aucune persistance. Un mot de passe trop faible est refusé au changement.
+> - Les **connexions automatiques par cookie** sont désormais tracées dans `login_attempts` (`VerrouConnexion::tracer()`), sans toucher au compteur d'échecs : un historique incomplet serait trompeur, mais un cookie volé ne doit pas lever un verrou en cours.
+> - Les primitives TOTP (RFC 6238), correctes mais inutilisées, disparaissent avec le fichier. `SEC-20` peut les récupérer dans l'historique : `git show cbd0d66:includes/advanced-auth.php`.
+>
+> **Sur les fonctions déclarées deux fois** (point 4) : la seule paire qui provoquait réellement une erreur fatale — `functions.php` et `advanced-auth.php`, chargés ensemble — est résolue par la suppression. Un test vérifie qu'aucune fonction n'est déclarée deux fois **parmi les fichiers chargés à chaque requête**. Les autres doublons relevés (`handleGet`, `respond`, `bulkAction`…) sont des aides locales dans des points d'entrée qui ne se chargent jamais ensemble, ou se trouvent dans `admin/dashboard-tabs/`, dossier mort supprimé en `CLEAN-01`.
+>
+> **Vérifié :** `tests/securite/sec14-securite-simulee.php` (36 contrôles) ; suites `SEC-06` (39), `SEC-08` (36), `SEC-09` (64 + 17), `SEC-10` (35), `SEC-11` (50), `SEC-12` (38), `SEC-13` (31) au vert ; 18 pages publiques en 200.
 
 La couche de persistance est factice : `getRememberToken()` retourne en dur `user_id => 1` (le `super_admin`), `getRecentFailedAttempts()` retourne toujours un tableau vide (donc `isAccountLocked()` renvoie systématiquement `false`), et `getRecentSuccessfulLogins()` retourne des données inventées (`192.168.1.1`, `N'Djamena`) affichées à l'utilisateur comme son historique de sécurité réel. Aucune des tables nécessaires n'existe.
 

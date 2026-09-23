@@ -363,6 +363,18 @@ final class VerrouConnexion
     }
 
     /**
+     * Trace une connexion sans toucher au compteur d'echecs.
+     *
+     * Utilisee pour les connexions automatiques par cookie (SEC-11) : elles
+     * doivent figurer dans l'historique presente a l'utilisateur (SEC-14),
+     * mais un cookie vole ne doit pas suffire a lever un verrou en cours.
+     */
+    public static function tracer(string $identifiant, bool $reussite): void
+    {
+        self::enregistrer($identifiant, $reussite);
+    }
+
+    /**
      * Connexion reussie : la trace est conservee, et les echecs du couple sont
      * effaces pour que le compteur reparte de zero.
      */

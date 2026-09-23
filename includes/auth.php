@@ -252,6 +252,10 @@ class Auth {
         // connectes » laisserait cet appareil revenir aussitot.
         RememberMe::associerSessionCourante();
 
+        // SEC-14 : une connexion automatique est une connexion. Elle figure
+        // dans l'historique, sinon celui-ci serait incomplet donc trompeur.
+        VerrouConnexion::tracer((string) $user['email'], true);
+
         return true;
     }
 }
