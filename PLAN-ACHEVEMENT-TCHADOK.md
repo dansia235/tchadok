@@ -1334,7 +1334,25 @@ Un artiste ne doit pas pouvoir déclarer « album » une sortie d'un seul titre.
 
 ### DATA-04 — Sortir les prix et commissions du code
 
-**Charge :** 1 j · **Dépend de :** `DATA-01`
+**Charge :** 1 j · **Dépend de :** `DATA-01` · **Statut :** fait le 23/09/2026
+
+> **Bilan.** La table `pricing_rules` porte la grille : portée (`track`, `release`, `subscription`), format, devise, plancher, plafond, prix suggéré, taux de commission, période de validité et auteur de la dernière modification. `includes/tarifs.php` la lit **une fois par requête** — la relire à chaque appel coûterait une requête SQL par titre affiché.
+>
+> **Le tarif Premium est tranché : 2 000 / 20 000 FCFA**, arbitré avec le porteur du projet. Les pages publiques affichaient 2 500 / 25 000 pendant que les constantes, jamais lues, disaient 2 000 / 20 000 ; c'est donc une baisse de 20 % par rapport à l'affichage précédent, décidée en connaissance de cause. L'économie annuelle n'est plus un montant écrit à la main mais un calcul : annoncer « 5 000 FCFA » devenait faux dès que la grille changeait.
+>
+> **Grille de départ, planchers réduits de moitié** par rapport à la proposition de l'audit, pour laisser les artistes débutants entrer plus bas en prix : titre 100/300/1 000, single 150/500/1 500, maxi single 400/1 000/2 500, EP 500/1 500/3 500, album 750/2 500/6 000, compilation 750/3 000/8 000. La compilation est commissionnée à 20 %, les autres produits à 15 %.
+>
+> **Trois copies supprimées.** `PREMIUM_MONTHLY`, `PREMIUM_ANNUAL` et `DEFAULT_COMMISSION_RATE` ont disparu de `config/constants.php` ; `'commission_rate' => 15` a quitté `config/payment.php`, où `calculateCommission()` délègue désormais à `Tarifs::commission()` avec la portée et le format en argument — une compilation ne se commissionne pas comme un titre. Les bornes de forme de `SEC-17` (négatif, montant absurde, pas de 50 FCFA) demeurent : elles interdisent l'absurde quel que soit le produit, là où la grille porte les bornes **commerciales**.
+>
+> **`upload.php` annonçait des bornes que rien ne vérifiait** : « Prix entre 500 et 10 000 FCFA » dans la page, et un simple `(float) $_POST['price']` côté serveur, qui acceptait n'importe quoi. Les cinq formulaires (dépôt, titre artiste, titre console, album artiste, album console) valident maintenant contre la grille et **affichent les bornes réelles**, lues en base.
+>
+> **L'écran `admin/tarifs.php`** est le seul endroit où un prix change. Réservé à la permission `tarif.modifier`, il refuse un plafond sous le plancher, un suggéré hors bornes, une commission au-delà de 50 %, et inscrit l'avant/après au journal d'audit — ce qu'une requête SQL passée à la main ne ferait pas. Il est désormais **atteignable** : avec le journal d'audit de `SEC-19`, il n'était joignable qu'en tapant son adresse ; les deux entrées apparaissent dans la console selon la permission de celui qui regarde.
+>
+> **Un format inconnu ne s'échappe plus.** Une portée sans règle propre — format ajouté plus tard, valeur inattendue dans une requête forgée — hérite de l'**enveloppe** de sa portée : plancher le plus bas, plafond le plus haut. Sans ce repli, le contrôle de prix était simplement sauté, ce qu'un envoi forgé cherche précisément. Défaut trouvé par les tests.
+>
+> **Vérifié :** `tests/schema/data04-tarifs.php` (100 contrôles). Les deux critères qui comptent sont vérifiés **sur le site en fonctionnement** : le tarif est changé en base puis la page publique relue, qui affiche aussitôt le nouveau montant et la nouvelle économie ; et un prix sous le plancher est soumis par le **vrai formulaire artiste**, session ouverte, jeton CSRF compris — le refus est constaté à l'écran, pas déduit du code. Les dix-sept autres suites au vert : **885 contrôles** au total.
+>
+> **Reste à faire, hors périmètre.** `includes/payment.php` demeure inutilisable : erreur de syntaxe ligne 250 (`new \PDO::PARAM_STR(...)`), et le fichier contient **deux fois** son propre contenu. Aucune page ne le charge. `LOT 5` le refait entièrement.
 
 Les prix Premium sont écrits en dur à trois endroits avec **deux valeurs contradictoires** : `config/constants.php` dit 2 000 / 20 000 FCFA, `premium.php` et `premium-payment.php` disent 2 500 / 25 000. Les constantes ne sont jamais lues par les pages. La commission est déclarée à trois endroits, et n'est lue nulle part au calcul.
 

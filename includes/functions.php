@@ -1361,6 +1361,9 @@ require_once __DIR__ . '/deux-facteurs.php';
 // DATA-03 : sorties et formats de vente.
 require_once __DIR__ . '/sorties.php';
 
+// DATA-04 : grille tarifaire administree.
+require_once __DIR__ . '/tarifs.php';
+
 // Initialisation de la session
 startSecureSession();
 

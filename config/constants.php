@@ -84,11 +84,15 @@ define('PAYMENT_VISA', 'visa');
 define('PAYMENT_GIMAC', 'gimac');
 define('PAYMENT_WALLET', 'wallet');
 
-// Commission par défaut
-define('DEFAULT_COMMISSION_RATE', 15.0); // 15%
+// DATA-04 : la commission ne s'ecrit plus ici. Elle varie selon le produit et
+// se change sans deploiement -- voir la table `pricing_rules` et
+// `Tarifs::tauxCommission()`. Une valeur recopiee dans le code finit par
+// contredire celle qui est appliquee.
 
-// SEC-17 : bornes de prix. (float) $_POST['price'] acceptait -500, ce qui
-// aurait credite l'acheteur a chaque vente.
+// SEC-17 : bornes de forme, pas de prix. Elles interdisent l'absurde -- un
+// montant negatif, une saisie a six chiffres, un prix hors grille de 50 FCFA --
+// quel que soit le produit. Le plancher et le plafond commerciaux, eux,
+// viennent de `pricing_rules` (DATA-04).
 define('PRIX_MINIMUM', 0);
 define('PRIX_MAXIMUM', 500000);  // FCFA : au-dela, c'est une erreur de saisie
 define('PRIX_PAS', 50);          // grille tarifaire, alignee sur les formulaires
@@ -152,9 +156,10 @@ define('NOTIFICATION_PURCHASE', 'purchase');
 define('NOTIFICATION_COMMENT', 'comment');
 define('NOTIFICATION_LIKE', 'like');
 
-// Statuts premium
-define('PREMIUM_MONTHLY', 2000); // 2000 FCFA/mois
-define('PREMIUM_ANNUAL', 20000); // 20000 FCFA/an (2 mois gratuits)
+// DATA-04 : les prix Premium ne sont plus ecrits ici. Ces deux constantes
+// disaient 2 000 / 20 000 FCFA quand les pages publiques affichaient
+// 2 500 / 25 000 -- et personne ne les lisait. Le tarif vit dans
+// `pricing_rules` ; il se lit par `Tarifs::abonnement('monthly'|'yearly')`.
 
 // Limites pour les utilisateurs gratuits
 define('FREE_DOWNLOADS_PER_MONTH', 5);

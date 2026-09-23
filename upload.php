@@ -72,9 +72,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $lyrics = sanitizeInput($_POST['lyrics'] ?? '');
     $explicitContent = isset($_POST['explicit']) ? 1 : 0;
     $distribution = sanitizeInput($_POST['distribution'] ?? 'free');
-    $price = (float) ($_POST['price'] ?? 0);
+    // DATA-04 : le prix passe par la grille administree. Ce formulaire se
+    // contentait d'un transtypage : (float) '-500' donne -500, et la page
+    // annoncait des bornes (500 - 10 000) que rien ne verifiait.
+    $prixSaisi = Tarifs::valider($_POST['price'] ?? 0, 'track');
+    $price = $prixSaisi['valeur'];
 
-    if ($title === '') {
+    if (!$prixSaisi['valide'] && $distribution === 'paid') {
+        $error = $prixSaisi['message'];
+    } elseif ($title === '') {
         $error = 'Le titre est obligatoire.';
     } else {
         try {
@@ -518,11 +524,12 @@ include 'includes/header-tailwind.php';
                                     </label>
                                 </div>
 
+                                <?php $regleDePrix = Tarifs::regle('track'); ?>
                                 <div class="mt-4 hidden max-w-sm" data-price-wrapper>
                                     <label for="price" class="text-sm font-semibold text-text">Prix (FCFA)</label>
                                     <input type="number" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/60"
-                                           id="price" name="price" min="500" max="10000" step="500" placeholder="Ex: 1000">
-                                    <p class="mt-2 text-xs text-muted">Prix entre 500 et 10 000 FCFA.</p>
+                                           id="price" name="price" min="<?php echo (int) ($regleDePrix['min'] ?? 0); ?>" max="<?php echo (int) ($regleDePrix['max'] ?? 500000); ?>" step="50" placeholder="Ex: <?php echo (int) ($regleDePrix['suggere'] ?? 500); ?>">
+                                    <p class="mt-2 text-xs text-muted"><?php echo htmlspecialchars(Tarifs::indication('track')); ?></p>
                                 </div>
                             </div>
 

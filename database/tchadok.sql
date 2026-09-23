@@ -4,7 +4,7 @@
 -- Le schema fait foi dans database/migrations/ ; ce fichier n'en est que
 -- la photographie, regeneree apres chaque migration (DATA-01).
 --
--- Genere le 23/09/2026 a 17h42 depuis la base tchadok_local.
+-- Genere le 23/09/2026 a 19h02 depuis la base tchadok_local.
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
@@ -311,6 +311,27 @@ CREATE TABLE IF NOT EXISTS `podcast_episodes` (
   PRIMARY KEY (`id`),
   KEY `idx_podcast_id` (`podcast_id`),
   CONSTRAINT `podcast_episodes_ibfk_1` FOREIGN KEY (`podcast_id`) REFERENCES `podcasts` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Table `pricing_rules`
+CREATE TABLE IF NOT EXISTS `pricing_rules` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `scope` enum('track','release','subscription') NOT NULL,
+  `format` varchar(20) DEFAULT NULL,
+  `currency` char(3) NOT NULL DEFAULT 'XAF',
+  `min_price` decimal(8,2) NOT NULL,
+  `max_price` decimal(8,2) NOT NULL,
+  `suggested` decimal(8,2) NOT NULL,
+  `commission_rate` decimal(4,2) NOT NULL DEFAULT 15.00,
+  `active_from` date NOT NULL,
+  `active_to` date DEFAULT NULL,
+  `updated_by` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `portee` (`scope`,`format`,`active_from`),
+  KEY `redacteur` (`updated_by`),
+  CONSTRAINT `pricing_rules_ibfk_1` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Table `purchases`

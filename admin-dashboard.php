@@ -77,6 +77,28 @@ $admin_modules = [
     ]
 ];
 
+// DATA-04 et SEC-19 : deux ecrans reserves a une permission nommee. Sans ces
+// entrees, ils n'etaient joignables qu'en tapant leur adresse.
+if (Autorisations::peut('tarif.modifier')) {
+    $admin_modules[] = [
+        'title' => 'Tarifs',
+        'description' => 'Planchers, prix suggeres et commission.',
+        'href' => SITE_URL . '/admin/tarifs.php',
+        'icon' => 'fa-tags',
+        'accent' => 'text-amber-200'
+    ];
+}
+
+if (Autorisations::peut('journal.lire')) {
+    $admin_modules[] = [
+        'title' => 'Journal d\'audit',
+        'description' => 'Qui a fait quoi, et quand.',
+        'href' => SITE_URL . '/admin/journal.php',
+        'icon' => 'fa-clipboard-list',
+        'accent' => 'text-rose-200'
+    ];
+}
+
 try {
     $dbInstance = TchadokDatabase::getInstance();
     $db = $dbInstance->getConnection();

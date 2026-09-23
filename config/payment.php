@@ -72,7 +72,10 @@ define('PAYMENT_CONFIG', [
     'max_amount' => 10000000, // Montant maximum en FCFA
     'transaction_fee_percentage' => 2.5, // Frais de transaction en pourcentage
     'transaction_fee_fixed' => 50, // Frais fixes en FCFA
-    'commission_rate' => 15, // Commission Tchadok en pourcentage
+    // DATA-04 : la commission Tchadok ne s'ecrit plus ici. Elle varie selon le
+    // produit et se change depuis la console -- voir `pricing_rules` et
+    // `Tarifs::tauxCommission()`. Une troisieme copie du taux dans le code
+    // aurait fini par contredire celle qui est appliquee.
     'vat_rate' => 18, // TVA en pourcentage
     'webhook_url' => SITE_URL . '/webhooks/payment.php',
     'return_url' => SITE_URL . '/payment/success.php',
@@ -200,10 +203,14 @@ function calculateTransactionFees($amount, $method) {
 }
 
 /**
- * Calculer la commission Tchadok
+ * Calculer la commission Tchadok.
+ *
+ * DATA-04 : le taux vient de la grille administree, plus d'une constante. Il
+ * depend du produit vendu -- une compilation ne se commissionne pas comme un
+ * titre a l'unite -- d'ou la portee et le format en argument.
  */
-function calculateCommission($amount) {
-    return round($amount * PAYMENT_CONFIG['commission_rate'] / 100, 2);
+function calculateCommission($amount, $portee = 'track', $format = null) {
+    return Tarifs::commission((float) $amount, $portee, $format);
 }
 
 /**

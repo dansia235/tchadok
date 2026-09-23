@@ -126,7 +126,8 @@ $plans = [
     [
         'key' => 'monthly',
         'name' => 'Formule mensuelle',
-        'price' => 2500,
+        // DATA-04 : le tarif vient de la grille administree, plus du code.
+        'price' => Tarifs::abonnement('monthly'),
         'period' => 'mois',
         'icon' => 'fa-calendar-alt',
         'highlight' => false,
@@ -144,12 +145,14 @@ $plans = [
     [
         'key' => 'yearly',
         'name' => 'Formule annuelle',
-        'price' => 25000,
+        'price' => Tarifs::abonnement('yearly'),
         'period' => 'an',
         'icon' => 'fa-calendar-check',
         'highlight' => true,
         'badge' => 'Recommandé',
-        'note' => 'Économisez 5 000 FCFA sur l’année',
+        // L'economie se calcule : annoncer un montant fixe, c'est mentir des
+        // que la grille change.
+        'note' => 'Économisez ' . number_format(Tarifs::economieAnnuelle(), 0, ',', ' ') . ' FCFA sur l’année',
         'features' => [
             'Tous les avantages mensuels',
             'Tarif plus avantageux sur la durée',

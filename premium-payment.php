@@ -22,19 +22,21 @@ $user = getCurrentUser();
 $success = '';
 $error = '';
 
-// Plans d'abonnement
+// Plans d'abonnement. DATA-04 : les montants viennent de la grille
+// administree. Ils etaient ecrits ici ET dans premium.php ET dans
+// config/constants.php -- avec deux valeurs differentes.
 $plans = [
     'monthly' => [
         'name' => 'Mensuel',
-        'price' => 2500,
+        'price' => Tarifs::abonnement('monthly'),
         'duration' => 'mois',
         'savings' => null
     ],
     'yearly' => [
         'name' => 'Annuel',
-        'price' => 25000,
+        'price' => Tarifs::abonnement('yearly'),
         'duration' => 'an',
-        'savings' => 5000
+        'savings' => Tarifs::economieAnnuelle()
     ]
 ];
 

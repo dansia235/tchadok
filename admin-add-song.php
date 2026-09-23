@@ -32,7 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $language = sanitizeInput($_POST['language'] ?? '');
     $description = sanitizeInput($_POST['description'] ?? '');
     $lyrics = sanitizeInput($_POST['lyrics'] ?? '');
-    $prixSaisi = validerPrix($_POST['price'] ?? 0);
+    // DATA-04 : le prix est verifie contre la grille administree.
+    $prixSaisi = Tarifs::valider($_POST['price'] ?? 0, 'track');
     $price = $prixSaisi['valeur'];
     $isFree = isset($_POST['is_free']) ? 1 : 0;
     $downloadAllowed = isset($_POST['download_allowed']) ? 1 : 0;
@@ -250,7 +251,9 @@ include 'includes/header-tailwind.php';
                     </div>
                     <div>
                         <label class="text-xs font-semibold text-muted" for="price">Prix (FCFA)</label>
-                        <input id="price" type="number" min="0" step="50" name="price" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text" value="<?php echo htmlspecialchars($_POST['price'] ?? '0'); ?>">
+                        <?php $regleDePrix = Tarifs::regle('track'); ?>
+                        <input id="price" type="number" min="0" max="<?php echo (int) ($regleDePrix['max'] ?? 500000); ?>" step="50" name="price" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text" value="<?php echo htmlspecialchars($_POST['price'] ?? '0'); ?>">
+                        <p class="mt-2 text-xs text-muted"><?php echo htmlspecialchars(Tarifs::indication('track')); ?></p>
                     </div>
                 </div>
 

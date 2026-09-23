@@ -32,7 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $type = sanitizeInput($_POST['type'] ?? 'album');
     $releaseDate = sanitizeInput($_POST['release_date'] ?? '');
     $description = sanitizeInput($_POST['description'] ?? '');
-    $prixSaisi = validerPrix($_POST['price'] ?? 0);
+    // DATA-04 : les bornes dependent du format de sortie.
+    $prixSaisi = Tarifs::valider($_POST['price'] ?? 0, 'release', $type);
     $price = $prixSaisi['valeur'];
     $isFree = isset($_POST['is_free']) ? 1 : 0;
 
@@ -173,7 +174,9 @@ include 'includes/header-tailwind.php';
                     </div>
                     <div>
                         <label class="text-xs font-semibold text-muted" for="price">Prix (FCFA)</label>
-                        <input id="price" type="number" min="0" step="50" name="price" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text" value="<?php echo htmlspecialchars($_POST['price'] ?? '0'); ?>">
+                        <?php $regleDePrix = Tarifs::regle('release', $currentType); ?>
+                        <input id="price" type="number" min="0" max="<?php echo (int) ($regleDePrix['max'] ?? 500000); ?>" step="50" name="price" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text" value="<?php echo htmlspecialchars($_POST['price'] ?? '0'); ?>">
+                        <p class="mt-2 text-xs text-muted"><?php echo htmlspecialchars(Tarifs::indication('release', $currentType)); ?></p>
                     </div>
                 </div>
 
