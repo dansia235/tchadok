@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Tests d'integration SEC-09 : protection CSRF centralisee.
 
@@ -111,7 +111,7 @@ $r = Poster $s '/contact.php' @("csrf_token=$($s.Jeton)", 'name=Essai')
 Verif "Contact (champ) : traite, pas 403" ($r.Code -ne 403 -and $r.Code -lt 500) $r.Code
 
 $r = Poster $s '/api/stream.php' @() @{ 'X-CSRF-Token' = $s.Jeton } '{"track_id":999999999,"duration":40}'
-Verif "api/stream.php (en-tete) : traite -> 404 titre inexistant" ($r.Code -eq 404) $r.Code
+Verif "api/stream.php (en-tete) : traite -> 400 jeton d'ecoute requis (STAT-02)" ($r.Code -eq 400) $r.Code
 
 $r = Poster $s '/api/blog/share.php' @() @{} ('{"post_id":999999999,"platform":"copy","csrf_token":"' + $s.Jeton + '"}')
 Verif "api/blog/share.php (jeton dans le corps JSON) : pas 403" ($r.Code -ne 403) $r.Code

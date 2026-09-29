@@ -18,8 +18,10 @@
 -- Mot de passe des deux comptes : tchadok2026
 -- (identifiant local simple, par decision du 22/09/2026)
 --
--- Import, APRES database/tchadok.sql :
---   C:\xampp\mysql\bin\mysql.exe -u root tchadok_local < database\seeds\demo.sql
+-- Import, APRES les migrations et le referentiel (DATA-08) :
+--   php scripts/seed.php demo
+-- Le script refuse l'import hors environnement local et tant que des
+-- migrations sont en attente.
 --
 -- Ces comptes etaient auparavant livres dans database/tchadok.sql, avec
 -- un hash dont le mot de passe etait documente comme public : toute
@@ -46,5 +48,11 @@ ON DUPLICATE KEY UPDATE `username` = VALUES(`username`);
 INSERT INTO `admins` (`user_id`, `role`, `permissions`, `created_at`)
 VALUES (1, 'super_admin', '["all"]', NOW())
 ON DUPLICATE KEY UPDATE `role` = VALUES(`role`);
+
+-- SEC-19 : c'est user_roles qui ouvre les droits. La ligne `admins` seule ne
+-- donne acces a rien ; sans cette attribution, le compte de demonstration
+-- ne pouvait pas entrer dans la console.
+INSERT IGNORE INTO `user_roles` (`user_id`, `role_id`)
+SELECT 1, `id` FROM `roles` WHERE `slug` = 'super_admin';
 
 COMMIT;

@@ -25,6 +25,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/media-access.php';
+require_once __DIR__ . '/../includes/ecoutes.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -126,8 +127,12 @@ try {
     }
 
     $streamUrl = null;
+    $ecoute = null;
     if ($decision['acces'] === MediaAccess::ACCES_COMPLET && trim((string) $titre['audio_file']) !== '') {
         $streamUrl = MediaAccess::urlSignee($trackId, MediaAccess::TYPE_AUDIO);
+        // STAT-02 : jeton d'ecoute, a usage unique, pour le titre COMPLET
+        // seulement -- un extrait n'est pas une ecoute.
+        $ecoute = Ecoutes::ouvrir($trackId, $userId);
     }
 
     $previewUrl = null;
@@ -155,6 +160,7 @@ try {
                 : MediaAccess::messageRefus($decision['motif']),
             'stream_url'     => $streamUrl,
             'preview_url'    => $previewUrl,
+            'ecoute'         => $ecoute,
         ],
     ]);
 } catch (Throwable $e) {

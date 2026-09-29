@@ -201,6 +201,29 @@
         }
         hasRecordedStream = false;
 
+        // STAT-02 : l'ecoute se transmet apres `seuil` secondes de lecture
+        // EFFECTIVE du titre complet (les sauts dans la barre ne comptent
+        // pas), avec le jeton remis par le serveur. Le serveur reverifie tout.
+        const ecoute = (track.access === 'full' && track.ecoute && track.ecoute.jeton) ? track.ecoute : null;
+        let lectureEffective = 0;
+        let dernierInstant = null;
+        audioPlayer.addEventListener('timeupdate', () => {
+            if (!ecoute || hasRecordedStream || !audioPlayer) return;
+            const instant = audioPlayer.currentTime;
+            if (dernierInstant !== null && !audioPlayer.paused) {
+                const ecart = instant - dernierInstant;
+                if (ecart > 0 && ecart < 1.5) {
+                    lectureEffective += ecart;
+                }
+            }
+            dernierInstant = instant;
+            if (lectureEffective >= ecoute.seuil) {
+                hasRecordedStream = true;
+                recordStream(ecoute.jeton, Math.floor(lectureEffective));
+            }
+        });
+        audioPlayer.addEventListener('seeking', () => { dernierInstant = null; });
+
         audioPlayer.addEventListener('loadedmetadata', updatePlayerInterface);
         audioPlayer.addEventListener('timeupdate', updateProgress);
         audioPlayer.addEventListener('ended', () => {
@@ -209,13 +232,7 @@
                 nextTrack();
             }
         });
-        audioPlayer.addEventListener('play', () => {
-            if (!hasRecordedStream) {
-                recordStream(track.id);
-                hasRecordedStream = true;
-            }
-            updatePlayIcon(true);
-        });
+        audioPlayer.addEventListener('play', () => updatePlayIcon(true));
         audioPlayer.addEventListener('pause', () => updatePlayIcon(false));
         audioPlayer.addEventListener('error', () => {
             showNotification('Erreur de lecture audio', 'error');
@@ -298,18 +315,17 @@
         audioPlayer.volume = volume / 100;
     }
 
-    function recordStream(trackId) {
-        if (!window.TCHADOK || !window.TCHADOK.IS_LOGGED_IN) return;
+    // Visiteurs compris (STAT-01) : un visiteur est identifie par une
+    // empreinte anonyme, cote serveur.
+    function recordStream(jeton, duree) {
         fetch(`${siteUrl()}/api/stream.php`, {
             method: 'POST',
+            credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRF-Token': window.TCHADOK.CSRF_TOKEN || ''
+                'X-CSRF-Token': (window.TCHADOK && window.TCHADOK.CSRF_TOKEN) || ''
             },
-            body: JSON.stringify({
-                track_id: trackId,
-                source: 'web'
-            })
+            body: JSON.stringify({ jeton, duree })
         }).catch(() => {});
     }
 

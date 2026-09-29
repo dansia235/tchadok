@@ -287,6 +287,8 @@ try {
     verif('... et le schema est a jour', str_contains($texte, 'Schema a jour'), $texte);
 
     // La vue nourrit les fonctions publiques telles quelles.
+    // MOD-01 : pas de brouillon publie directement ; la base impose la soumission.
+    $db->exec("UPDATE releases SET status = 'pending' WHERE id = 901");
     $db->exec("UPDATE releases SET status = 'approved' WHERE id = 901");
     $vueLigne = $db->query('SELECT * FROM albums WHERE id = 901')->fetch(PDO::FETCH_ASSOC);
     verif('La vue expose la sortie', is_array($vueLigne) && $vueLigne['title'] === 'Album d\'essai');
@@ -316,20 +318,30 @@ try {
     }
     verif('Aucune ecriture dans la vue `albums`', $ecritures === [], implode(', ', $ecritures));
 
-    foreach (['artist-add-album.php', 'admin-add-album.php', 'upload.php'] as $fichier) {
+    // Depuis MOD-05, les artistes publient par un parcours unique
+    // (publier.php + includes/publication.php) ; les anciennes pages
+    // ne sont plus que des redirections.
+    $publication = $source('includes/publication.php');
+    foreach (['admin-add-album.php'] as $fichier) {
         verif("{$fichier} enregistre une sortie", str_contains($source($fichier), 'INSERT INTO releases'));
-    }
-    foreach (['artist-add-album.php', 'admin-add-album.php'] as $fichier) {
         verif("{$fichier} verifie le format cote serveur", str_contains($source($fichier), 'Sorties::validerEnregistrement'));
         verif("{$fichier} cree un brouillon", str_contains($source($fichier), "'draft'"));
     }
     verif('La console passe par le controle de composition',
         str_contains($source('admin-add-album.php'), 'Sorties::changerStatut'));
+    verif('Le parcours artiste enregistre une sortie en brouillon',
+        str_contains($publication, "INSERT INTO releases (artist_id, title, slug, format, is_free, status) VALUES (?, ?, ?, ?, ?, 'draft')"));
+    verif('Le parcours artiste verifie le format cote serveur',
+        str_contains($publication, 'Sorties::formatConnu') && str_contains($publication, 'Sorties::validerPublication'));
+    foreach (['upload.php', 'artist-add-song.php', 'artist-add-album.php'] as $fichier) {
+        $contenu = $source($fichier);
+        verif("{$fichier} redirige vers le parcours unique", str_contains($contenu, 'publier.php') && !str_contains($contenu, 'INSERT INTO'));
+    }
 
-    foreach (['upload.php', 'artist-add-song.php', 'admin-add-song.php'] as $fichier) {
+    foreach (['includes/publication.php' => "Sorties::slug(\$nom, 'tracks')", 'admin-add-song.php' => "Sorties::slug(\$title, 'tracks')"] as $fichier => $slug) {
         $contenu = $source($fichier);
         verif("{$fichier} rattache le titre a sa sortie", str_contains($contenu, '(album_id, release_id, slug,'));
-        verif("{$fichier} calcule le slug du titre", str_contains($contenu, "Sorties::slug(\$title, 'tracks')"));
+        verif("{$fichier} calcule le slug du titre", str_contains($contenu, $slug));
     }
 
     echo "\n=== G. Identifiants lisibles ===\n";

@@ -8,8 +8,37 @@ require_once 'includes/functions.php';
 require_once 'includes/auth.php';
 require_once 'assets/images/placeholders.php';
 
-$pageTitle = 'Genres Musicaux';
-$pageDescription = 'Explorez la diversite musicale du Tchad a travers ses differents genres.';
+require_once 'includes/taxonomie.php';
+
+// TAXO-03 : lien stable par slug. Un genre fusionne redirige (301) vers le
+// genre qui l'a absorbe : les liens publies ne meurent pas.
+$genreDetail = null;
+$titresDuGenre = [];
+if (isset($_GET['genre'])) {
+    $demande = (string) $_GET['genre'];
+    $genreDetail = preg_match('/^[a-z0-9-]{1,60}$/', $demande) ? Taxonomie::resoudreSlug($demande) : null;
+    if ($genreDetail === null) {
+        show404();
+    }
+    if ($genreDetail['slug'] !== $demande) {
+        header('Location: ' . SITE_URL . '/genres.php?genre=' . rawurlencode((string) $genreDetail['slug']), true, 301);
+        exit;
+    }
+    $stmt = TchadokDatabase::getInstance()->getConnection()->prepare(
+        "SELECT t.id, t.title, t.total_streams, a.stage_name FROM tracks t JOIN artists a ON a.id = t.artist_id
+          WHERE t.status = 'approved' AND t.deleted_at IS NULL AND a.is_active = 1 AND a.deleted_at IS NULL
+            AND (t.genre_id = ? OR t.genre_id IN (SELECT id FROM genres WHERE parent_id = ?))
+          ORDER BY t.total_streams DESC, t.id LIMIT 30"
+    );
+    $stmt->execute([$genreDetail['id'], $genreDetail['id']]);
+    $titresDuGenre = $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+$pageTitle = $genreDetail ? (string) ($genreDetail['name_french'] ?? $genreDetail['name']) : 'Genres Musicaux';
+$pageDescription = $genreDetail && $genreDetail['description'] ? (string) $genreDetail['description'] : 'Explorez la diversite musicale du Tchad a travers ses differents genres.';
+if ($genreDetail) {
+    $pageCanonical = SITE_URL . '/genres.php?genre=' . rawurlencode((string) $genreDetail['slug']);
+}
 
 $genres = getGenresWithStats();
 $platformStats = getPlatformStats();
@@ -31,6 +60,21 @@ include 'includes/header-tailwind.php';
 ?>
 
 <main class="pt-0">
+    <?php if ($genreDetail): ?>
+        <section class="mx-auto max-w-5xl px-4 pb-8 pt-24 sm:px-6" aria-labelledby="titre-genre" data-genre-slug="<?php echo e($genreDetail['slug']); ?>">
+            <p class="text-xs uppercase tracking-[0.28em] text-muted">Genre<?php echo $genreDetail['status'] === 'archived' ? ' · archive' : ''; ?></p>
+            <h1 id="titre-genre" class="mt-2 text-3xl font-display font-bold text-text"><?php echo e($genreDetail['name_french'] ?? $genreDetail['name']); ?></h1>
+            <?php if ($genreDetail['description']): ?><p class="mt-3 max-w-3xl text-sm text-muted"><?php echo e($genreDetail['description']); ?></p><?php endif; ?>
+            <ol class="mt-6 divide-y divide-white/5 rounded-3xl border border-white/10 bg-surface/75 px-4">
+                <?php if ($titresDuGenre === []): ?><li class="py-4 text-sm text-muted">Aucun titre publie pour l'instant.</li><?php endif; ?>
+                <?php foreach ($titresDuGenre as $t): ?>
+                    <li class="flex items-center justify-between gap-3 py-3 text-sm"><span><span class="font-semibold text-text"><?php echo e($t['title']); ?></span> <span class="text-muted">— <?php echo e($t['stage_name']); ?></span></span>
+                        <span class="text-xs text-muted"><?php echo e(number_format((float) $t['total_streams'], 0, ',', ' ')); ?> ecoutes certifiees</span></li>
+                <?php endforeach; ?>
+            </ol>
+            <p class="mt-3 text-xs"><a class="underline" href="<?php echo SITE_URL; ?>/genres.php">Tous les genres</a></p>
+        </section>
+    <?php endif; ?>
     <section class="page-hero relative min-h-screen items-center overflow-hidden bg-bg pb-14 pt-12 sm:pt-16 lg:pt-20 lg:flex">
         <div class="absolute -left-32 -top-32 h-72 w-72 rounded-full bg-[#0066CC]/20 blur-3xl"></div>
         <div class="absolute -bottom-40 right-0 h-96 w-96 rounded-full bg-[#FFD700]/20 blur-3xl"></div>
@@ -137,9 +181,9 @@ include 'includes/header-tailwind.php';
                                 <button class="rounded-full bg-accent px-4 py-2 text-xs font-semibold text-white shadow-elev-1" data-action="explore" data-genre-id="<?php echo (int) $genre['id']; ?>" data-genre-name="<?php echo htmlspecialchars($genreName, ENT_QUOTES); ?>" type="button">
                                     <i class="fas fa-play"></i> Ecouter
                                 </button>
-                                <button class="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-text" data-action="search" data-genre-name="<?php echo htmlspecialchars($genreName, ENT_QUOTES); ?>" type="button">
+                                <a class="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-text" href="<?php echo SITE_URL; ?>/genres.php?genre=<?php echo rawurlencode((string) ($genre['slug'] ?? '')); ?>">
                                     <i class="fas fa-search"></i> Explorer
-                                </button>
+                                </a>
                             </div>
                             <div class="mt-4 h-2 w-full overflow-hidden rounded-full bg-white/5">
                                 <div class="h-full rounded-full" style="width: <?php echo (int) ($genre['popularity'] ?? 0); ?>%; background: <?php echo htmlspecialchars($genreColor); ?>;"></div>
@@ -231,7 +275,7 @@ include 'includes/header-tailwind.php';
                     <a href="<?php echo SITE_URL; ?>/artist-signup.php" class="rounded-full bg-accent px-6 py-3 text-sm font-semibold text-white shadow-elev-1">
                         <i class="fas fa-microphone"></i> Devenir artiste
                     </a>
-                    <a href="<?php echo SITE_URL; ?>/upload.php" class="rounded-full border border-white/10 bg-white/5 px-6 py-3 text-sm font-semibold text-text">
+                    <a href="<?php echo SITE_URL; ?>/publier.php" class="rounded-full border border-white/10 bg-white/5 px-6 py-3 text-sm font-semibold text-text">
                         <i class="fas fa-upload"></i> Uploader
                     </a>
                 </div>

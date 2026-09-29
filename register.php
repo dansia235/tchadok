@@ -108,11 +108,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $artistStageName,
                         "$firstName $lastName"
                     ]);
+                    // MOD-06 : un artiste inscrit n'a encore aucun droit de
+                    // publier ; son dossier s'ouvre en brouillon.
+                    $db->prepare('INSERT IGNORE INTO artist_dossiers (artist_id) VALUES (?)')->execute([(int) $db->lastInsertId()]);
                 }
 
                 $db->commit();
 
-                $success = 'Inscription réussie ! Vous pouvez maintenant vous connecter avec votre email : <strong>' . htmlspecialchars($email) . '</strong>';
+                // MOD-07 : lien de confirmation, valable 48 h.
+                require_once __DIR__ . '/includes/comptes.php';
+                Comptes::envoyerVerification((int) $userId);
+
+                $success = 'Inscription réussie ! Un lien de confirmation a été envoyé à <strong>' . htmlspecialchars($email) . '</strong> : confirmez votre adresse pour acheter, publier et commenter. Vous pouvez déjà vous connecter.';
 
                 $_POST = [];
             }

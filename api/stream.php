@@ -1,11 +1,23 @@
 <?php
 /**
- * API de streaming - Tchadok Platform
+ * API d'ecoute - Tchadok Platform
  * Endpoint: /api/stream.php
+ *
+ * STAT-02 : une ecoute n'est acceptee qu'avec le jeton remis par
+ * api/track.php a l'ouverture du titre COMPLET. Le seuil de 30 s, l'usage
+ * unique du jeton, l'identite de l'auditeur et la deduplication horaire sont
+ * verifies par le serveur (includes/ecoutes.php). `track_id`, `country` et
+ * `city` envoyes par le navigateur sont ignores ; la duree annoncee ne peut
+ * que reduire ce qui est compte, jamais l'augmenter.
+ *
+ * POST {jeton, duree}  ->  201 comptee | 200 non comptee (trop courte, deja
+ * comptee dans l'heure) | 400 jeton absent | 403 jeton invalide ou d'un autre
+ * auditeur | 409 deja transmise | 410 expire.
  */
 
 require_once '../includes/functions.php';
 require_once '../includes/auth.php';
+require_once __DIR__ . '/../includes/ecoutes.php';
 
 header('Content-Type: application/json');
 // SEC-18 : aucune ouverture entre origines. Cette API agit au nom de la
@@ -42,7 +54,7 @@ try {
         exit();
     }
 
-    throw new Exception('Méthode non autorisée', 405);
+    throw new Exception('Methode non autorisee', 405);
 } catch (Exception $e) {
     // SEC-15 : un message ecrit pour le client (400, 404, 405...) reste
     // affiche tel quel ; une panne renvoie une reference, jamais le detail.
@@ -53,65 +65,26 @@ try {
     echo json_encode($corps, JSON_UNESCAPED_UNICODE);
 }
 
-function recordStream() {
-    $payload = json_decode(file_get_contents('php://input'), true);
+function recordStream(): void
+{
+    $payload = json_decode((string) file_get_contents('php://input'), true);
     if (!is_array($payload)) {
         $payload = $_POST;
     }
 
-    $trackId = (int)($payload['track_id'] ?? 0);
-    if ($trackId <= 0) {
-        throw new Exception('ID du titre requis', 400);
-    }
+    $userId = isset($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null;
+    $resultat = Ecoutes::enregistrer(
+        strtolower(trim((string) ($payload['jeton'] ?? ''))),
+        max(0, (int) ($payload['duree'] ?? 0)),
+        $userId ?: null
+    );
 
-    $dbInstance = TchadokDatabase::getInstance();
-    if (!$dbInstance->isConnected() || !tableExists('streams') || !tableExists('tracks')) {
-        throw new Exception('Base de données indisponible', 500);
-    }
-
-    $db = $dbInstance->getConnection();
-    // SEC-08 : pas d'ecoute enregistree sur un titre non publie. Un
-    // proprietaire ou un administrateur peut lire un brouillon (verification,
-    // moderation) ; ces lectures ne doivent pas alimenter les compteurs
-    // publics, que le trigger update_stream_stats incremente a chaque ligne.
-    // La securisation complete de cet endpoint releve de STAT-02.
-    $stmt = $db->prepare("SELECT id, artist_id, duration FROM tracks WHERE id = ? AND status = 'approved'");
-    $stmt->execute([$trackId]);
-    $track = $stmt->fetch();
-
-    if (!$track) {
-        throw new Exception('Titre introuvable', 404);
-    }
-
-    $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
-    $durationPlayed = max(0, (int)($payload['duration'] ?? 0));
-    $trackDuration = (int)($track['duration'] ?? 0);
-    $completed = ($trackDuration > 0 && $durationPlayed >= (int)round($trackDuration * 0.6)) ? 1 : 0;
-
-    $source = $payload['source'] ?? 'web';
-    $country = $payload['country'] ?? null;
-    $city = $payload['city'] ?? null;
-
-    $stmt = $db->prepare("
-        INSERT INTO streams (user_id, track_id, artist_id, ip_address, user_agent, country, city, duration_played, completed, source, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-    ");
-    $stmt->execute([
-        $userId ?: null,
-        $trackId,
-        (int)$track['artist_id'],
-        clientIp(),
-        $_SERVER['HTTP_USER_AGENT'] ?? null,
-        $country,
-        $city,
-        $durationPlayed,
-        $completed,
-        $source
-    ]);
-
-    http_response_code(201);
+    http_response_code($resultat['code']);
     echo json_encode([
-        'success' => true,
-        'stream_id' => (int)$db->lastInsertId()
+        'success'   => $resultat['code'] < 300,
+        'comptee'   => $resultat['comptee'],
+        'motif'     => $resultat['motif'],
+        'message'   => $resultat['message'],
+        'stream_id' => $resultat['stream_id'],
     ], JSON_UNESCAPED_UNICODE);
 }

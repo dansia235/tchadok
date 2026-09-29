@@ -141,6 +141,11 @@ function handlePost($db, $userId, $input) {
             if ($name === '') {
                 respond(['success' => false, 'error' => ['message' => 'Nom requis']], 400);
             }
+            // SUB-04 : playlists illimitees pour les abonnes Premium seulement.
+            $limite = Abonnements::peutCreerPlaylist((int) $userId);
+            if (!$limite['permis']) {
+                respond(['success' => false, 'error' => ['message' => $limite['message']]], 403);
+            }
             $description = trim($data['description'] ?? $data['playlist_description'] ?? '');
             $visibility = $data['visibility'] ?? null;
             $isPublic = isset($data['is_public'])

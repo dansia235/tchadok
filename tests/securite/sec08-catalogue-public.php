@@ -73,7 +73,8 @@ function nettoyer(PDO $pdo): void
     $pdo->exec('DELETE FROM releases WHERE id BETWEEN 9101 AND 9199');
     $pdo->exec('DELETE FROM artists WHERE id IN (911, 912)');
     $pdo->exec('DELETE FROM users   WHERE id IN (911, 912)');
-    $pdo->exec('DELETE FROM genres  WHERE id = 991');
+    // Filtre sur le nom : depuis DATA-08, un vrai genre peut porter ce numero.
+    $pdo->exec("DELETE FROM genres  WHERE id = 991 AND name = 'ZZSEC08 Genre'");
 }
 
 // ---------------------------------------------------------------------
@@ -86,9 +87,9 @@ $pdo->exec("INSERT INTO genres (id, name, is_active) VALUES (991, 'ZZSEC08 Genre
 $pdo->exec("INSERT INTO users (id, username, email, password_hash, first_name, last_name, is_active)
             VALUES (911, 'zzsec08_actif', 'actif@sec08.local', '$hash', 'A', 'A', 1),
                    (912, 'zzsec08_inactif', 'inactif@sec08.local', '$hash', 'I', 'I', 1)");
-$pdo->exec("INSERT INTO artists (id, user_id, stage_name, is_active, featured, verified, genres)
-            VALUES (911, 911, 'ZZSEC08 Actif', 1, 1, 1, 'ZZSEC08 Genre'),
-                   (912, 912, 'ZZSEC08 Inactif', 0, 1, 1, 'ZZSEC08 Genre')");
+$pdo->exec("INSERT INTO artists (id, user_id, stage_name, is_active, featured, verified)
+            VALUES (911, 911, 'ZZSEC08 Actif', 1, 1, 1),
+                   (912, 912, 'ZZSEC08 Inactif', 0, 1, 1)");
 
 $pdo->exec("INSERT INTO releases (id, artist_id, title, slug, genre_id, format, status, release_date) VALUES
     (9101, 911, 'ZZSEC08 Album publie',   'zzsec08-album-publie',    991, 'album', 'approved', '2026-09-01'),
@@ -202,13 +203,15 @@ try {
     }
     $jeton = ($page !== false && preg_match('/name="csrf-token" content="([a-f0-9]+)"/', $page, $m)) ? $m[1] : '';
 
-    $appel = function (int $trackId) use ($site, $cookie, $jeton): int {
+    // STAT-02 : une ecoute ne s'enregistre plus par identifiant de titre,
+    // seulement avec le jeton remis par api/track.php pour un titre PUBLIE.
+    $appel = function (array $corps) use ($site, $cookie, $jeton): int {
         $ctx = stream_context_create(['http' => [
             'method' => 'POST',
             'header' => "Content-Type: application/json\r\n"
                       . "Cookie: {$cookie}\r\n"
                       . "X-CSRF-Token: {$jeton}\r\n",
-            'content' => json_encode(['track_id' => $trackId, 'duration' => 60]),
+            'content' => json_encode($corps),
             'ignore_errors' => true,
             'timeout' => 15,
         ]]);
@@ -216,15 +219,25 @@ try {
         $statut = $http_response_header[0] ?? '';
         return preg_match('/\s(\d{3})\s/', $statut, $m) ? (int) $m[1] : 0;
     };
+    $jetonEcoute = function (int $trackId) use ($site, $cookie): ?string {
+        $ctx = stream_context_create(['http' => ['header' => "Cookie: {$cookie}\r\n", 'ignore_errors' => true, 'timeout' => 15]]);
+        $r = json_decode((string) @file_get_contents($site . '/api/track.php?action=resolve&id=' . $trackId, false, $ctx), true);
+        return $r['data']['ecoute']['jeton'] ?? null;
+    };
     $avant = (int) $pdo->query('SELECT COUNT(*) FROM streams WHERE track_id = 9102')->fetchColumn();
-    $code = $appel(9102);
+    $code = $appel(['track_id' => 9102, 'duration' => 60]);
     $apres = (int) $pdo->query('SELECT COUNT(*) FROM streams WHERE track_id = 9102')->fetchColumn();
     if ($code === 0) {
         echo "  --  api/stream.php non teste : serveur web local injoignable\n";
     } else {
-        verif('api/stream.php : ecoute refusee sur un brouillon (404)', $code === 404, (string) $code);
+        verif('api/stream.php : ancien appel par identifiant de titre refuse (400)', $code === 400, (string) $code);
         verif('api/stream.php : aucune ligne ajoutee pour le brouillon', $apres === $avant, "{$avant} -> {$apres}");
-        verif('api/stream.php : ecoute acceptee sur un titre publie (201)', $appel(9101) === 201);
+        verif('api/track.php : aucun jeton d\'ecoute pour un brouillon', $jetonEcoute(9102) === null);
+        $j = $jetonEcoute(9101);
+        verif('api/track.php : jeton d\'ecoute pour un titre publie', $j !== null);
+        // 40 s d'ecoute simulees : l'heure d'emission du jeton est reculee.
+        $pdo->prepare('UPDATE listening_sessions SET issued_at = NOW(3) - INTERVAL 40 SECOND WHERE token_hash = ?')->execute([hash('sha256', (string) $j)]);
+        verif('api/stream.php : ecoute acceptee sur un titre publie (201)', $appel(['jeton' => $j, 'duree' => 40]) === 201);
     }
     echo "\n=== Journal d'erreurs ===\n";
     clearstatcache();

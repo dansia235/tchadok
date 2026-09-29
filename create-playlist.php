@@ -31,6 +31,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Le nom de la playlist est obligatoire.';
     } elseif (strlen($playlistName) < 3) {
         $error = 'Le nom doit contenir au moins 3 caracteres.';
+    } elseif (!($limite = Abonnements::peutCreerPlaylist((int) $_SESSION['user_id']))['permis']) {
+        // SUB-04 : playlists illimitees pour les abonnes Premium seulement.
+        $error = (string) $limite['message'];
     } else {
         try {
             $dbInstance = TchadokDatabase::getInstance();

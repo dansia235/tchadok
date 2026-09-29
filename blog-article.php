@@ -48,6 +48,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_c
         exit();
     }
 
+    // MOD-07 : commenter exige une adresse confirmee.
+    require_once __DIR__ . '/includes/comptes.php';
+    if (!Comptes::emailVerifie((int) $_SESSION['user_id'])) {
+        setFlashMessage(FLASH_ERROR, 'Confirmez votre adresse e-mail pour commenter.');
+        header('Location: ' . SITE_URL . '/verifier-email.php?retour=' . urlencode(parse_url(blogPostUrl($post), PHP_URL_PATH) ?: '/blog.php'));
+        exit();
+    }
+
     $commentResult = blogCreateComment(
         (int) $post['id'],
         (int) ($_SESSION['user_id'] ?? 0),

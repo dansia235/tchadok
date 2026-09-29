@@ -74,7 +74,7 @@ final class ProductionSecretPolicy
         'AIRTEL_WEBHOOK_SECRET'  => 24,
         'MOOV_WEBHOOK_SECRET'    => 24,
         'VISA_WEBHOOK_SECRET'    => 24,
-        'KONOOM_WEBHOOK_SECRET'  => 24,
+        'GIMAC_WEBHOOK_SECRET'  => 24,
     ];
 
     /** Cles controlees. Les identifiants de compte sont inclus. */
@@ -83,10 +83,10 @@ final class ProductionSecretPolicy
         'BACKUP_DB_USERNAME', 'BACKUP_DB_PASSWORD',
         'APP_KEY', 'SESSION_SECRET',
         'MAIL_PASSWORD',
-        'AIRTEL_CLIENT_SECRET', 'AIRTEL_WEBHOOK_SECRET',
+        'AIRTEL_API_KEY', 'AIRTEL_WEBHOOK_SECRET',
         'MOOV_API_KEY', 'MOOV_WEBHOOK_SECRET',
         'VISA_API_KEY', 'VISA_WEBHOOK_SECRET',
-        'KONOOM_API_KEY', 'KONOOM_WEBHOOK_SECRET',
+        'GIMAC_API_KEY', 'GIMAC_WEBHOOK_SECRET',
         'ICECAST_ADMIN_PASSWORD',
     ];
 
@@ -197,7 +197,7 @@ final class ProductionSecretPolicy
         }
 
         // Passerelles de paiement pointant vers les simulateurs
-        foreach (['AIRTEL', 'MOOV', 'VISA', 'KONOOM'] as $passerelle) {
+        foreach (['AIRTEL', 'MOOV', 'VISA', 'GIMAC'] as $passerelle) {
             $url = (string) ($vars[$passerelle . '_BASE_URL'] ?? '');
             if (str_contains($url, '127.0.0.1') || str_contains($url, 'localhost')) {
                 $violations[] = "{$passerelle}_BASE_URL pointe vers un simulateur local.";

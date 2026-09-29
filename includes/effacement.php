@@ -62,6 +62,7 @@ final class Effacement
         }
 
         self::tracer('contenu.supprime', $table, $id, $parQui, $motif);
+        self::suivreSortie($db, $table, $id);
 
         return ['succes' => true, 'erreurs' => []];
     }
@@ -96,8 +97,28 @@ final class Effacement
         }
 
         self::tracer('contenu.restaure', $table, $id, $parQui, '');
+        self::suivreSortie($db, $table, $id);
 
         return ['succes' => true, 'erreurs' => []];
+    }
+
+    /**
+     * STAT-06 : retirer ou remettre un titre change le nombre de titres et la
+     * duree de sa sortie. Autrefois un declencheur ne les suivait qu'a l'ajout.
+     */
+    private static function suivreSortie(PDO $db, string $table, int $id): void
+    {
+        if ($table !== 'tracks') {
+            return;
+        }
+        try {
+            require_once __DIR__ . '/agregats.php';
+            $stmt = $db->prepare('SELECT COALESCE(release_id, album_id) FROM tracks WHERE id = ?');
+            $stmt->execute([$id]);
+            Compteurs::sortie(($sortie = $stmt->fetchColumn()) ? (int) $sortie : null);
+        } catch (Throwable $e) {
+            error_log('[Tchadok][effacement] compteurs de la sortie non recalcules : ' . $e->getMessage());
+        }
     }
 
     public static function estRetire(string $table, int $id): bool

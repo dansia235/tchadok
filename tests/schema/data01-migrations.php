@@ -90,12 +90,16 @@ try {
     // Les declencheurs sont nommes plutot que comptes : leur nombre change a
     // chaque migration, et ce que ce test doit prouver, c'est que le decoupeur
     // de migrate.php sait lire un corps a points-virgules.
-    foreach (['update_album_tracks_count', 'update_stream_stats', 'compter_vente_payee', 'payment_events_sans_modification'] as $declencheur) {
+    // STAT-06 a retire les declencheurs de compteurs ; on verifie ici des
+    // declencheurs d'immutabilite a corps multiple.
+    foreach (['payment_events_sans_modification', 'contrat_publie_fige', 'verdict_une_fois', 'certifiees_sans_suppression'] as $declencheur) {
         verif(
             "Le declencheur `{$declencheur}` est cree (corps a points-virgules)",
             compte("SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema='{$baseEssai}' AND trigger_name='{$declencheur}'") === 1
         );
     }
+    verif('STAT-06 : aucun declencheur ne tient plus de compteur',
+        compte("SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema='{$baseEssai}' AND action_statement LIKE '%total\\_%'") === 0);
     verif('users.remember_token a bien ete retiree', compte("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='{$baseEssai}' AND table_name='users' AND column_name='remember_token'") === 0);
     verif('Aucun DEFINER fige dans les vues', compte("SELECT COUNT(*) FROM information_schema.views WHERE table_schema='{$baseEssai}' AND definer LIKE 'root@%'") >= 0);
 
@@ -117,6 +121,43 @@ try {
     $r = commande($migrate . ' up');
     verif('Les migrations rejouees sur une base deja a jour n\'echouent pas', $r['code'] === 0, $r['texte']);
     verif('... et le schema est intact', compte("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='{$baseEssai}' AND table_name='users'") === 1);
+
+    // Un nom de declencheur vaut pour toute la base : une migration qui en
+    // reutilise un le retire silencieusement de sa table d'origine par son
+    // DROP TRIGGER IF EXISTS (incident du 28/09/2026 : 0021 avait ote la
+    // protection de `exchange_rates`).
+    $proprietaires = [];
+    $retires = [];
+    $fichiersMigration = glob($racine . '/database/migrations/*.sql') ?: [];
+    sort($fichiersMigration, SORT_STRING);
+    foreach ($fichiersMigration as $fichier) {
+        $texte = (string) file_get_contents($fichier);
+        $haut = substr($texte, 0, strpos($texte, '-- DOWN') ?: strlen($texte));
+        preg_match_all('/CREATE\s+TRIGGER\s+`?(\w+)`?\s+\w+\s+\w+\s+ON\s+`?(\w+)`?/i', $haut, $m, PREG_SET_ORDER);
+        $crees = [];
+        foreach ($m as [, $nom, $table]) {
+            $proprietaires[$nom][$table] = true;
+            $crees[$nom] = true;
+            unset($retires[$nom]);
+        }
+        // Retire pour de bon par une migration ulterieure (ex. : `purchases`
+        // devenue une vue en DATA-05) : plus rien a proteger.
+        preg_match_all('/DROP\s+TRIGGER\s+IF\s+EXISTS\s+`?(\w+)`?/i', $haut, $d);
+        foreach ($d[1] as $nom) {
+            if (!isset($crees[$nom])) {
+                $retires[$nom] = true;
+            }
+        }
+    }
+    $proprietaires = array_diff_key($proprietaires, $retires);
+    $partages = array_keys(array_filter($proprietaires, static fn ($tables) => count($tables) > 1));
+    verif('Aucun nom de declencheur partage entre deux tables', $partages === [], implode(', ', $partages));
+    foreach ($proprietaires as $nom => $tables) {
+        $table = array_key_first($tables);
+        if (compte("SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema='{$baseEssai}' AND trigger_name='{$nom}' AND event_object_table='{$table}'") !== 1) {
+            verif("Le declencheur `{$nom}` protege bien `{$table}`", false);
+        }
+    }
 
     echo "\n=== E. Annulation ===\n";
     $r = commande($migrate . ' down --steps=1');

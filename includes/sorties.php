@@ -264,12 +264,32 @@ final class Sorties
         }
 
         try {
-            $db->prepare(
-                'UPDATE releases
-                 SET status = ?, rejected_reason = ?, reviewed_by = ?, reviewed_at = NOW()
-                 WHERE id = ?'
-            )->execute([$statut, $statut === 'rejected' ? ($motif ?: null) : null, $parQui, $releaseId]);
+            // MOD-01 : la base n'accepte que les transitions du graphe. Depuis
+            // un brouillon, une publication (ou un refus) passe par la
+            // soumission ; chaque etape est journalisee.
+            $stmt = $db->prepare('SELECT status FROM releases WHERE id = ?');
+            $stmt->execute([$releaseId]);
+            $actuel = (string) $stmt->fetchColumn();
+            $etapes = $actuel === 'draft' && in_array($statut, ['approved', 'rejected'], true) ? ['pending', $statut] : [$statut];
+            $db->beginTransaction();
+            foreach ($etapes as $etape) {
+                if ($etape === $actuel) {
+                    continue;
+                }
+                $db->prepare(
+                    'UPDATE releases
+                     SET status = ?, rejected_reason = ?, reviewed_by = ?, reviewed_at = NOW()
+                     WHERE id = ?'
+                )->execute([$etape, $etape === 'rejected' ? ($motif ?: null) : null, $parQui, $releaseId]);
+                $db->prepare('INSERT INTO content_transitions (content_type, content_id, from_status, to_status, actor_id, reason) VALUES (\'release\', ?, ?, ?, ?, ?)')
+                   ->execute([$releaseId, $actuel, $etape, $parQui, $motif ?: null]);
+                $actuel = $etape;
+            }
+            $db->commit();
         } catch (Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
             error_log('[Tchadok][sorties] changement de statut impossible : ' . $e->getMessage());
             return ['succes' => false, 'erreurs' => ['Enregistrement impossible pour le moment.']];
         }

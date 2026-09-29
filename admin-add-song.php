@@ -1,6 +1,8 @@
 <?php
 require_once 'includes/functions.php';
 require_once 'includes/auth.php';
+require_once 'includes/duree-audio.php';
+require_once 'includes/agregats.php';
 
 // SEC-19 : l'acces depend d'une permission nommee, verifiee cote serveur.
 // Masquer l'entree de menu ne protege rien : l'adresse se tape.
@@ -19,14 +21,15 @@ $db = $dbInstance->getConnection();
 
 $artists = $db ? $db->query("SELECT id, stage_name FROM artists ORDER BY stage_name")->fetchAll() : [];
 $albums = $db ? $db->query("SELECT id, title, artist_id FROM albums ORDER BY title")->fetchAll() : [];
-$genres = $db ? $db->query("SELECT id, name FROM genres ORDER BY name")->fetchAll() : [];
+$genres = $db ? getGenresSelectionnables() : [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = sanitizeInput($_POST['title'] ?? '');
     $artistId = (int) ($_POST['artist_id'] ?? 0);
     $albumId = !empty($_POST['album_id']) ? (int) $_POST['album_id'] : null;
     $genreId = !empty($_POST['genre_id']) ? (int) $_POST['genre_id'] : null;
-    $duration = (int) ($_POST['duration'] ?? 0);
+    // STAT-02 : la duree est lue dans le fichier, jamais saisie.
+    $duration = 0;
     $trackNumber = !empty($_POST['track_number']) ? (int) $_POST['track_number'] : null;
     $releaseDate = sanitizeInput($_POST['release_date'] ?? '');
     $language = sanitizeInput($_POST['language'] ?? '');
@@ -45,6 +48,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = $prixSaisi['message'];
     } elseif (empty($title) || $artistId <= 0) {
         $error = 'Titre et artiste obligatoires.';
+    } elseif (!estGenreSelectionnable($genreId)) {
+        // TAXO-02 : le genre est obligatoire a la soumission (statistiques par genre).
+        $error = 'Le genre est obligatoire : choisissez-le dans la liste (ou proposez-en un nouveau).';
     } else {
         try {
             $audioPath = null;
@@ -56,14 +62,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     MAX_AUDIO_SIZE
                 );
                 if (!$upload['success']) {
-                    throw new Exception($upload['message']);
+                    // Message ecrit pour la personne qui depose : affiche tel quel.
+                    throw new DepotRefuse($upload['message']);
                 }
                 $audioPath = AUDIO_PATH . $upload['filename'];
             }
 
             if (!$audioPath) {
-                throw new Exception('Fichier audio requis.');
+                throw new DepotRefuse('Fichier audio requis.');
             }
+            $duration = DureeAudio::duDepot(__DIR__ . '/' . $audioPath);
 
             $previewPath = null;
             if (!empty($_FILES['preview_file']['tmp_name'])) {
@@ -103,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $audioPath,
                 $previewPath,
                 $lyrics ?: null,
-                max(1, $duration),
+                $duration,
                 $trackNumber,
                 $price,
                 $isFree,
@@ -124,8 +132,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'apres'      => ['titre' => $title, 'artiste_id' => $artistId, 'statut' => $status, 'prix' => $price],
             ]);
 
+            // STAT-06 : nombre de titres et duree de la sortie, sans declencheur.
+            Compteurs::sortie($albumId ? (int) $albumId : null);
             $success = 'Chanson ajoutée avec succès !';
             header('refresh:2;url=' . SITE_URL . '/admin-dashboard.php');
+        } catch (DepotRefuse $e) {
+            $error = $e->messagePourArtiste();
         } catch (Exception $e) {
             $error = GestionErreurs::messagePublic($e, 'ajout d\'un titre (admin)');
         }
@@ -223,11 +235,7 @@ include 'includes/header-tailwind.php';
                         <label class="text-xs font-semibold text-muted" for="genre">Genre</label>
                         <select id="genre" name="genre_id" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text">
                             <option value="">Sélectionner un genre</option>
-                            <?php foreach ($genres as $genre): ?>
-                                <option value="<?php echo $genre['id']; ?>" <?php echo (isset($_POST['genre_id']) && (int) $_POST['genre_id'] === (int) $genre['id']) ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($genre['name']); ?>
-                                </option>
-                            <?php endforeach; ?>
+                            <?php echo optionsGenres($genres, $_POST['genre_id'] ?? null); ?>
                         </select>
                     </div>
                     <div>
@@ -238,8 +246,8 @@ include 'includes/header-tailwind.php';
 
                 <div class="grid gap-4 md:grid-cols-4">
                     <div>
-                        <label class="text-xs font-semibold text-muted" for="duration">Durée (sec)</label>
-                        <input id="duration" type="number" min="1" name="duration" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text" value="<?php echo htmlspecialchars($_POST['duration'] ?? '180'); ?>">
+                        <span class="text-xs font-semibold text-muted">Durée</span>
+                        <p class="mt-2 rounded-2xl border border-white/10 bg-bg/40 px-4 py-3 text-sm text-muted">Lue automatiquement dans le fichier audio.</p>
                     </div>
                     <div>
                         <label class="text-xs font-semibold text-muted" for="release_date">Date de sortie</label>

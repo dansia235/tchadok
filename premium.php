@@ -11,7 +11,8 @@ $pageTitle = 'Tchadok Premium';
 $pageDescription = 'Activez Tchadok Premium et profitez d\'une expérience musicale fluide, élégante et pensée pour la scène tchadienne.';
 
 $isLoggedIn = isLoggedIn();
-$isPremium = $isLoggedIn && !empty($_SESSION['premium_status']);
+// LOT 7 : statut lu en base, plus en session (fige a la connexion).
+$isPremium = estPremium();
 $user = $isLoggedIn ? getCurrentUser() : null;
 
 $dashboardUrl = SITE_URL . '/user-dashboard.php';
@@ -36,10 +37,13 @@ $registerUrl = SITE_URL . '/register.php';
 $walletUrl = SITE_URL . '/wallet.php';
 $supportUrl = SITE_URL . '/contact.php';
 
+// SUB-04 : uniquement ce que le code tient. L'ancienne page annoncait 320 kbps,
+// des telechargements hors ligne, un essai gratuit et plusieurs appareils :
+// rien de tout cela n'existait.
 $heroStats = [
-    ['value' => '320 kbps', 'label' => 'qualité audio'],
-    ['value' => '0 pub', 'label' => 'écoute continue'],
-    ['value' => '24/7', 'label' => 'lecture sans limite'],
+    ['value' => '100 %', 'label' => 'du catalogue en entier'],
+    ['value' => '∞', 'label' => 'playlists'],
+    ['value' => '0', 'label' => 'prelevement automatique'],
 ];
 
 $membershipSignals = [
@@ -62,64 +66,22 @@ $membershipSignals = [
     ],
 ];
 
-$offerMoments = [
-    [
-        'icon' => 'fa-bolt',
-        'title' => 'Un flux sans rupture',
-        'text' => 'Passez d’un titre à l’autre sans interruption et sans coupure publicitaire.',
-        'tone' => 'from-accent/20 to-accent/5 text-accent'
-    ],
-    [
-        'icon' => 'fa-download',
-        'title' => 'Votre musique partout',
-        'text' => 'Téléchargez vos morceaux et gardez vos playlists disponibles, même hors ligne.',
-        'tone' => 'from-emerald-500/20 to-emerald-500/5 text-emerald-700 dark:text-emerald-300'
-    ],
-    [
-        'icon' => 'fa-crown',
-        'title' => 'Une relation premium',
-        'text' => 'Support prioritaire, sorties sélectionnées et un accès mieux orchestré à vos contenus favoris.',
-        'tone' => 'from-amber-400/20 to-amber-400/5 text-amber-700 dark:text-amber-200'
-    ],
+$tons = [
+    ['from-accent/20 to-accent/5 text-accent', 'bg-accent/15 text-accent'],
+    ['from-emerald-500/20 to-emerald-500/5 text-emerald-700 dark:text-emerald-300', 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'],
+    ['from-amber-400/20 to-amber-400/5 text-amber-700 dark:text-amber-200', 'bg-amber-400/15 text-amber-700 dark:text-amber-300'],
 ];
-
-$features = [
-    [
-        'icon' => 'fa-infinity',
-        'title' => 'Streaming illimité',
-        'text' => 'Écoutez vos artistes favoris sans plafond de lecture ni restrictions inutiles.',
-        'tone' => 'bg-accent/15 text-accent'
-    ],
-    [
-        'icon' => 'fa-download',
-        'title' => 'Téléchargements hors ligne',
-        'text' => 'Gardez vos morceaux et playlists disponibles même sans connexion.',
-        'tone' => 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
-    ],
-    [
-        'icon' => 'fa-wave-square',
-        'title' => 'Qualité audio HD',
-        'text' => 'Profitez d’un rendu plus riche, propre et stable jusqu’à 320 kbps.',
-        'tone' => 'bg-amber-400/15 text-amber-700 dark:text-amber-300'
-    ],
-    [
-        'icon' => 'fa-ban',
-        'title' => 'Sans publicité',
-        'text' => 'Conservez une écoute fluide, sans interruption entre les contenus.',
-        'tone' => 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
-    ],
-    [
-        'icon' => 'fa-headset',
-        'title' => 'Support prioritaire',
-        'text' => 'Un parcours plus rapide pour les questions de compte, paiement et activation.',
-        'tone' => 'bg-sky-400/15 text-sky-700 dark:text-sky-200'
-    ],
-    [
-        'icon' => 'fa-layer-group',
-        'title' => 'Playlists enrichies',
-        'text' => 'Créez une expérience d’écoute plus libre avec un usage plus intensif et plus confortable.',
-        'tone' => 'bg-white/10 text-slate-700 dark:text-text'
-    ]
+$offerMoments = [];
+$features = [];
+foreach (array_values(Abonnements::AVANTAGES) as $i => $avantage) {
+    $offerMoments[] = ['icon' => $avantage['icone'], 'title' => $avantage['titre'], 'text' => $avantage['texte'], 'tone' => $tons[$i % 3][0]];
+    $features[] = ['icon' => $avantage['icone'], 'title' => $avantage['titre'], 'text' => $avantage['texte'], 'tone' => $tons[$i % 3][1]];
+}
+$features[] = [
+    'icon' => 'fa-bag-shopping',
+    'title' => 'Vos achats restent a vous',
+    'text' => 'Les titres achetes vous appartiennent, Premium ou non : ils restent dans votre bibliotheque meme apres la fin de l\'abonnement.',
+    'tone' => 'bg-white/10 text-slate-700 dark:text-text',
 ];
 
 $plans = [
@@ -132,14 +94,8 @@ $plans = [
         'icon' => 'fa-calendar-alt',
         'highlight' => false,
         'badge' => null,
-        'note' => 'Souple et sans engagement long',
-        'features' => [
-            'Streaming illimité',
-            'Téléchargements hors ligne',
-            'Qualité audio HD',
-            'Sans publicité',
-            'Support prioritaire'
-        ],
+        'note' => 'Sans engagement, sans prelevement automatique',
+        'features' => array_column(Abonnements::AVANTAGES, 'titre'),
         'button' => 'Activer cette formule'
     ],
     [
@@ -154,43 +110,43 @@ $plans = [
         // que la grille change.
         'note' => 'Économisez ' . number_format(Tarifs::economieAnnuelle(), 0, ',', ' ') . ' FCFA sur l’année',
         'features' => [
-            'Tous les avantages mensuels',
-            'Tarif plus avantageux sur la durée',
-            'Accès premium continu toute l’année',
-            'Expérience plus stable pour les gros auditeurs',
-            'Priorité durable sur le support'
+            'Tous les avantages de la formule mensuelle',
+            'Un seul paiement pour toute l\'annee',
+            'Tarif plus avantageux sur la duree',
         ],
         'button' => 'Choisir l’annuel'
     ]
 ];
 
+// Les moyens reellement proposes par le tunnel de paiement (LOT 5, SHOP-06).
 $paymentMethods = [
-    ['label' => 'Airtel Money', 'icon' => 'fa-mobile-alt', 'tone' => 'bg-accent/15 text-accent', 'text' => 'Paiement mobile rapide'],
-    ['label' => 'Moov Money', 'icon' => 'fa-money-bill-wave', 'tone' => 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300', 'text' => 'Validation locale simplifiée'],
-    ['label' => 'Ecobank', 'icon' => 'fa-university', 'tone' => 'bg-amber-400/15 text-amber-700 dark:text-amber-300', 'text' => 'Canal bancaire fiable'],
-    ['label' => 'Visa', 'icon' => 'fa-credit-card', 'tone' => 'bg-white/10 text-slate-700 dark:text-text', 'text' => 'Carte internationale']
+    ['label' => 'Airtel Money', 'icon' => 'fa-mobile-alt', 'tone' => 'bg-accent/15 text-accent', 'text' => 'Confirmation sur votre telephone'],
+    ['label' => 'Moov Money', 'icon' => 'fa-money-bill-wave', 'tone' => 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300', 'text' => 'Confirmation sur votre telephone'],
+    ['label' => 'GIMAC', 'icon' => 'fa-building-columns', 'tone' => 'bg-amber-400/15 text-amber-700 dark:text-amber-300', 'text' => 'Portefeuilles et comptes de la zone CEMAC'],
+    ['label' => 'Carte VISA', 'icon' => 'fa-credit-card', 'tone' => 'bg-white/10 text-slate-700 dark:text-text', 'text' => 'En francs CFA ou en dollars US'],
+    ['label' => 'Portefeuille Tchadok', 'icon' => 'fa-wallet', 'tone' => 'bg-sky-400/15 text-sky-700 dark:text-sky-200', 'text' => 'Reglement immediat avec votre solde'],
 ];
 
 $faqs = [
     [
-        'q' => 'Puis-je annuler mon abonnement à tout moment ?',
-        'a' => 'Oui, vous pouvez annuler depuis votre profil. Les avantages restent actifs jusqu\'à la fin de la période de facturation.'
+        'q' => 'Puis-je resilier a tout moment ?',
+        'a' => 'Oui, en un clic depuis la page « Mon abonnement ». Vos avantages restent actifs jusqu\'a la fin de la periode deja payee.'
     ],
     [
-        'q' => 'Que deviennent mes téléchargements si j\'annule ?',
-        'a' => 'Les fichiers téléchargés légalement restent disponibles. Vous pourrez continuer à les écouter.'
+        'q' => 'L\'abonnement se renouvelle-t-il tout seul ?',
+        'a' => 'Non : aucun prelevement automatique. Nous vous prevenons par e-mail 7 jours puis 1 jour avant l\'echeance, et vous renouvelez si vous le souhaitez.'
     ],
     [
-        'q' => 'Y a-t-il une période d\'essai gratuite ?',
-        'a' => 'Oui, nous offrons 7 jours d\'essai pour les nouveaux utilisateurs Premium.'
+        'q' => 'Que deviennent les titres que j\'ai achetes ?',
+        'a' => 'Ils restent a vous. Premium donne l\'ecoute integrale du catalogue pendant l\'abonnement ; un achat, lui, est definitif.'
     ],
     [
-        'q' => 'Puis-je utiliser Premium sur plusieurs appareils ?',
-        'a' => 'Oui, jusqu\'à 5 appareils. L\'écoute simultanée est limitée à 3 appareils.'
+        'q' => 'Quand mon abonnement est-il actif ?',
+        'a' => 'Des que l\'operateur confirme votre paiement, en general en quelques secondes. Avec votre portefeuille Tchadok, immediatement.'
     ],
     [
-        'q' => 'Le paiement est-il immédiatement actif ?',
-        'a' => 'L’activation démarre après validation du paiement. Le délai dépend du canal utilisé, mais le parcours reste suivi depuis votre compte.'
+        'q' => 'Y a-t-il une periode d\'essai ?',
+        'a' => 'Pas pour le moment. Sans Premium, vous pouvez deja ecouter les titres gratuits en entier et un extrait de chaque titre payant.'
     ]
 ];
 
@@ -221,9 +177,9 @@ include 'includes/header-tailwind.php';
                     </h1>
 
                     <p class="mt-5 max-w-2xl text-base leading-8 text-slate-600 dark:text-white/78 sm:text-lg">
-                        Tchadok Premium revient dans un vrai parcours public :
-                        même header que le reste du site, meilleure lisibilité, couleurs cohérentes
-                        et une mise en page plus propre que l’ancienne version en double bloc.
+                        Ecoutez tout le catalogue tchadien en entier, creez des playlists sans limite
+                        et beneficiez d'un traitement prioritaire de vos demandes. Sans engagement,
+                        sans prelevement automatique.
                     </p>
 
                     <div class="mt-6 flex flex-wrap gap-2 text-xs">
@@ -251,17 +207,13 @@ include 'includes/header-tailwind.php';
                                 Créer un compte
                             </a>
                         <?php elseif ($isPremium): ?>
-                            <a href="<?php echo $walletUrl; ?>" class="inline-flex items-center gap-2 rounded-full bg-amber-400 px-6 py-3 text-sm font-semibold text-bg shadow-elev-1 transition hover:-translate-y-0.5 hover:shadow-elev-2">
-                                <i class="fas fa-wallet"></i>
-                                Voir mon portefeuille
+                            <a href="<?php echo SITE_URL; ?>/abonnement.php" class="inline-flex items-center gap-2 rounded-full bg-amber-400 px-6 py-3 text-sm font-semibold text-bg shadow-elev-1 transition hover:-translate-y-0.5 hover:shadow-elev-2">
+                                <i class="fas fa-crown"></i>
+                                Mon abonnement
                             </a>
                             <a href="<?php echo $dashboardUrl; ?>" class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-6 py-3 text-sm font-semibold text-text hover:bg-white/10">
                                 <i class="fas fa-columns"></i>
                                 Retour à mon espace
-                            </a>
-                            <a href="<?php echo $supportUrl; ?>" class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-6 py-3 text-sm font-semibold text-text hover:bg-white/10">
-                                <i class="fas fa-headset"></i>
-                                Support premium
                             </a>
                         <?php else: ?>
                             <a href="#plans" class="inline-flex items-center gap-2 rounded-full bg-amber-400 px-6 py-3 text-sm font-semibold text-bg shadow-elev-1 transition hover:-translate-y-0.5 hover:shadow-elev-2">

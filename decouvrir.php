@@ -218,7 +218,7 @@ include 'includes/header-tailwind.php';
                                     </div>
                                     <div class="mt-3">
                                         <h4 class="truncate text-sm font-semibold text-text"><?php echo htmlspecialchars($track['title']); ?></h4>
-                                        <p class="truncate text-xs text-muted"><?php echo htmlspecialchars($track['artist']); ?></p>
+                                        <p class="truncate text-xs text-muted"><?php echo htmlspecialchars($track['artist']); ?></p><?php echo Panier::bouton('track', (int) $track['id'], (float) ($track['price'] ?? 0), !empty($track['is_free']), 'mt-2'); ?>
                                         <div class="mt-3 flex items-center justify-between text-xs text-muted">
                                             <span class="flex items-center gap-1"><i class="fas fa-play"></i> <?php echo htmlspecialchars($track['plays']); ?></span>
                                             <span><?php echo htmlspecialchars($track['duration_formatted'] ?? '0:00'); ?></span>
@@ -283,7 +283,7 @@ include 'includes/header-tailwind.php';
                                     </div>
                                     <div class="mt-3">
                                         <h4 class="truncate text-sm font-semibold text-text"><?php echo htmlspecialchars($track['title']); ?></h4>
-                                        <p class="truncate text-xs text-muted"><?php echo htmlspecialchars($track['artist']); ?></p>
+                                        <p class="truncate text-xs text-muted"><?php echo htmlspecialchars($track['artist']); ?></p><?php echo Panier::bouton('track', (int) $track['id'], (float) ($track['price'] ?? 0), !empty($track['is_free']), 'mt-2'); ?>
                                         <div class="mt-3 text-xs text-muted">
                                             <span class="flex items-center gap-1"><i class="fas fa-calendar"></i> Il y a <?php echo htmlspecialchars($track['release'] ?? 'récemment'); ?></span>
                                         </div>
@@ -347,7 +347,7 @@ include 'includes/header-tailwind.php';
                                     </div>
                                     <div class="mt-3">
                                         <h4 class="truncate text-sm font-semibold text-text"><?php echo htmlspecialchars($track['title']); ?></h4>
-                                        <p class="truncate text-xs text-muted"><?php echo htmlspecialchars($track['artist']); ?></p>
+                                        <p class="truncate text-xs text-muted"><?php echo htmlspecialchars($track['artist']); ?></p><?php echo Panier::bouton('track', (int) $track['id'], (float) ($track['price'] ?? 0), !empty($track['is_free']), 'mt-2'); ?>
                                         <div class="mt-3 flex items-center justify-between text-xs text-muted">
                                             <span class="flex items-center gap-1"><i class="fas fa-history"></i> <?php echo htmlspecialchars($track['year'] ?? ''); ?></span>
                                             <span><?php echo htmlspecialchars($track['duration_formatted'] ?? '0:00'); ?></span>

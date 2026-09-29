@@ -36,11 +36,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($code === '') {
         $error = 'Saisissez le code.';
     } else {
+        // Lue AVANT la connexion, qui vide la session (SEC-10).
+        $apres = destinationInterne($attente['apres'] ?? null);
         $resultat = $auth ? $auth->terminerConnexionDeuxFacteurs($code, $codeDeSecours) : ['success' => false, 'error' => 'Service indisponible.'];
 
         if (!empty($resultat['success'])) {
             setFlashMessage(FLASH_SUCCESS, 'Connexion reussie ! Bienvenue sur Tchadok');
-            redirect(SITE_URL . '/');
+            redirect(SITE_URL . ($apres ?? '/'));
         }
 
         $error = $resultat['error'] ?: 'Code incorrect.';

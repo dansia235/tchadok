@@ -30,7 +30,16 @@ declare(strict_types=1);
 
 final class Commandes
 {
-    public const STATUTS = ['cart', 'awaiting_payment', 'paid', 'failed', 'cancelled', 'refunded'];
+    public const STATUTS = [
+        'cart', 'awaiting_payment', 'paid', 'failed', 'cancelled', 'expired', 'review', 'refunded', 'disputed',
+    ];
+
+    /**
+     * Etats d'ou un encaissement automatique est exclu (PAY-02) : une commande
+     * en revue attend une decision humaine, une commande remboursee ou
+     * contestee ne se « repaie » pas par un callback tardif.
+     */
+    public const ETATS_FIGES = ['review', 'refunded', 'disputed'];
 
     /** Quota de telechargement par defaut d'un achat. */
     public const TELECHARGEMENTS_PAR_ACHAT = 5;
@@ -79,12 +88,19 @@ final class Commandes
         ?string $libelle = null,
         ?string $format = null
     ): array {
-        if (!in_array($type, ['track', 'release', 'subscription'], true)) {
+        if (!in_array($type, ['track', 'release', 'subscription', 'wallet_topup'], true)) {
             return ['succes' => false, 'erreurs' => ['Type d\'article inconnu.']];
         }
 
-        $portee = $type === 'subscription' ? 'subscription' : ($type === 'release' ? 'release' : 'track');
-        $taux = Tarifs::tauxCommission($portee, $format);
+        // SHOP-06 : un rechargement du portefeuille n'est pas une vente d'artiste :
+        // ni commission, ni part artiste. La commission se prendra sur les
+        // achats payes ensuite avec ce solde.
+        if ($type === 'wallet_topup') {
+            $taux = 0.0;
+        } else {
+            $portee = $type === 'subscription' ? 'subscription' : ($type === 'release' ? 'release' : 'track');
+            $taux = Tarifs::tauxCommission($portee, $format);
+        }
         $commission = round($prix * $taux / 100);
 
         $db = self::base();
@@ -164,6 +180,10 @@ final class Commandes
                 return ['succes' => true, 'deja' => true, 'erreurs' => []];
             }
 
+            if (in_array($commande['status'], self::ETATS_FIGES, true)) {
+                return ['succes' => false, 'deja' => false, 'erreurs' => ['Commande en revue, remboursee ou contestee : encaissement automatique exclu.']];
+            }
+
             // La meme reference ne peut pas servir deux commandes. La base le
             // refuse ; on le dit clairement plutot que de laisser filer une
             // erreur SQL.
@@ -173,7 +193,14 @@ final class Commandes
                 return ['succes' => false, 'deja' => false, 'erreurs' => ['Cette reference operateur appartient a une autre commande.']];
             }
 
-            $db->beginTransaction();
+            // PAY-02 : la machine a etats appelle cette methode DANS sa propre
+            // transaction, pour que tentative, commande, facture et droits
+            // basculent ensemble. On n'ouvre (et ne valide) une transaction que
+            // si l'appelant ne l'a pas deja fait.
+            $proprietaire = !$db->inTransaction();
+            if ($proprietaire) {
+                $db->beginTransaction();
+            }
             $numero = self::attribuerNumeroFacture($db, $orderId);
             $db->prepare(
                 "UPDATE orders
@@ -181,12 +208,20 @@ final class Commandes
                      paid_at = NOW(), invoice_number = COALESCE(invoice_number, ?)
                  WHERE id = ? AND status <> 'paid'"
             )->execute([$gatewayRef, $moyen, $fraisPasserelle, $numero, $orderId]);
-            $db->commit();
 
             self::accorderDroits($orderId);
+
+            if ($proprietaire) {
+                $db->commit();
+            }
         } catch (Throwable $e) {
-            if ($db->inTransaction()) {
-                $db->rollBack();
+            if ($proprietaire ?? false) {
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+            } elseif ($db->inTransaction()) {
+                // L'appelant tient la transaction : c'est a lui d'annuler.
+                throw $e;
             }
             error_log('[Tchadok][commandes] encaissement impossible : ' . $e->getMessage());
             return ['succes' => false, 'deja' => false, 'erreurs' => ['Encaissement impossible pour le moment.']];
@@ -198,8 +233,13 @@ final class Commandes
     /**
      * Ouvre les droits d'acces correspondant aux lignes d'une commande payee.
      *
-     * `INSERT IGNORE` sur la cle unique du droit : un rejeu ne double pas le
+     * Cle unique du droit (membre, article, source) : un rejeu ne double pas le
      * quota de telechargement.
+     *
+     * Un droit REVOQUE (achat conteste ou rembourse, PAY-07) est retabli par un
+     * nouvel achat paye : avec un simple INSERT IGNORE, la ligne revoquee
+     * bloquait la cle unique et le client payait sans obtenir l'acces. Un
+     * droit actif, lui, n'est pas touche -- ni son quota, ni sa date.
      */
     public static function accorderDroits(int $orderId): int
     {
@@ -210,20 +250,110 @@ final class Commandes
 
         try {
             $stmt = $db->prepare(
-                "INSERT IGNORE INTO entitlements
+                "INSERT INTO entitlements
                  (user_id, item_type, item_id, order_item_id, source, max_downloads, granted_at)
                  SELECT o.user_id, oi.item_type, oi.item_id, oi.id, 'purchase', ?, NOW()
                  FROM order_items oi
                  JOIN orders o ON o.id = oi.order_id
-                 WHERE oi.order_id = ? AND o.status = 'paid' AND oi.item_type IN ('track', 'release')"
+                 WHERE oi.order_id = ? AND o.status = 'paid' AND oi.item_type IN ('track', 'release')
+                 ON DUPLICATE KEY UPDATE
+                     order_item_id = IF(entitlements.revoked_at IS NULL, entitlements.order_item_id, VALUES(order_item_id)),
+                     downloads_used = IF(entitlements.revoked_at IS NULL, entitlements.downloads_used, 0),
+                     granted_at     = IF(entitlements.revoked_at IS NULL, entitlements.granted_at, NOW()),
+                     revoked_at     = NULL"
             );
             $stmt->execute([self::TELECHARGEMENTS_PAR_ACHAT, $orderId]);
+            $accordes = $stmt->rowCount();
 
-            return $stmt->rowCount();
+            // SHOP-04 : l'achat d'une sortie donne aussi un droit PAR TITRE.
+            // Tout le reste (lecture, bibliotheque, mise hors ligne) n'a alors
+            // qu'une question a poser : « ce titre est-il a moi ? ». Un titre
+            // deja achete a l'unite garde son propre droit : la contestation de
+            // la sortie ne le retirera pas.
+            $titres = $db->prepare(
+                "INSERT INTO entitlements
+                 (user_id, item_type, item_id, order_item_id, source, max_downloads, granted_at)
+                 SELECT o.user_id, 'track', t.id, oi.id, 'purchase', ?, NOW()
+                 FROM order_items oi
+                 JOIN orders o ON o.id = oi.order_id
+                 JOIN tracks t ON t.release_id = oi.item_id AND t.deleted_at IS NULL
+                 WHERE oi.order_id = ? AND o.status = 'paid' AND oi.item_type = 'release'
+                 ON DUPLICATE KEY UPDATE
+                     order_item_id = IF(entitlements.revoked_at IS NULL, entitlements.order_item_id, VALUES(order_item_id)),
+                     downloads_used = IF(entitlements.revoked_at IS NULL, entitlements.downloads_used, 0),
+                     granted_at     = IF(entitlements.revoked_at IS NULL, entitlements.granted_at, NOW()),
+                     revoked_at     = NULL"
+            );
+            $titres->execute([self::TELECHARGEMENTS_PAR_ACHAT, $orderId]);
+
+            return $accordes + $titres->rowCount();
         } catch (Throwable $e) {
             error_log('[Tchadok][commandes] droits non accordes : ' . $e->getMessage());
             return 0;
         }
+    }
+
+    /**
+     * Contestation d'un paiement par carte (chargeback, PAY-07).
+     *
+     * L'argent est repris par la banque du porteur : l'achat n'existe plus.
+     * Les droits d'acces sont REVOQUES (revoked_at), pas supprimes -- la trace
+     * de ce qui avait ete accorde reste, pour le litige comme pour la
+     * comptabilite. La commande passe en `disputed`, ce qui l'exclut des
+     * ventes versees a l'artiste (LOT 8).
+     *
+     * Idempotente. A appeler dans la transaction de l'appelant si elle existe.
+     */
+    public static function contester(int $orderId, string $motif): bool
+    {
+        $db = self::base();
+        if (!$db) {
+            return false;
+        }
+
+        $stmt = $db->prepare("SELECT status FROM orders WHERE id = ? LIMIT 1");
+        $stmt->execute([$orderId]);
+        $statut = $stmt->fetchColumn();
+        if ($statut === false) {
+            return false;
+        }
+        if ($statut === 'disputed') {
+            return true;
+        }
+
+        $db->prepare(
+            "UPDATE orders SET status = 'disputed', refund_reason = ?, refunded_at = NOW() WHERE id = ?"
+        )->execute([mb_substr($motif, 0, 500), $orderId]);
+
+        self::revoquerDroits($orderId);
+
+        return true;
+    }
+
+    /**
+     * Revoque (sans les supprimer) les droits ouverts par une commande :
+     * contestation (PAY-07) ou remboursement (SHOP-07). Un titre achete par
+     * une AUTRE commande garde son droit, rattache a cette autre ligne.
+     */
+    public static function revoquerDroits(int $orderId): int
+    {
+        $db = self::base();
+        if (!$db) {
+            return 0;
+        }
+        $stmt = $db->prepare(
+            'UPDATE entitlements e
+               JOIN order_items oi ON oi.id = e.order_item_id
+                SET e.revoked_at = NOW()
+              WHERE oi.order_id = ? AND e.revoked_at IS NULL'
+        );
+        $stmt->execute([$orderId]);
+
+        // LOT 7 : un abonnement rembourse ou conteste s'arrete aussi.
+        if (class_exists('Abonnements')) {
+            Abonnements::revoquerPourCommande($db, $orderId);
+        }
+        return $stmt->rowCount();
     }
 
     /**

@@ -134,6 +134,41 @@ if ($taille === false || $taille === 0) {
 }
 
 // ---------------------------------------------------------------------
+// 3 bis. Journal et limitation par compte (SHOP-05)
+// ---------------------------------------------------------------------
+// Seule l'OUVERTURE d'un fichier compte (pas de Range, ou Range depuis 0) :
+// une ecoute avec avance rapide emet plusieurs requetes partielles.
+$ouverture = !isset($_SERVER['HTTP_RANGE']) || preg_match('/^bytes=0-/', trim((string) $_SERVER['HTTP_RANGE']));
+if ($ouverture) {
+    $adresse = function_exists('clientIp') ? clientIp() : (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+    try {
+        // Une ecoute humaine n'ouvre pas 120 titres en dix minutes ; une
+        // aspiration du catalogue, si. Par compte, par adresse pour un visiteur.
+        $compte = $userId !== null
+            ? $db->prepare('SELECT COUNT(*) FROM media_access_log WHERE user_id = ? AND created_at > NOW() - INTERVAL 10 MINUTE')
+            : $db->prepare('SELECT COUNT(*) FROM media_access_log WHERE user_id IS NULL AND ip_address = ? AND created_at > NOW() - INTERVAL 10 MINUTE');
+        $compte->execute([$userId ?? $adresse]);
+        if ((int) $compte->fetchColumn() >= (int) EnvLoader::get('MEDIA_OUVERTURES_MAX', '120')) {
+            error_log(sprintf('[Tchadok][media][ALERTE] ouvertures saturees : compte %s, adresse %s', $userId ?? 'anonyme', $adresse));
+            LimiteDebit::refuser('lecture-fichier', 600);
+        }
+
+        $db->prepare('INSERT INTO media_access_log (user_id, track_id, media_type, grant_reason, ip_address) VALUES (?, ?, ?, ?, ?)')
+           ->execute([$userId, $trackId, substr($type, 0, 20), substr((string) $decision['motif'], 0, 30), substr($adresse, 0, 45)]);
+
+        // Conservation 90 jours : purge une ouverture sur cinq cents, pour ne
+        // pas payer un DELETE a chaque ecoute.
+        if (random_int(1, 500) === 1) {
+            $db->exec('DELETE FROM media_access_log WHERE created_at < NOW() - INTERVAL 90 DAY');
+        }
+    } catch (Throwable $e) {
+        // Journal indisponible (migration non appliquee) : on sert quand
+        // meme, et on le signale -- la lecture ne doit pas tomber pour ca.
+        error_log('[Tchadok][media] journal indisponible : ' . $e->getMessage());
+    }
+}
+
+// ---------------------------------------------------------------------
 // 4. En-tetes communs
 // ---------------------------------------------------------------------
 $mime = MediaAccess::typeMime($chemin);

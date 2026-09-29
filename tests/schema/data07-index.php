@@ -98,14 +98,30 @@ function detail(array $plan): string
 }
 
 $nettoyer = static function () use ($db): void {
-    $db->exec('DELETE FROM tracks WHERE id BETWEEN 20000 AND 29999');
-    $db->exec('DELETE FROM releases WHERE id BETWEEN 20000 AND 29999');
-    $db->exec('DELETE FROM artists WHERE id BETWEEN 20000 AND 20199');
-    $db->exec('DELETE FROM users WHERE id BETWEEN 20000 AND 20199');
-    $db->exec('DELETE FROM genres WHERE id BETWEEN 993 AND 997');
+    // Par MARQUEUR, jamais par plage d'identifiants : les compteurs
+    // auto-incrementes des vraies donnees avaient rejoint la plage fixe de ce
+    // test, qui effacait alors -- ou bloquait sur -- des lignes d'autrui.
+    $db->exec("DELETE FROM tracks WHERE slug LIKE 'zzdata07-titre-%'");
+    $db->exec("DELETE FROM releases WHERE slug LIKE 'zzdata07-sortie-%'");
+    $db->exec("DELETE FROM artists WHERE slug LIKE 'zzdata07-artiste-%'");
+    $db->exec("DELETE FROM users WHERE username LIKE 'zz07\\_u%'");
+    // Filtre sur le nom en plus de l'identifiant : depuis DATA-08, de vrais
+    // genres peuvent occuper ces numeros, et la cle `genres_parent` (ON DELETE
+    // SET NULL) detacherait en silence tous les genres d'une categorie effacee.
+    $db->exec("DELETE FROM genres WHERE id BETWEEN 993 AND 997 AND name LIKE 'ZZDATA07 %'");
 };
 
 $nettoyer();
+
+// Identifiants d'essai : a partir d'une base situee AU-DELA de tout identifiant
+// existant, recalculee a chaque execution -- jamais une plage fixe que les
+// vraies donnees finissent par atteindre.
+$base = 20000;
+foreach (['users', 'artists', 'releases', 'tracks'] as $table) {
+    $base = max($base, (int) $db->query("SELECT COALESCE(MAX(id), 0) + 1 FROM {$table}")->fetchColumn());
+}
+$base = (int) (ceil($base / 1000) * 1000);
+$fin = $base + 9999;
 
 try {
     echo "\n=== A. Les index attendus existent ===\n";
@@ -141,18 +157,17 @@ try {
          VALUES (?, ?, ?, ?, ?, ?, 1, 1)'
     );
     $insertArtiste = $db->prepare(
-        'INSERT INTO artists (id, user_id, stage_name, slug, is_active, verified, featured, genres, total_streams)
-         VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)'
+        'INSERT INTO artists (id, user_id, stage_name, slug, is_active, verified, featured, total_streams)
+         VALUES (?, ?, ?, ?, ?, 1, ?, ?)'
     );
     $hash = password_hash('essai', PASSWORD_BCRYPT);
     for ($i = 0; $i < 120; $i++) {
-        $id = 20000 + $i;
+        $id = $base + $i;
         $insertUser->execute([$id, "zz07_u{$id}", "u{$id}@essai.local", $hash, 'Essai', 'Volume']);
         $insertArtiste->execute([
             $id, $id, "ZZDATA07 Artiste {$id}", "zzdata07-artiste-{$id}",
             $i % 10 === 0 ? 0 : 1,          // un artiste sur dix est desactive
             $i % 7 === 0 ? 1 : 0,
-            'ZZDATA07 Sai',
             random_int(0, 500000),
         ]);
     }
@@ -168,8 +183,8 @@ try {
 
     $statuts = ['approved', 'approved', 'approved', 'approved', 'pending', 'draft', 'rejected'];
     for ($i = 0; $i < 600; $i++) {
-        $id = 20000 + $i;
-        $artiste = 20000 + ($i % 120);
+        $id = $base + $i;
+        $artiste = $base + ($i % 120);
         $statut = $statuts[$i % count($statuts)];
         // Un contenu sur vingt est retire : le filtre `deleted_at` doit servir.
         $retire = $i % 20 === 0 ? date('Y-m-d H:i:s', time() - 86400) : null;
@@ -181,13 +196,13 @@ try {
     }
 
     for ($i = 0; $i < 3000; $i++) {
-        $id = 20000 + $i;
-        $artiste = 20000 + ($i % 120);
+        $id = $base + $i;
+        $artiste = $base + ($i % 120);
         $statut = $statuts[$i % count($statuts)];
         $retire = $i % 20 === 0 ? date('Y-m-d H:i:s', time() - 86400) : null;
         $genre = 993 + ($i % 3);
         $date = date('Y-m-d H:i:s', time() - $i * 600);
-        $sortie = 20000 + ($i % 600);
+        $sortie = $base + ($i % 600);
 
         $insertTitre->execute([
             $id, $sortie, $sortie, "zzdata07-titre-{$id}", $artiste, $genre,
@@ -200,12 +215,12 @@ try {
     // perimees et peut ignorer un index parfaitement utilisable.
     $db->query('ANALYZE TABLE tracks, releases, artists')->fetchAll();
 
-    $titres = (int) $db->query('SELECT COUNT(*) FROM tracks WHERE id BETWEEN 20000 AND 29999')->fetchColumn();
-    $sorties = (int) $db->query('SELECT COUNT(*) FROM releases WHERE id BETWEEN 20000 AND 29999')->fetchColumn();
+    $titres = (int) $db->query("SELECT COUNT(*) FROM tracks WHERE id BETWEEN {$base} AND {$fin}")->fetchColumn();
+    $sorties = (int) $db->query("SELECT COUNT(*) FROM releases WHERE id BETWEEN {$base} AND {$fin}")->fetchColumn();
     verif('3 000 titres inseres', $titres === 3000, (string) $titres);
     verif('600 sorties inserees', $sorties === 600, (string) $sorties);
     verif('Des contenus retires figurent dans le lot',
-        (int) $db->query('SELECT COUNT(*) FROM tracks WHERE id BETWEEN 20000 AND 29999 AND deleted_at IS NOT NULL')->fetchColumn() === 150);
+        (int) $db->query("SELECT COUNT(*) FROM tracks WHERE id BETWEEN {$base} AND {$fin} AND deleted_at IS NOT NULL")->fetchColumn() === 150);
 
     echo "\n=== C. EXPLAIN : les cinq requetes du catalogue ===\n";
 
@@ -237,7 +252,7 @@ try {
     $p = plan($db, "SELECT COALESCE(SUM(oi.artist_net), 0) FROM order_items oi
                      JOIN orders o ON o.id = oi.order_id
                      WHERE oi.artist_id = ? AND o.status = 'paid' AND o.paid_at >= ? AND o.paid_at < ?",
-        [20000, '2026-09-01 00:00:00', '2026-10-01 00:00:00']);
+        [$base, '2026-09-01 00:00:00', '2026-10-01 00:00:00']);
     verif('Revenus mensuels : pas de parcours complet des lignes', !parcoursComplet($p, 'oi'), detail($p));
 
     echo "\n=== D. Les index sont reellement choisis ===\n";
@@ -279,7 +294,7 @@ try {
     $nonPublies = 0;
     foreach ($nouveautes as $ligne) {
         $id = (int) ($ligne['id'] ?? 0);
-        if ($id < 20000 || $id > 29999) {
+        if ($id < $base || $id > $fin) {
             continue;
         }
         $etat = $db->query("SELECT status, deleted_at FROM tracks WHERE id = {$id}")->fetch(PDO::FETCH_ASSOC);

@@ -115,6 +115,19 @@ git config core.hooksPath scripts/git-hooks
 fichier d'environnement réel, `.htaccess`, ou un motif de vrai secret. Voir
 `docs/exploitation/secrets.md`, section 3.5.
 
+### 2.4 ter. Données de référence
+
+```
+php scripts/migrate.php up
+php scripts/seed.php referentiel
+php scripts/seed.php status
+```
+
+Charge les catégories et genres musicaux et les 23 provinces (`DATA-08`).
+**Sans cette étape, aucun genre n'est proposé au dépôt d'un titre.** Le
+chargement est rejouable : il n'ajoute que ce qui manque et ne modifie jamais
+une ligne existante. Il refuse de s'exécuter si des migrations sont en attente.
+
 ### 2.5. Comptes
 
 Depuis `SEC-05`, le dump `database/tchadok.sql` **ne contient plus aucun
@@ -123,13 +136,13 @@ compte**. Deux façons d'en obtenir :
 **Jeu de démonstration (local uniquement)**
 
 ```
-C:\xampp\mysql\bin\mysql.exe -u root tchadok_local < database\seeds\demo.sql
+php scripts/seed.php demo
 ```
 
 Crée `admin` (super-administrateur) et `user_demo`, mot de passe
 `tchadok2026`. Ce fichier ne doit **jamais** être importé en production :
-`env-switch production` refuse la bascule tant qu'il est présent sur le
-serveur.
+`seed.php demo` refuse hors environnement local, et `env-switch production`
+refuse la bascule tant qu'il est présent sur le serveur.
 
 **Compte administrateur réel**
 
@@ -172,6 +185,23 @@ Attendu :
 ```
 
 Puis ouvrir `http://localhost/tchadok`.
+
+### 2.7. Paiements : simulateurs locaux
+
+```
+php scripts/migrate.php up
+scripts\mock-gateways.bat
+php scripts/paiements.php commande-essai user@tchadok.td 1500
+```
+
+Démarre les quatre simulateurs (Airtel Money, Moov Money, VISA, GIMAC) et le
+distributeur de callbacks, sur `127.0.0.1` uniquement. La dernière commande
+crée une commande d'essai et affiche l'adresse de sa page de paiement.
+Numéros et cartes de test : `docs/paiement/jeux-de-test.md`. Arrêt :
+`scripts\mock-gateways.bat stop`.
+
+Les callbacks des simulateurs arrivent par Apache
+(`PAYMENT_CALLBACK_BASE`) : Apache doit tourner.
 
 ---
 
@@ -261,7 +291,10 @@ En local, ces mêmes anomalies s'affichent en bandeau et ne bloquent jamais.
 | `STORAGE_PATH` | oui | `./storage` | chemin absolu, **hors racine web** |
 | `MAIL_DRIVER` | oui | `log` | `smtp` |
 | `PAYMENT_DRIVER` | oui | `mock` | **`live`** |
-| `<PASSERELLE>_BASE_URL`, `_API_KEY`, `_WEBHOOK_SECRET` | oui | simulateurs locaux | fournis par le partenaire |
+| `PAYMENT_CALLBACK_BASE` | oui | `http://localhost/tchadok` | URL publique **HTTPS** |
+| `PAYMENT_INTENT_TTL` | non | `900` | `900` |
+| `<PASSERELLE>_BASE_URL`, `_MERCHANT_ID`, `_API_KEY`, `_WEBHOOK_SECRET` (`AIRTEL`, `MOOV`, `VISA`, `GIMAC`) | oui | simulateurs locaux | fournis par le partenaire |
+| `<PASSERELLE>_CALLBACK_IPS` | **oui en production** | vide (boucle locale) | adresses émettrices de l'opérateur ; **vide = tout callback refusé** |
 | `FFPROBE_PATH`, `FFMPEG_PATH` | oui (lots 9, 12) | chemin local | chemin serveur |
 | `ALLOW_DEV_TOOLS` | oui | `true` | **`false`** |
 | `FORCE_HTTPS`, `HSTS_ENABLED` | non | `false` | `true` |

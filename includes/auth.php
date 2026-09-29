@@ -215,9 +215,18 @@ class Auth {
         // avant le mode strict) heritait de la session connectee, y compris
         // administrateur. Les donnees de l'ancienne session sont abandonnees.
         $ancienId = session_id();
+        // SHOP-01 : le panier du visiteur survit a la connexion, pour etre
+        // fusionne dans son panier en base. Il ne contient que des types et
+        // des identifiants d'articles, sans aucune valeur de securite ; tout
+        // le reste de l'ancienne session est abandonne comme avant.
+        $panierInvite = isset($_SESSION['panier_invite']) && is_array($_SESSION['panier_invite'])
+            ? array_slice($_SESSION['panier_invite'], 0, 50) : null;
         $_SESSION = [];
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_regenerate_id(true);
+        }
+        if ($panierInvite) {
+            $_SESSION['panier_invite'] = $panierInvite;
         }
         if ($ancienId !== '') {
             try {

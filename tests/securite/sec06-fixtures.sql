@@ -20,6 +20,12 @@ VALUES
  (904, 'essai_acheteur', 'acheteur@essai.local', '$2y$12$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG', 'Essai', 'Acheteur', 1, 1, 0, NULL),
  (905, 'essai_fan',      'fan@essai.local',      '$2y$12$bAQyH.x8XRJP/bxEtNdflO43TQL0LxI7lfXhrKFwx4OBfyTgyIqLG', 'Essai', 'Fan',      1, 1, 0, NULL);
 
+-- SUB-03 : le statut Premium se lit dans `subscriptions`, plus dans les
+-- colonnes `premium_*` du compte (gardees ci-dessus pour memoire).
+INSERT INTO subscriptions (user_id, plan_type, amount, currency, status, start_date, end_date) VALUES
+ (902, 'monthly', 2000, 'XAF', 'active',  DATE_SUB(NOW(), INTERVAL 1 DAY),  DATE_ADD(NOW(), INTERVAL 30 DAY)),
+ (903, 'monthly', 2000, 'XAF', 'expired', DATE_SUB(NOW(), INTERVAL 31 DAY), DATE_SUB(NOW(), INTERVAL 1 DAY));
+
 INSERT INTO artists (id, user_id, stage_name, is_active) VALUES (901, 901, 'Artiste Essai', 1);
 
 INSERT INTO tracks (id, artist_id, title, audio_file, preview_file, duration, price, is_free, status) VALUES

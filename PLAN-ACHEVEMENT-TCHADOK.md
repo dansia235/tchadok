@@ -2,7 +2,7 @@
 
 **Document de travail** — compagnon de `AUDIT-PLATEFORME-TCHADOK.md`
 **Date :** 21 septembre 2026
-**Objet :** liste exhaustive et ordonnée des tâches pour corriger les vulnérabilités, purger le code mort, rendre le tunnel de paiement fonctionnel, réparer les statistiques, et livrer un environnement local complet (simulateurs Airtel Money, Moov Money, VISA, KONOOM) avant bascule en production.
+**Objet :** liste exhaustive et ordonnée des tâches pour corriger les vulnérabilités, purger le code mort, rendre le tunnel de paiement fonctionnel, réparer les statistiques, et livrer un environnement local complet (simulateurs Airtel Money, Moov Money, VISA, GIMAC) avant bascule en production.
 
 ---
 
@@ -271,10 +271,10 @@ VISA_MERCHANT_ID=mock-merchant
 VISA_API_KEY=mock-key
 VISA_WEBHOOK_SECRET=<généré localement>
 
-KONOOM_BASE_URL=http://127.0.0.1:9104
-KONOOM_MERCHANT_ID=mock-merchant
-KONOOM_API_KEY=mock-key
-KONOOM_WEBHOOK_SECRET=<généré localement>
+GIMAC_BASE_URL=http://127.0.0.1:9104
+GIMAC_MERCHANT_ID=mock-merchant
+GIMAC_API_KEY=mock-key
+GIMAC_WEBHOOK_SECRET=<généré localement>
 
 PAYMENT_CALLBACK_BASE=http://localhost/tchadok
 
@@ -329,7 +329,7 @@ PAYMENT_DRIVER=live            # bascule des simulateurs vers les API réelles
 AIRTEL_BASE_URL=https://openapi.airtel.africa
 MOOV_BASE_URL=<fourni par Moov>
 VISA_BASE_URL=<fourni par l'acquéreur>
-KONOOM_BASE_URL=<fourni par KONOOM>
+GIMAC_BASE_URL=<fourni par GIMAC>
 PAYMENT_CALLBACK_BASE=https://tchadok.td
 
 ALLOW_DEV_TOOLS=false
@@ -1496,7 +1496,21 @@ Le schéma est globalement bien indexé (34 clés étrangères, index pertinents
 
 ### DATA-08 — Données de référence
 
-**Charge :** 4 h · **Dépend de :** `DATA-01`, `TAXO-01`
+**Charge :** 4 h · **Dépend de :** `DATA-01`, `TAXO-01` · **Statut :** fait le 28/09/2026
+
+> **Bilan.** Structures posées par la migration 0012 (hiérarchie de `genres`, table `regions`, `region_id` sur `users` et `artists`) ; `TAXO-01` garde les écrans d'administration. `database/seeds/referentiel.sql` charge **6 catégories, 31 genres** (proposition du §6.3 de l'audit, **à faire valider par un comité éditorial**) et les **23 provinces** avec leur chef-lieu. Rôles, permissions et grille tarifaire ne sont pas dupliqués : ils vivent dans les migrations 0004 et 0008.
+>
+> **`scripts/seed.php`** (`status`, `referentiel`, `demo`) : ligne de commande uniquement, refus tant qu'une migration est en attente, `demo` refusé hors environnement local. Le référentiel est **rejouable** (`INSERT IGNORE` sur les clés uniques) et **n'écrase jamais** une modification éditoriale ; son chargement est tracé (`taxonomie.modifiee`). Le découpeur SQL de `migrate.php` est mutualisé dans `includes/decoupage-sql.php`.
+>
+> **Une catégorie n'est pas un genre.** Les cinq formulaires de dépôt listaient toute la table : un titre aurait pu être classé dans « Musiques urbaines ». Ils passent par `getGenresSelectionnables()` (genres actifs rattachés à une catégorie, groupés en `<optgroup>`) et **revalident le genre côté serveur** (`estGenreSelectionnable()`). Les pages publiques (`getGenres`, `getGenresWithStats`, compteur d'accueil) excluent les catégories.
+>
+> **Avancé depuis `TAXO-02` / P1-10 :** `upload.php` ne crée plus de genre à partir d'une saisie libre. La proposition d'un genre par un artiste reste à faire (`TAXO-03`). Le genre reste facultatif sur les quatre autres formulaires ; le rendre obligatoire relève de `TAXO-02`.
+>
+> **Corrigé en passant :** `demo.sql` ne créait que la ligne `admins`, qui n'ouvre plus aucun droit depuis `SEC-19` — le compte de démonstration n'accédait à rien sur une installation neuve. Il reçoit désormais son rôle dans `user_roles`.
+>
+> **Défaut des tests révélé par les vraies données :** `data06`, `data07` et `sec08` nettoyaient des genres **par plage d'identifiants** ; les premières catégories ont reçu ces numéros et ont été effacées, la clé `ON DELETE SET NULL` détachant en silence leurs genres. Nettoyages restreints aux lignes marquées par chaque test. **Reste :** ces tests insèrent et effacent aussi `users`, `tracks` et `artists` à identifiants fixes, et `sec19` / `sec20` vident **entièrement** `audit_log`. Sans conséquence sur une base de développement jetable, mais à reprendre (`QA-03`) avant de lancer les tests sur une base portant des données à conserver.
+>
+> **Vérifié :** `tests/schema/data08-referentiel.php`, 48 contrôles. Les 21 autres suites au vert. Le refus de `demo` en production est contrôlé sur le code et non en exécution : simuler la production exigerait de retirer `.env.local` du poste.
 
 La table `genres` **n'est pas alimentée par le dump** : sur une installation neuve elle est vide. C'est la cause première de l'impossibilité de produire des statistiques par genre.
 
@@ -1513,28 +1527,40 @@ La table `genres` **n'est pas alimentée par le dump** : sur une installation ne
 
 ## LOT 5 — Passerelles de paiement et simulateurs locaux
 
-> Objectif : rendre le paiement réellement fonctionnel, et disposer en local d'un environnement complet — Airtel Money, Moov Money, VISA, KONOOM — qui exerce **exactement le même chemin de code** que la production. Un simulateur qui contourne les contrôles de sécurité donne une fausse confiance : les mocks doivent signer leurs callbacks, respecter l'idempotence et savoir échouer.
+> Objectif : rendre le paiement réellement fonctionnel, et disposer en local d'un environnement complet — Airtel Money, Moov Money, VISA, GIMAC — qui exerce **exactement le même chemin de code** que la production. Un simulateur qui contourne les contrôles de sécurité donne une fausse confiance : les mocks doivent signer leurs callbacks, respecter l'idempotence et savoir échouer.
 
 ### État de départ
 
 `includes/payment.php` contient du code cURL pour Airtel et Moov, mais n'est appelé par **aucun point d'entrée**. Les endpoints `api/payment.php` et `api/payments/*` retournent 501. `config/payment.php` ne contient que des valeurs de modèle (`YOUR_AIRTEL_CLIENT_ID`). Le tunnel Premium insère une ligne `status = 'pending'` et s'arrête là, sans callback : **personne ne peut devenir Premium**. Aucun achat de titre n'est possible.
 
-### Note sur KONOOM
+### Décisions du 28/09/2026
 
-Je n'ai pas de connaissance fiable de la spécification d'API de KONOOM. L'adaptateur et le simulateur correspondants sont donc conçus contre un **contrat REST générique documenté** (`docs/paiement/konoom-contrat.md`), à réaligner dès l'obtention de la documentation officielle du partenaire. C'est précisément l'intérêt de l'architecture par adaptateurs de `PAY-01` : ce réalignement n'affectera que le fichier de l'adaptateur, pas le reste de l'application. La même précaution vaut pour Moov Money et pour l'acquéreur VISA, dont les spécifications exactes dépendent du contrat signé.
+> - **Passerelles : Airtel Money, Moov Money, VISA et GIMAC.** GIMAC (Groupement Interbancaire Monétique de l'Afrique Centrale) **remplace KONOOM**, prévu à l'origine ; le plan a été mis à jour en conséquence.
+> - **La plateforme encaisse, puis reverse à l'artiste lorsqu'il le demande.** Tranche la question préalable de `PAY-11` et conditionne le `LOT 8` : les versements sont des **demandes initiées par l'artiste**, pas des virements automatiques. Le statut juridique requis pour encaisser pour le compte de tiers reste à confirmer par la direction avant le premier encaissement réel.
+> - **Les quatre adaptateurs et simulateurs suivent un contrat générique**, faute de documentation des partenaires : `docs/paiement/contrat-generique.md`. Il liste, §4, ce qui doit être confirmé auprès de chacun. Le réalignement ne touchera que l'adaptateur concerné.
+>
+> - **Diaspora : paiement en dollar US** par carte, au taux initial de 1 USD = 600 XAF (administrable, figé sur chaque tentative) ; la comptabilité reste en XAF. Voir `PAY-07`.
+>
+> **Bilan du lot au 28/09/2026 :** `PAY-01` à `PAY-10` faits ; `PAY-11` dépend des partenaires. Vérifié par `tests/paiement/pay-passerelles.php`, **112 contrôles**, et `pay-rapprochement.php`, **28 contrôles**, sur le chemin réel application → simulateur → callback via Apache. Ce test ne crée que des lignes à identifiants attribués par la base, et ne supprime que les siennes.
+>
+> **Incident pendant la régression :** le nettoyage de `data06` (`DELETE FROM order_items WHERE order_id BETWEEN 9601 AND 9699`) a effacé les lignes de trois commandes d'essai créées à la main, que l'auto-incrément avait placées dans sa plage ; la clé étrangère des tentatives a arrêté la suppression des commandes elles-mêmes. Lignes rétablies ; nettoyages de `data05` et `data06` restreints aux comptes d'essai. Même famille que le défaut relevé en `DATA-08` ; la reprise générale de l'isolation des tests reste à faire (`QA-03`).
 
 ---
 
 ### PAY-01 — Abstraction des passerelles
 
-**Charge :** 2 j · **Dépend de :** `DATA-05` · **Bloque :** `PAY-02` à `PAY-11`
+**Charge :** 2 j · **Dépend de :** `DATA-05` · **Bloque :** `PAY-02` à `PAY-11` · **Statut :** fait le 28/09/2026
+
+> **Bilan.** `includes/paiement/` : interface `PasserellePaiement` (noms français, comme `Commandes` ou `Tarifs` : `initier`, `statut`, `verifierCallback`, `rembourser`), objets de valeur `DemandePaiement`, `ResultatPasserelle`, `ResultatCallback`, implémentation du contrat dans `PasserelleGenerique`, quatre adaptateurs minces (`AirtelMoney`, `MoovMoney`, `Visa`, `Gimac`), `FabriquePasserelles`. Délais explicites (5 s / 20 s), vérification TLS, **HTTPS exigé en mode `live`**, chaque échange inscrit dans `payment_events`. Une erreur réseau n'est jamais confondue avec un refus.
+>
+> Variables unifiées : `<PASSERELLE>_BASE_URL`, `_MERCHANT_ID`, `_API_KEY`, `_WEBHOOK_SECRET` (les anciennes `AIRTEL_CLIENT_ID/SECRET` sont renommées), plus `_CALLBACK_IPS`. Une passerelle incomplètement configurée n'est pas proposée au client. L'ancien `includes/payment.php` (erreur de syntaxe, contenu en double) et `config/payment.php`, chargés par aucune page, sont retirés, ainsi que les trois points d'entrée neutralisés en 501.
 
 **À faire :**
 1. Créer l'interface `PaymentGateway` dans `includes/payment/` :
 
 ```php
 interface PaymentGateway {
-    public function code(): string;              // airtel_money, moov_money, visa, konoom
+    public function code(): string;              // airtel_money, moov_money, visa, gimac
     public function supports(string $currency): bool;
     public function initiate(PaymentIntent $intent): GatewayResult;
     public function status(string $gatewayRef): GatewayResult;
@@ -1543,7 +1569,7 @@ interface PaymentGateway {
 }
 ```
 
-2. Quatre adaptateurs : `AirtelMoneyGateway`, `MoovMoneyGateway`, `VisaGateway`, `KonoomGateway`.
+2. Quatre adaptateurs : `AirtelMoneyGateway`, `MoovMoneyGateway`, `VisaGateway`, `GimacGateway`.
 3. `PaymentGatewayFactory` : résout l'adaptateur et l'URL de base depuis le fichier d'environnement. **Le basculement local → production est un changement de configuration, jamais de code** (`PAYMENT_DRIVER=mock` ou `live`, et `<GATEWAY>_BASE_URL`).
 4. Objets de valeur : `PaymentIntent`, `GatewayResult`, `CallbackResult` — pas de tableaux associatifs qui se déforment de couche en couche.
 5. Reprendre le code cURL existant de `includes/payment.php` comme base des adaptateurs Airtel et Moov, en corrigeant : délai d'attente explicite, vérification du certificat TLS, journalisation dans `payment_events`, gestion des codes d'erreur.
@@ -1557,9 +1583,13 @@ interface PaymentGateway {
 
 ### PAY-02 — Machine à états du paiement et idempotence
 
-**Charge :** 2 j · **Dépend de :** `PAY-01`, `DATA-05`
+**Charge :** 2 j · **Dépend de :** `PAY-01`, `DATA-05` · **Statut :** fait le 28/09/2026
 
-C'est le cœur de la fiabilité financière. Les opérateurs mobile money envoient fréquemment des callbacks en double, dans le désordre, ou après un long délai.
+> **Bilan.** `Paiements` (`includes/paiement/Paiements.php`) et la migration 0013. États ajoutés : commande `expired`, `review`, `disputed` ; tentative `review`. Une commande échouée, annulée ou expirée se **retente** (nouvelle ligne `attempt`), une commande payée, en revue, remboursée ou contestée non. Les six règles sont tenues : callback signé ou consultation authentifiée seuls ; idempotence (clé unique, et `Commandes::marquerPayee()` désormais exécutable dans la transaction de la machine à états, pour que tentative, commande, facture et droits basculent ensemble) ; aucun retour arrière ; verrou `FOR UPDATE` ; expiration **après** consultation de l'opérateur (`scripts/paiements.php expirer`, et à la volée par la page d'attente) ; montant exact, sinon revue.
+>
+> **Cas ajoutés au plan, rencontrés en écrivant les tests :** un **second encaissement** d'une commande déjà payée (deux moyens lancés, les deux aboutissent) part en revue au lieu d'être absorbé en silence ; une **confirmation tardive** après expiration encaisse (l'argent a été pris) ; un callback retrouve sa tentative par la référence Tchadok quand la réponse à l'initiation s'est perdue ; une page VISA abandonnée est remplacée si le client change de moyen. `Commandes::contester()` révoque les droits (sans les supprimer).
+>
+> **Reste :** les alertes (montant divergent, double encaissement, signature rejetée) sont écrites au journal applicatif avec le marqueur `[ALERTE]` ; leur remontée vers l'équipe relève de `QA-06`, et leur traitement d'un écran de revue (`DASH-08`). Les opérateurs mobile money envoient fréquemment des callbacks en double, dans le désordre, ou après un long délai.
 
 **États et transitions autorisées :**
 
@@ -1588,9 +1618,11 @@ created ──► awaiting_payment ──┬──► paid ──► refunded
 
 ### PAY-03 — Socle des simulateurs locaux
 
-**Charge :** 2 j · **Dépend de :** `PAY-01`
+**Charge :** 2 j · **Dépend de :** `PAY-01` · **Statut :** fait le 28/09/2026 (console reportée en `PAY-09`)
 
-**Principe :** quatre serveurs HTTP indépendants, un par opérateur, plus une console de pilotage. Chacun imite les URL, l'authentification et le format de réponse de l'opérateur correspondant. Ils fonctionnent **sans base de données** (stockage JSON dans `mock-gateways/storage/`) pour être démarrables en une commande et réinitialisables en supprimant un répertoire.
+> **Bilan.** `mock-gateways/` (voir son `README.md`) : quatre serveurs, un **distributeur de callbacks** en processus séparé (le serveur intégré de PHP ne sait pas rappeler plus tard), stockage JSON sous verrou, `scripts\mock-gateways.bat` (démarrage et `stop`). Pas de variante `.sh` : le poste est sous Windows ; à ajouter si un poste Linux rejoint le projet. Les simulateurs lisent `.env.local`, refusent de démarrer hors local, et **n'utilisent pas** le code de signature de l'application, pour qu'un bogue symétrique ne passe pas inaperçu. Réglage `facteur_delai` pour accélérer les scénarios.
+>
+> **Incident corrigé par les tests :** deux distributeurs actifs envoyaient parfois le même callback deux fois — sous Windows, deux `unlink()` concurrents d'un fichier encore ouvert peuvent tous deux réussir. L'envoi est désormais pris par `rename()`, atomique., un par opérateur, plus une console de pilotage. Chacun imite les URL, l'authentification et le format de réponse de l'opérateur correspondant. Ils fonctionnent **sans base de données** (stockage JSON dans `mock-gateways/storage/`) pour être démarrables en une commande et réinitialisables en supprimant un répertoire.
 
 **Arborescence :**
 
@@ -1605,7 +1637,7 @@ mock-gateways/
 ├── airtel/index.php            port 9101
 ├── moov/index.php              port 9102
 ├── visa/index.php              port 9103
-├── konoom/index.php            port 9104
+├── gimac/index.php            port 9104
 ├── console/index.php           port 9100 — interface de pilotage
 ├── storage/                    transactions simulées (ignoré par Git)
 └── README.md
@@ -1617,7 +1649,7 @@ mock-gateways/
 php -S 127.0.0.1:9101 -t mock-gateways/airtel
 php -S 127.0.0.1:9102 -t mock-gateways/moov
 php -S 127.0.0.1:9103 -t mock-gateways/visa
-php -S 127.0.0.1:9104 -t mock-gateways/konoom
+php -S 127.0.0.1:9104 -t mock-gateways/gimac
 php -S 127.0.0.1:9100 -t mock-gateways/console
 ```
 
@@ -1644,10 +1676,14 @@ php -S 127.0.0.1:9100 -t mock-gateways/console
 
 ### PAY-04 — Réception des callbacks côté application
 
-**Charge :** 1,5 j · **Dépend de :** `PAY-02`, `PAY-03`
+**Charge :** 1,5 j · **Dépend de :** `PAY-02`, `PAY-03` · **Statut :** fait le 28/09/2026
+
+> **Bilan.** `api/payments/callback.php?passerelle=<code>` — paramètre plutôt que chemin (`/callback/airtel`), pour ne pas dépendre d'une règle de réécriture qui diffère entre les deux `.htaccess`. Ordre respecté : corps brut, trace dans `payment_events` **avant** traitement (refus 500 si la trace est impossible), signature en temps constant avec fenêtre de 300 s, transition sous verrou, `200` y compris pour doublon et tentative inconnue, `500` sur échec. Exemption CSRF déclarée et journalisée. **Adresses émettrices** : `<PASSERELLE>_CALLBACK_IPS` en production, **liste vide = tout refusé** ; boucle locale seulement en local.
+>
+> **Livré en plus, nécessaire au parcours complet :** `api/payments/initier.php` (membre connecté, jeton CSRF, limitation de débit — chaque initiation sonne sur le téléphone d'un abonné), `api/payments/suivi.php`, et la page `paiement.php` : choix du moyen avec les logos fournis (`assets/images/paiement/`), numéro de téléphone ou redirection vers l'acquéreur, attente annoncée aux lecteurs d'écran, résultat. En local, un encart rappelle les numéros de test. Le panier et le passage en commande restent `SHOP-01` / `SHOP-02` ; `scripts/paiements.php commande-essai` crée en attendant une commande à payer.
 
 **À faire :**
-1. Créer `api/payments/callback.php` avec une route par passerelle : `/api/payments/callback/airtel`, `/moov`, `/visa`, `/konoom`.
+1. Créer `api/payments/callback.php` avec une route par passerelle : `/api/payments/callback/airtel`, `/moov`, `/visa`, `/gimac`.
 2. Pour chaque callback, dans cet ordre :
    - lire le **corps brut** avant toute désérialisation (la signature porte sur les octets exacts) ;
    - vérifier la signature via `verifyCallback()` de l'adaptateur, en comparaison à temps constant ;
@@ -1669,7 +1705,9 @@ php -S 127.0.0.1:9100 -t mock-gateways/console
 
 ### PAY-05 — Simulateur Airtel Money
 
-**Charge :** 1,5 j · **Dépend de :** `PAY-03` · **Port :** 9101
+**Charge :** 1,5 j · **Dépend de :** `PAY-03` · **Port :** 9101 · **Statut :** fait le 28/09/2026, sur le contrat générique
+
+> **Bilan.** Par décision du 28/09/2026, le simulateur suit le **contrat générique** et non la forme supposée de l'API Airtel Africa décrite ci-dessous (OAuth2, statut `TIP`). Les dix scénarios sont livrés tels quels et vérifiés un par un. Le critère « jeton porteur expiré renouvelé » est sans objet tant que le contrat n'utilise pas OAuth2 ; il reviendra au réalignement sur la documentation Airtel.
 
 Airtel Africa expose une API OAuth2 : le code existant dans `includes/payment.php` (`getAirtelAccessToken()`, `processAirtelMoney()`) donne la forme générale à imiter.
 
@@ -1709,7 +1747,9 @@ Airtel Africa expose une API OAuth2 : le code existant dans `includes/payment.ph
 
 ### PAY-06 — Simulateur Moov Money
 
-**Charge :** 1,5 j · **Dépend de :** `PAY-03` · **Port :** 9102
+**Charge :** 1,5 j · **Dépend de :** `PAY-03` · **Port :** 9102 · **Statut :** fait le 28/09/2026, sur le contrat générique
+
+> **Bilan.** Signature HMAC des requêtes et rejet au-delà de 5 minutes d'écart : appliqués aux **quatre** simulateurs, pas seulement à Moov, et vérifiés. Écart assumé : Moov partage le format de réponse des autres (contrat générique) ; la preuve que l'abstraction tient viendra du réalignement sur une vraie spécification, qui ne doit toucher que `MoovMoney.php`.
 
 Moov utilise une signature de requête plutôt qu'OAuth (le code existant contient `generateMoovSignature()`). La spécification exacte dépend du contrat : le simulateur suit le contrat documenté dans `docs/paiement/moov-contrat.md`, à réaligner à la signature du partenaire.
 
@@ -1731,7 +1771,13 @@ Moov utilise une signature de requête plutôt qu'OAuth (le code existant contie
 
 ### PAY-07 — Simulateur VISA / carte bancaire
 
-**Charge :** 2 j · **Dépend de :** `PAY-03` · **Port :** 9103
+**Charge :** 2 j · **Dépend de :** `PAY-03` · **Port :** 9103 · **Statut :** fait le 28/09/2026
+
+> **Bilan.** Page hébergée simulée (saisie, 3-D Secure, abandon), les huit cartes de test, contestation qui révoque les droits et passe la commande en `disputed`. **Aucun numéro de carte** dans l'application, `payment_events` ou même le stockage du simulateur : vérifié par recherche.
+>
+> **Devise (décision du 28/09/2026) : la diaspora paie en dollar US, par carte.** Taux initial **1 USD = 600 XAF**, choisi comme valeur ronde proche du cours, dans une table `exchange_rates` **historisée et immuable** (migration 0014 ; un changement ajoute une ligne datée, motivée, tracée au journal d'audit : `scripts/devises.php`). Conversion arrondie au **cent supérieur** — la plateforme ne perçoit jamais moins que le prix en francs. Le taux et le montant XAF sont **figés sur la tentative** : un changement de taux n'affecte pas un paiement en cours. Montants échangés en unités mineures (cents). **La comptabilité reste en XAF** : commandes, factures, revenus des artistes. Le mobile money reste en XAF. L'écran d'administration des taux relève de `DASH-09`.
+>
+> **Cours automatique (décision du 28/09/2026, migration 0022).** Le taux vient d'une **API gratuite sans clé** : open.er-api.com (USD/XAF direct), à défaut api.frankfurter.app (BCE, USD/EUR × parité fixe 655,957 — exacte). Redemandé toutes les 6 h au plus (tâche `scripts/devises.php actualiser`, sinon à la première page qui en a besoin), valable 24 h. **Sans connexion Internet**, cours périmé ou réponse aberrante (écart > 50 %) : **600 FCFA** (`DEVISE_USD_SECOURS`). Un échec n'est pas retenté avant 15 min, pour qu'une page hors ligne n'attende pas le réseau à chaque affichage. Chaque cours obtenu entre dans l'historique immuable avec sa source ; la tentative fige le taux **et sa provenance** (`payment_intents.rate_source` : `api`, `secours`, `manuel`) ; `paiement.php` l'annonce au client. Le mode manuel reste disponible (`DEVISES_COURS=manuel`). Vérifié par `tests/paiement/pay-devises.php` (23 contrôles, sources simulées ; un contrôle informatif interroge les vraies API — 575,93 FCFA le 28/09/2026). **Incident corrigé le même jour :** la migration 0021 avait réutilisé les noms des déclencheurs de `exchange_rates`, ôtant leur protection ; noms corrigés, taux rétabli à 600, et `data01` refuse désormais tout nom de déclencheur partagé entre deux tables.
 
 Le paiement par carte diffère structurellement du mobile money : saisie des données de carte, authentification forte (3-D Secure), redirection.
 
@@ -1772,11 +1818,13 @@ Le dernier cas est important : les contestations existent en carte et pas en mob
 
 ---
 
-### PAY-08 — Simulateur KONOOM
+### PAY-08 — Simulateur GIMAC
 
-**Charge :** 1,5 j · **Dépend de :** `PAY-03` · **Port :** 9104
+**Charge :** 1,5 j · **Dépend de :** `PAY-03` · **Port :** 9104 · **Statut :** fait le 28/09/2026
 
-**Préalable :** obtenir la documentation officielle de KONOOM. En son absence, le simulateur est construit contre un contrat REST générique que je documente dans `docs/paiement/konoom-contrat.md`, avec la liste explicite des points à confirmer auprès du partenaire :
+> **Bilan.** GIMAC remplace KONOOM (décision du 28/09/2026). Parcours push ; comme plateforme d'interopérabilité de la CEMAC, l'adaptateur accepte les numéros des six pays de la zone (`+235`, `+237`, `+236`, `+240`, `+241`, `+242`). Le contrat et la liste des points à confirmer sont dans `docs/paiement/contrat-generique.md` (un seul document pour les quatre partenaires, plutôt qu'un fichier par passerelle), avec une question propre à GIMAC : adhésion directe ou via une banque membre.
+
+**Préalable :** obtenir la documentation officielle de GIMAC. En son absence, le simulateur est construit contre un contrat REST générique que je documente dans `docs/paiement/gimac-contrat.md`, avec la liste explicite des points à confirmer auprès du partenaire :
 
 - mode d'authentification (clé d'API, OAuth2, signature de requête) ;
 - format d'initiation et de réponse ;
@@ -1793,14 +1841,20 @@ Le dernier cas est important : les contestations existent en carte et pas en mob
 
 **Critères d'acceptation :**
 - Le parcours complet fonctionne en local avec le contrat provisoire.
-- `docs/paiement/konoom-contrat.md` liste précisément ce qui doit être confirmé auprès du partenaire.
-- Le réalignement sur la spécification réelle ne touchera que `KonoomGateway` et le simulateur.
+- `docs/paiement/gimac-contrat.md` liste précisément ce qui doit être confirmé auprès du partenaire.
+- Le réalignement sur la spécification réelle ne touchera que `GimacGateway` et le simulateur.
 
 ---
 
 ### PAY-09 — Console de pilotage des simulateurs
 
-**Charge :** 1,5 j · **Dépend de :** `PAY-03` · **Port :** 9100
+**Charge :** 1,5 j · **Dépend de :** `PAY-03` · **Port :** 9100 · **Statut :** fait le 28/09/2026
+
+> **Bilan.** `mock-gateways/console/index.php`, démarrée par le lanceur. Liste filtrable des transactions des quatre passerelles, détail avec les callbacks émis et la **réponse de Tchadok** à chacun, actions **valider, refuser, annuler, abandonner** (plus aucun callback : test de l'expiration), **rejouer, callback mal signé, montant altéré, contester**. Réglages : facteur de délai, **taux d'échec aléatoire** (numéros hors scénarios seulement, pour que les scénarios restent reproductibles), **panne simulée** d'une passerelle (503, que Tchadok annonce au client comme « moyen momentanément indisponible »). Réinitialisation. Alerte si la file des callbacks n'avance plus (distributeur arrêté).
+>
+> **Sécurité, même en local :** boucle locale seulement ; chaque action exige un **jeton propre au poste** et une origine locale — sans cela, n'importe quel site ouvert dans le navigateur pourrait piloter les simulateurs par un formulaire vers `127.0.0.1:9100`.
+>
+> **Défaut trouvé grâce à la console :** après une contestation, un nouvel achat du même titre était payé **sans rouvrir l'accès** — le droit révoqué bloquait la clé unique (`INSERT IGNORE`). `Commandes::accorderDroits()` rétablit désormais un droit révoqué, sans toucher un droit actif.
 
 Une interface web locale pour observer et provoquer, sans laquelle le développement du tunnel d'achat devient pénible.
 
@@ -1821,7 +1875,13 @@ Une interface web locale pour observer et provoquer, sans laquelle le développe
 
 ### PAY-10 — Réconciliation et rapports financiers
 
-**Charge :** 1,5 j · **Dépend de :** `PAY-02`, `PAY-04`
+**Charge :** 1,5 j · **Dépend de :** `PAY-02`, `PAY-04` · **Statut :** fait le 28/09/2026
+
+> **Bilan.** Le contrat générique gagne un relevé quotidien (`GET /v1/statements`), servi par les simulateurs. `Rapprochement` (migration 0015) compare relevé et tentatives, et classe cinq types d'écart : argent reçu sans tentative, paiement enregistré absent du relevé, **montant ou devise différents**, **états divergents** (dont le cas le plus coûteux : argent pris, achat non livré), **commande encaissée deux fois** (avec la consigne de rembourser le surplus). Relancer un jour ne duplique pas un écart ouvert. **Clôture motivée obligatoire, garantie par une contrainte en base**, tracée au journal d'audit ; un écart ne se supprime jamais. Alerte au-delà de `RECONCILIATION_ALERT_RATE` (1 % par défaut) et quand un relevé est indisponible.
+>
+> Exploitation : `scripts/rapprochement.php` (la veille par défaut, à planifier chaque nuit ; `ecarts`, `clore`), écran `admin/rapprochement.php` (consultation : `finance.rapport.lire` ; clôture : `finance.remboursement.executer`), entrée dans la console d'administration. Vérifié par `tests/paiement/pay-rapprochement.php` (28 contrôles), qui fabrique chaque type d'écart.
+>
+> **Écart au plan :** relevé par API plutôt que par import de fichier, faute de connaître le format réel des partenaires (point ajouté au §4 du contrat) ; un import de fichier se greffera dans l'adaptateur concerné.
 
 Sans réconciliation, un écart entre ce que l'opérateur a encaissé et ce que la plateforme a enregistré passe inaperçu jusqu'au litige.
 
@@ -1852,7 +1912,9 @@ Cette tâche dépend d'éléments externes dont les délais ne sont pas maîtris
 | Airtel Money Tchad | Contrat marchand, identifiants de test puis de production, liste des IP de callback, documentation | Direction |
 | Moov Money Tchad | Idem | Direction |
 | Acquéreur VISA | Contrat d'acquisition, page hébergée, identifiants, certification éventuelle | Direction |
-| KONOOM | Documentation d'API, contrat, identifiants | Direction |
+| GIMAC | Documentation d'API, contrat, identifiants | Direction |
+
+> **Tranché le 28/09/2026 :** la plateforme encaisse, puis reverse à l'artiste à sa demande. Reste à confirmer par la direction le statut juridique requis pour encaisser pour le compte de tiers.
 
 **Question préalable à trancher avant le premier encaissement :** le statut requis pour **encaisser pour le compte de tiers** et reverser à des artistes. Selon la réponse, l'architecture peut changer (encaissement par la plateforme, ou redirection du paiement vers l'artiste). Cette question conditionne `LOT 8` et doit être posée maintenant, pas au moment de la mise en ligne.
 
@@ -1876,7 +1938,13 @@ Cette tâche dépend d'éléments externes dont les délais ne sont pas maîtris
 
 ### SHOP-01 — Panier
 
-**Charge :** 2 j · **Dépend de :** `DATA-05`
+**Charge :** 2 j · **Dépend de :** `DATA-05` · **Statut :** fait le 28/09/2026
+
+> **Bilan.** `includes/panier.php` (`Panier`), `api/panier.php`, `panier.php`, boutons « Ajouter au panier » sur les cartes de `decouvrir.php` et `albums.php` (`assets/js/panier.js`), icône et compteur dans l'en-tête. Contrôles serveur à chaque ajout et à chaque affichage : publié, payant, artiste actif, **non possédé** (achat direct ou via la sortie), et pas de double achat — un titre couvert par une sortie du panier est refusé, ajouter la sortie retire ses titres. Un titre d'une sortie « vendue en bloc » (`allow_track_buy = 0`) est refusé à l'unité. **Prix relus en base** à chaque affichage ; un prix modifié est annoncé et bloque le passage en commande jusqu'à ce que le client l'ait vu. Panier de visiteur en session, **préservé à la connexion** (seule donnée conservée lors du renouvellement de session de SEC-10) et fusionné dans le panier du compte.
+>
+> **Corrigé en passant :** `login.php` ignorait `?redirect=` — les pages qui y renvoyaient (paiement, facture) ramenaient à l'accueil. Le retour est désormais pris en charge, **y compris après le second facteur**, et limité aux chemins internes (`destinationInterne()`) : pas de redirection ouverte vers un site d'hameçonnage.
+>
+> **Frais de transaction :** à zéro, affichés « offerts ». Répercuter les frais des opérateurs sur le client est une décision commerciale à prendre ; la colonne `orders.gateway_fee` est prête.
 
 **À faire :**
 1. Panier persistant en base (table `orders` au statut `cart`), rattaché à l'utilisateur connecté ; pour un visiteur, panier de session fusionné à la connexion.
@@ -1894,10 +1962,12 @@ Cette tâche dépend d'éléments externes dont les délais ne sont pas maîtris
 
 ### SHOP-02 — Passage en commande et choix du moyen de paiement
 
-**Charge :** 2 j · **Dépend de :** `SHOP-01`, `PAY-02`
+**Charge :** 2 j · **Dépend de :** `SHOP-01`, `PAY-02` · **Statut :** fait le 28/09/2026
+
+> **Bilan.** « Passer au paiement » relit une dernière fois les prix, fige la commande (`awaiting_payment`) et ouvre `paiement.php` (livré au `LOT 5`) ; un nouveau panier vide s'ouvre. Les commandes passées et non réglées restent visibles et payables depuis le panier et la bibliothèque. Les dix scénarios produisent un message lisible (vérifié en `PAY-05`), une commande expirée se relance, et fermer l'onglet n'empêche rien : c'est le callback qui encaisse. Le portefeuille (`SHOP-06`) figure parmi les moyens proposés, sauf pour régler un rechargement.
 
 **À faire :**
-1. Écran de paiement : récapitulatif figé, choix entre Airtel Money, Moov Money, carte, KONOOM et portefeuille (`SHOP-06`).
+1. Écran de paiement : récapitulatif figé, choix entre Airtel Money, Moov Money, carte, GIMAC et portefeuille (`SHOP-06`).
 2. Validation du numéro de téléphone pour le mobile money, avec le format tchadien.
 3. Création de la commande (`awaiting_payment`) et du `payment_intent`, **figeant `unit_price` et `commission_rate`** dans `order_items`.
 4. Écran d'attente avec consultation périodique du statut, instructions claires (« composez votre code sur votre téléphone »), et délai visible.
@@ -1913,7 +1983,11 @@ Cette tâche dépend d'éléments externes dont les délais ne sont pas maîtris
 
 ### SHOP-03 — Facturation
 
-**Charge :** 1,5 j · **Dépend de :** `SHOP-02`
+**Charge :** 1,5 j · **Dépend de :** `SHOP-02` · **Statut :** fait le 28/09/2026, PDF par le navigateur
+
+> **Bilan.** Numérotation continue sous verrou depuis `DATA-05`, au format `FAC-2026-000123` — `TCHK-` étant déjà la référence des commandes, le préfixe distinct évite toute confusion entre les deux. `facture.php` : page autonome et imprimable (mentions de l'éditeur, lignes, moyen de paiement, référence opérateur, montant et taux quand le client a payé en dollars, mention en cas de remboursement ou de contestation), réservée à l'acheteur et à `finance.transaction.lire`. **E-mail de confirmation** envoyé après l'encaissement, jamais avant la validation de la transaction ; en local il est capturé dans `storage/logs/mail.log` (`sendEmail()` respecte désormais `MAIL_DRIVER=log`). La facture se reconstruit depuis la commande, dont les lignes figent prix et commission : elle reste identique après coup, compte anonymisé compris.
+>
+> **Restent :** la **génération PDF côté serveur** (aujourd'hui « Imprimer → Enregistrer en PDF » ; demande une bibliothèque, `QA-01`) ; les **mentions légales** (`FACTURE_*` : raison sociale, RCCM, NIF, régime de TVA), à fournir par la direction — rien n'est inventé.
 
 **À faire :**
 1. Numérotation **séquentielle sans trou** (obligation comptable), générée sous verrou à la validation du paiement, au format `TCHK-2026-000123`.
@@ -1929,7 +2003,9 @@ Cette tâche dépend d'éléments externes dont les délais ne sont pas maîtris
 
 ### SHOP-04 — Droits d'accès
 
-**Charge :** 1,5 j · **Dépend de :** `DATA-05`, `SHOP-02`
+**Charge :** 1,5 j · **Dépend de :** `DATA-05`, `SHOP-02` · **Statut :** fait le 28/09/2026 (révocation par remboursement : `SHOP-07`)
+
+> **Bilan.** L'achat d'une sortie ouvre un droit pour la sortie **et un par titre** ; un titre déjà acheté à l'unité garde son propre droit. Un droit révoqué (contestation) est rétabli par un nouvel achat, un droit actif n'est jamais touché. `bibliotheque.php` : titres (lecture par le lecteur du site, URL signée), sorties, historique des achats avec factures, rappel des commandes à régler. Le quota de téléchargement existe en base mais n'a pas d'objet tant que `SHOP-08` n'est pas livré : **aucun fichier n'est jamais téléchargeable**, conformément à l'exigence du 23/09/2026.
 
 **À faire :**
 1. À la validation du paiement, création des `entitlements` correspondants — un par titre, y compris pour l'achat d'une sortie complète (ce qui simplifie tout le reste).
@@ -1947,7 +2023,9 @@ Cette tâche dépend d'éléments externes dont les délais ne sont pas maîtris
 
 ### SHOP-05 — Livraison protégée des fichiers
 
-**Charge :** 2 j · **Dépend de :** `SHOP-04`, `SEC-06`
+**Charge :** 2 j · **Dépend de :** `SHOP-04`, `SEC-06` · **Statut :** fait le 28/09/2026
+
+> **Bilan.** Points 1 à 5 livrés dès `SEC-06` (décision serveur, URL signée liée à la session, requêtes partielles, chemin `X-Sendfile` prêt — `mod_xsendfile` absent de XAMPP). La durée de l'URL reste de 3 h et non 5 min : l'avance rapide sur un titre long casserait, et la protection contre le partage repose sur le lien à la session. Ajouté ici : **journal des ouvertures** (`media_access_log`, migration 0016 : qui, quel titre, à quel titre, quelle adresse ; 90 jours) et **limitation par compte** (`MEDIA_OUVERTURES_MAX`, 120 ouvertures par 10 minutes ; par adresse pour un visiteur) — par compte et non par adresse seule, un cybercafé partageant une adresse. Seules les ouvertures comptent, pas les requêtes partielles d'une même écoute.
 
 C'est la tâche qui ferme définitivement la faille P0-10 : aujourd'hui tout le catalogue payant est librement téléchargeable par URL directe.
 
@@ -1970,7 +2048,15 @@ C'est la tâche qui ferme définitivement la faille P0-10 : aujourd'hui tout le 
 
 ### SHOP-06 — Portefeuille prépayé
 
-**Charge :** 2 j · **Dépend de :** `PAY-02`, `SHOP-02`
+**Charge :** 2 j · **Dépend de :** `PAY-02`, `SHOP-02` · **Statut :** fait le 28/09/2026
+
+> **Bilan.** `Portefeuille` (migration 0018). **Le journal `wallet_transactions` fait foi** : ajouts seulement (déclencheurs), référence unique par mouvement, solde jamais négatif (contrainte) ; `users.wallet_balance` n'est qu'un cache, contrôlé par `scripts/portefeuille.php verifier` (à planifier chaque nuit). **Rechargement** = une commande ordinaire (ligne `wallet_topup`, sans commission), réglée par Airtel Money, Moov Money, GIMAC ou carte ; le solde n'est crédité qu'à l'encaissement, **dans la même transaction**, une seule fois même si le callback est rejoué. **Achat** par le solde depuis `paiement.php` : débit sous verrou de la ligne du membre — deux achats simultanés sur un solde insuffisant n'en laissent passer qu'un (vérifié par deux processus concurrents). Remboursement d'un achat réglé par le portefeuille : recrédit immédiat. `wallet.php` réécrite : l'ancienne page lisait `payment_transactions`, que rien n'alimentait. Corrections motivées et tracées (`scripts/portefeuille.php ajuster`). Vérifié par `tests/paiement/shop-portefeuille.php` (29 contrôles).
+>
+> **Défaut des tests corrigé :** `data07` insérait ses données à identifiants fixes (20000 et au-delà) et nettoyait par plage ; les compteurs auto-incrémentés des vraies données avaient rejoint cette plage (comptes conservés par ce test, dont le journal est immuable). `data07` part désormais d'une base calculée au-delà de tout identifiant existant et ne supprime que ses lignes marquées `zzdata07`. Les autres tests à identifiants fixes (`data05`, `data06`, `sec08`, `sec10`, `sec19`) restent à reprendre en `QA-03`.
+>
+> **À décider par la direction :**
+> - la **politique du solde non consommé** (remboursable ou non, sur quelle demande), à inscrire aux conditions générales. La page annonce seulement que le solde n'expire pas ; un rechargement ne se rembourse pas en ligne, mais par un ajustement motivé ;
+> - le **traitement comptable du rechargement** : il reçoit aujourd'hui un numéro de facture comme toute commande ; un expert-comptable dira s'il doit plutôt s'agir d'un reçu, la facture intervenant à l'achat.
 
 Recommandation forte pour le marché visé : le coût et la friction d'une transaction mobile money de 300 FCFA sont le principal frein à l'achat à l'unité. Le rechargement groupé les élimine. La colonne `users.wallet_balance` existe déjà.
 
@@ -1990,7 +2076,13 @@ Recommandation forte pour le marché visé : le coût et la friction d'une trans
 
 ### SHOP-07 — Remboursements et litiges
 
-**Charge :** 2 j · **Dépend de :** `SHOP-04`, `PAY-01`
+**Charge :** 2 j · **Dépend de :** `SHOP-04`, `PAY-01` · **Statut :** fait le 28/09/2026 (remboursement total)
+
+> **Bilan.** `Remboursements` (migration 0017 : `refunds`, `refund_items`). **Écriture d'annulation** : la commande et ses lignes restent intactes ; chaque ligne remboursée porte le montant, la commission et la **part artiste reprises**, avec `after_payout` quand la période a déjà été versée — la reprise deviendra alors un ajustement négatif du versement suivant (`LOT 8`). Passage par l'opérateur (`rembourser()` du contrat générique) ; s'il ne le permet pas, dossier « à rembourser manuellement », suivi jusqu'à sa clôture motivée. Confirmation par le callback `refund.succeeded`. Droits d'accès révoqués, facture d'origine conservée ; racheter ensuite rouvre l'accès.
+>
+> Parcours client : « Signaler un problème » dans la bibliothèque → `reclamation.php` (motif, précisions, délai de réponse annoncé : 3 jours ouvrés), réponse par e-mail. Écran `admin/remboursements.php` : consultation `finance.transaction.lire`, décision `finance.remboursement.executer` ; **aucune décision sans motif** (contrainte en base), journal d'audit. Contestations carte : traitées en `PAY-07`. Vérifié par `tests/paiement/shop-remboursements.php` (36 contrôles).
+>
+> **Restent :** le remboursement **partiel** (une ligne d'une commande) si le besoin se confirme ; la **politique** de remboursement (délais, cas acceptés), à inscrire aux conditions générales par la direction. Les compteurs de ventes (`total_sales`) ne sont pas décrémentés par un remboursement : ils seront reconstruits par `STAT-06`.
 
 `refundPayment()` existe dans `includes/payment.php` et n'est appelé nulle part.
 
@@ -2042,9 +2134,20 @@ Sans cette règle, un bouton « télécharger » annulerait tout le travail de `
 
 > Objectif : un tunnel Premium qui aboutit réellement. Aujourd'hui il insère une ligne `status = 'pending'` et s'arrête : aucun callback, aucun encaissement, **personne ne peut devenir Premium**. Le statut affiché à l'utilisateur est par ailleurs figé en session à la connexion, et `premium_expires_at` n'est jamais contrôlé.
 
+> **Bilan du lot au 28/09/2026 : `SUB-01` à `SUB-04` faits.** `includes/abonnements.php` (`Abonnements`), migration 0019, pages `premium-payment.php` (réécrite), `abonnement.php`, `admin/abonnements.php`, tâche `scripts/abonnements.php echeances` (à planifier chaque jour). Vérifié par `tests/paiement/sub-abonnements.php` (47 contrôles).
+>
+> **Part des artistes dans les abonnements : tranchée le 28/09/2026 — un pourcentage réglé depuis la console, proposé à 70 %, modifiable.** Écran `admin/remuneration.php` (entrée « Rémunération des artistes » de la console) : part des artistes sur les ventes (lecture de la grille) et sur les abonnements (réglable). Migration 0021, `includes/paiement/Repartition.php`.
+> - **Taux** : historique daté (1ᵉʳ du mois), motivé, attribué, immuable ; une **baisse** ne prend effet qu'au mois suivant (préavis) ; aucun changement ne touche un mois déjà réparti ; artistes prévenus par e-mail.
+> - **Revenu du mois** : abonnements payés seulement (ni remboursés ni contestés), étalés au prorata des jours — un annuel compte pour 1/12ᵉ environ chaque mois.
+> - **Répartition centrée sur l'abonné** : la part d'un abonné va aux artistes **qu'il a écoutés**, au prorata de ses écoutes d'au moins 30 s (`REPARTITION_ECOUTE_MIN_SECONDES`), hors écoutes de soi-même. Une écoute fabriquée ne détourne que l'abonnement de son auteur — nécessaire tant que la mesure n'est pas certifiée (`LOT 9`). La part d'un abonné sans écoute reste à la plateforme (« non attribué », affiché).
+> - **Clôture mensuelle** par la finance (`finance.versement.creer`), mois échu, une seule fois : chaque artiste reçoit un ajustement de solde, versé ensuite par le circuit du `LOT 8`. Figée en base ; arrondi au franc sans perte.
+> - Vérifié par `tests/paiement/sub-repartition.php` (39 contrôles). **Reste** : inscrire le taux et la règle de répartition dans le texte du contrat de distribution (`PAYOUT-05`) ; basculer sur les écoutes certifiées quand `STAT-03` sera livré.
+
 ### SUB-01 — Plans d'abonnement administrés
 
-**Charge :** 1 j · **Dépend de :** `DATA-04`
+**Charge :** 1 j · **Dépend de :** `DATA-04` · **Statut :** fait le 28/09/2026
+
+> **Bilan.** `subscription_plans` (libellé, durée, activation) ; le **prix reste dans la grille** (`pricing_rules`, DATA-04) : une seule source, déjà administrée et journalisée — la contradiction 2 000/2 500 avait été tranchée en `DATA-04`. Écran `admin/abonnements.php` (libellé, activation, abonnés, échéances), modifications journalisées. Prix figé sur la commande et l'abonnement : un changement n'affecte pas les abonnements en cours (vérifié).
 
 - Table `subscription_plans` : libellé, durée, prix, avantages, actif ou non.
 - Retirer les tableaux `$plans` écrits en dur dans `premium.php` (l. 129, 147) et `premium-payment.php` (l. 29, 35).
@@ -2057,7 +2160,9 @@ Sans cette règle, un bouton « télécharger » annulerait tout le travail de `
 
 ### SUB-02 — Souscription et renouvellement
 
-**Charge :** 2 j · **Dépend de :** `SUB-01`, `PAY-02`
+**Charge :** 2 j · **Dépend de :** `SUB-01`, `PAY-02` · **Statut :** fait le 28/09/2026
+
+> **Bilan.** `premium-payment.php` crée une commande d'abonnement réglée par le **tunnel commun** (Airtel Money, Moov Money, GIMAC, carte, portefeuille). L'abonnement s'active **à l'encaissement seulement**, dans la même transaction ; dates calculées à l'activation. Renouvellement ouvert 7 jours avant l'échéance, la nouvelle période commençant **à la fin de la précédente** (jamais de chevauchement) ; rappels par e-mail à J-7 et J-1, une seule fois chacun, pas après une résiliation ; **aucun prélèvement automatique**. Résiliation en un clic, accès maintenu jusqu'à la fin de la période payée. Un abonnement remboursé ou contesté s'arrête aussitôt. Les anciennes lignes `pending` de l'ancien tunnel, jamais payées, sont passées en `failed`.
 
 - Souscription via le tunnel de paiement commun de `LOT 5` — pas de chemin séparé.
 - Activation **uniquement** sur callback validé.
@@ -2074,7 +2179,9 @@ Sans cette règle, un bouton « télécharger » annulerait tout le travail de `
 
 ### SUB-03 — Contrôle du statut et expiration
 
-**Charge :** 1 j · **Dépend de :** `SUB-02`
+**Charge :** 1 j · **Dépend de :** `SUB-02` · **Statut :** fait le 28/09/2026
+
+> **Bilan.** `estPremium()` lit la table des abonnements à chaque requête (une fois par requête) ; l'en-tête, `premium.php` et `media-access.php` ne lisent plus la session. Un abonnement échu perd ses avantages **immédiatement**, sans attendre la tâche de nuit ni une reconnexion. La tâche quotidienne clôt les périodes, révoque les droits de source `subscription` et remet le cache du compte à jour ; **les droits issus d'un achat ne sont pas touchés** (vérifié). Espace client `abonnement.php` : statut, échéance, périodes et factures.
 
 `$_SESSION['premium_status']` est figé à la connexion (`includes/auth.php` l. 103) et `premium_expires_at` n'est contrôlé nulle part : un abonnement expiré reste actif jusqu'à la déconnexion.
 
@@ -2090,7 +2197,9 @@ Sans cette règle, un bouton « télécharger » annulerait tout le travail de `
 
 ### SUB-04 — Avantages effectifs
 
-**Charge :** 1 j · **Dépend de :** `SUB-03`, `SHOP-05`
+**Charge :** 1 j · **Dépend de :** `SUB-03`, `SHOP-05` · **Statut :** fait le 28/09/2026
+
+> **Bilan.** Trois avantages **réels**, déclarés en un seul endroit (`Abonnements::AVANTAGES`) et affichés depuis cette liste : écoute intégrale du catalogue (sinon extrait de 30 s), **playlists illimitées** (`FREE_PLAYLIST_LIMIT`, 10, enfin appliqué — page et API), **réclamations prioritaires** (en tête de file dans `admin/remboursements.php`). **Retirés de `premium.php` car fictifs** : 320 kbps, téléchargements hors ligne, « sans publicité » (le site n'en affiche à personne), essai gratuit de 7 jours, 5 appareils, et le moyen de paiement Ecobank ; la FAQ est réécrite, le texte d'accroche aussi (il décrivait la refonte de la page au lieu de l'offre). Les téléchargements hors ligne reviendront sur la page quand `SHOP-08` sera livré.
 
 Définir et implémenter ce que Premium apporte réellement — aujourd'hui rien n'est différencié dans le code.
 
@@ -2104,9 +2213,15 @@ Proposition à arbitrer : écoute sans publicité, téléchargements hors ligne,
 
 > Objectif : que l'argent arrive aux artistes. Aucune table, aucun écran, aucun flux n'existe aujourd'hui — `transactions.type` mentionne `withdrawal`, mais aucun code n'en produit.
 
+> **Bilan du lot au 28/09/2026 : `PAYOUT-01` à `PAYOUT-05` faits** (mécanisme ; le **texte** du contrat reste à fournir). Versement **à la demande de l'artiste** (décision du 28/09/2026). `includes/paiement/Versements.php`, `includes/paiement/Contrats.php`, migration 0020 ; pages `artiste-revenus.php`, `releve-versement.php`, `contrat.php`, `admin/versements.php` ; tâche `scripts/versements.php verifier` (toutes les 15 min), contrôles `controle` et `contrat-etat`. Vérifié par `tests/paiement/payout-versements.php` (83 contrôles). Réglages : `PAYOUT_MINIMUM` (10 000), `PAYOUT_RETENTION_DAYS` (30).
+>
+> **Reste à fournir par la direction :** le texte du contrat de distribution (à publier par `scripts/versements.php contrat-publier`) — tant qu'aucune version n'est publiée, rien n'est exigé des artistes, et `contrat-etat` échoue en production pour le signaler ; la clé de répartition des abonnements (voir `LOT 7`).
+
 ### PAYOUT-01 — Calcul du solde artiste
 
-**Charge :** 2 j · **Dépend de :** `SHOP-02`, `DATA-05`
+**Charge :** 2 j · **Dépend de :** `SHOP-02`, `DATA-05` · **Statut :** fait le 28/09/2026
+
+> **Bilan.** `Versements::solde()` lit `order_items.artist_net` (figé à la vente) des commandes **payées** : brut, commission, part artiste, en rétention, ajustements, déjà versé, engagé, disponible. Une vente remboursée ou contestée sort d'elle-même du calcul ; **si elle avait déjà été versée**, le disponible devient négatif et se compense sur les ventes suivantes, sans rien réclamer à l'artiste. Ajustements (`artist_adjustments`) motivés, journalisés, **immuables** (déclencheurs). Invariant part artiste + commission = prix payé contrôlé sur toute la base (`scripts/versements.php controle`).
 
 - Vue consolidée par artiste : chiffre d'affaires brut, commission, net, déjà versé, en attente de rétention, disponible.
 - **Période de rétention** avant éligibilité (30 jours proposés), pour couvrir remboursements et contestations.
@@ -2122,7 +2237,9 @@ Proposition à arbitrer : écoute sans publicité, téléchargements hors ligne,
 
 ### PAYOUT-02 — Demande et validation
 
-**Charge :** 2 j · **Dépend de :** `PAYOUT-01`, `SEC-19`
+**Charge :** 2 j · **Dépend de :** `PAYOUT-01`, `SEC-19` · **Statut :** fait le 28/09/2026
+
+> **Bilan.** L'artiste déclare son compte Airtel Money ou Moov Money (Visa et GIMAC n'ont pas de versement sortant) ; la finance le **vérifie avec un motif** ; **tout changement de numéro annule la vérification**. Demande refusée sans compte vérifié, sans contrat accepté, sous le seuil (**montant manquant indiqué**), ou si une demande est déjà en cours (verrou par artiste). **Trois personnes distinctes, garanties par la base** : contraintes `double_validation` (demandeur ≠ validateur), `execution_separee` (validateur ≠ exécutant), `execution_hors_demandeur` — même une écriture SQL directe est refusée (vérifié). Refus et suspension motivés. Chaque étape au journal d'audit. La collecte du numéro au moment de l'inscription (`MOD-07`) reste à faire ; elle se fait pour l'instant dans l'espace revenus.
 
 - Demande par l'artiste au-delà d'un seuil (10 000 FCFA proposés), vers un numéro mobile money **vérifié et à son nom** (collecté en `MOD-07`).
 - File de validation côté administration.
@@ -2137,7 +2254,9 @@ Proposition à arbitrer : écoute sans publicité, téléchargements hors ligne,
 
 ### PAYOUT-03 — Exécution et relevés
 
-**Charge :** 2 j · **Dépend de :** `PAYOUT-02`, `PAY-01`
+**Charge :** 2 j · **Dépend de :** `PAYOUT-02`, `PAY-01` · **Statut :** fait le 28/09/2026
+
+> **Bilan.** Exécution par l'API de versement sortant de l'opérateur (`POST /v1/disbursements` du contrat générique). Chaque essai est une ligne de `payout_attempts` avec **sa clé d'idempotence** ; tant qu'un essai est en cours, une nouvelle exécution est refusée ; une erreur réseau relance **le même** essai ; seul un échec définitif en autorise un nouveau. Statut `rejected` ajouté. Confirmation par callback `disbursement.*` (doublons ignorés) ou par consultation (`scripts/versements.php verifier`) ; un montant divergent met le versement en suspens. **Relevé** `releve-versement.php` (imprimable en PDF) : ventes ligne à ligne, commission, ajustements, régularisations — la somme est **exactement** le net versé (vérifié). E-mail à l'artiste à chaque changement de statut.
 
 - Exécution via la passerelle (versement sortant) ou export bancaire selon ce que les contrats permettent — à confirmer en `PAY-11`.
 - Statuts : `draft`, `approved`, `processing`, `paid`, `failed`, `on_hold`. Un échec revient en file avec le motif.
@@ -2152,7 +2271,9 @@ Proposition à arbitrer : écoute sans publicité, téléchargements hors ligne,
 
 ### PAYOUT-04 — Simulation des versements en local
 
-**Charge :** 1 j · **Dépend de :** `PAY-03`, `PAYOUT-03`
+**Charge :** 1 j · **Dépend de :** `PAY-03`, `PAYOUT-03` · **Statut :** fait le 28/09/2026
+
+> **Bilan.** Simulateurs Airtel et Moov : `POST /v1/disbursements`, `GET /v1/disbursements/{id}`, callbacks `disbursement.succeeded|failed`. Scénarios par numéro (`<indicatif>00000NN`) : 11 numéro invalide (refus immédiat), 12 compte non enregistré (échec par callback), 13 succès lent, 14 double notification ; tout autre numéro réussit en 2 s. La panne simulée depuis la console s'applique aussi. Cycle complet vente → rétention → demande → validation → exécution → relevé exécuté de bout en bout par le test.
 
 Les simulateurs de `LOT 5` doivent exposer un point de terminaison de versement sortant (`disbursement`), avec les mêmes scénarios : succès, échec pour numéro invalide, échec pour compte non enregistré, délai long, double notification.
 
@@ -2162,7 +2283,9 @@ Les simulateurs de `LOT 5` doivent exposer un point de terminaison de versement 
 
 ### PAYOUT-05 — Contrat de distribution
 
-**Charge :** 1 j technique (hors rédaction juridique) · **Dépend de :** `MOD-07`
+**Charge :** 1 j technique (hors rédaction juridique) · **Dépend de :** `MOD-07` · **Statut :** mécanisme fait le 28/09/2026 ; texte à fournir
+
+> **Bilan.** `distribution_contracts` (texte **figé** une fois publié, par déclencheur : une évolution est une nouvelle version) et `contract_acceptances` (horodatage, empreinte SHA-256 du texte accepté, adresse, navigateur ; **ni modifiable ni supprimable**). `contrat.php` : lecture et acceptation, versions acceptées consultables. `artist-add-song.php`, `artist-add-album.php` et `upload.php` renvoient au contrat tant que la version en vigueur n'est pas acceptée ; la demande de versement aussi. Le préavis sur les changements de commission et la définition de l'écoute comptabilisée (`STAT-01`) relèvent du **texte**, à rédiger.
 
 - Acceptation **versionnée et horodatée** du contrat, archivée, opposable.
 - Nouvelle acceptation exigée à chaque version, avec préavis sur les changements de commission.
@@ -2178,7 +2301,9 @@ Les simulateurs de `LOT 5` doivent exposer un point de terminaison de versement 
 
 ### STAT-01 — Arrêter et publier la définition de l'écoute
 
-**Charge :** 1 j (décision + rédaction) · **Bloque :** `STAT-02` à `STAT-06`, `CHART-*`
+**Charge :** 1 j (décision + rédaction) · **Bloque :** `STAT-02` à `STAT-06`, `CHART-*` · **Statut :** rédigée le 28/09/2026, **à valider par la direction**
+
+> **Bilan.** `docs/methodologie/ecoute-comptabilisee.md` (version 1) reprend les valeurs proposées ci-dessous, et précise : un **extrait ne compte pas** ; l'empreinte d'un visiteur est salée **par jour** (reconnaissable une journée, jamais d'un jour à l'autre) ; pays et ville ne viennent jamais du navigateur. Restent à la direction : validation, inscription au contrat (`PAYOUT-05`), choix d'une base de géolocalisation. La page publique relève de `CHART-05`.
 
 Décision de gouvernance, pas technique, à prendre **avant** d'écrire le code. Une définition modifiée après coup invaliderait tout l'historique.
 
@@ -2203,7 +2328,16 @@ Décision de gouvernance, pas technique, à prendre **avant** d'écrire le code.
 
 ### STAT-02 — Sécuriser l'enregistrement des écoutes
 
-**Charge :** 2,5 j · **Dépend de :** `STAT-01`, `SEC-12`, `SEC-13`
+**Charge :** 2,5 j · **Dépend de :** `STAT-01`, `SEC-12`, `SEC-13` · **Statut :** fait le 28/09/2026 (sauf géolocalisation : base à choisir)
+
+> **Bilan.** Migration 0023 (`listening_sessions`, `streams.listener_key`, `streams.session_id` unique), `includes/ecoutes.php`.
+> 1. **Jeton d'écoute** aléatoire (32 octets, conservé en empreinte SHA-256), remis par `api/track.php` pour le **titre complet** seulement, lié au titre et à l'auditeur (compte, ou empreinte anonyme IP tronquée + navigateur salée par jour), valable 6 h, **consommé une seule fois** (mise à jour atomique : cinq envois simultanés, un seul compte).
+> 2. **Seuil mesuré côté serveur** depuis l'émission du jeton (30 s, ou la durée d'un titre plus court) ; la durée annoncée par le navigateur ne peut que **réduire** ce qui est compté.
+> 3. **Durée lue dans le fichier** au dépôt (`includes/duree-audio.php` : ffprobe s'il est configuré, sinon lecture native MP3 Xing/VBRI/débit constant, WAV, FLAC, M4A) ; champ retiré des formulaires ; fichier illisible refusé et supprimé. Constat : `upload.php` enregistrait **1 seconde** pour tout titre déposé. Aucun code ne modifie une durée après dépôt (vérifié par recherche). Au passage, les refus du contrôle de dépôt (`SEC-17`) sont enfin montrés à l'artiste au lieu d'un « erreur de notre côté ».
+> 4. **Pays et ville** du navigateur ignorés (vides) ; la résolution depuis l'IP attend une base GeoIP locale.
+> 5. CORS déjà fermé (`SEC-18`), limitation de débit (`SEC-12`) et CSRF (`SEC-09`) maintenus ; un appel par `track_id` est rejeté (400).
+> 6. **Déduplication** : une écoute par auditeur et par titre par heure.
+> Le lecteur (`assets/js/player.js`) transmet le jeton après 30 s de **lecture effective** (les sauts ne comptent pas), visiteurs compris. Vérifié par `tests/securite/stat02-ecoutes.php` (30 contrôles) ; `sec08`, `sec09` adaptés.
 
 **À faire :**
 1. **Jeton de session de lecture** : à l'ouverture d'un titre, le serveur émet un jeton HMAC à durée courte, lié à l'utilisateur ou à la session, au titre et à un horodatage. L'enregistrement d'écoute n'est accepté qu'avec un jeton valide, **consommé une seule fois**.
@@ -2223,7 +2357,9 @@ Décision de gouvernance, pas technique, à prendre **avant** d'écrire le code.
 
 ### STAT-03 — Filtrage anti-fraude et certification
 
-**Charge :** 3 j · **Dépend de :** `STAT-02`
+**Charge :** 3 j · **Dépend de :** `STAT-02` · **Statut :** fait le 28/09/2026
+
+> **Bilan.** Migration 0024, `includes/certification.php`, tâche `php scripts/ecoutes.php certifier` (toutes les 15 min). Chaque écoute brute reçoit **un** verdict (`stream_verdicts`) : **certifiée** (copiée dans `streams_certified`, **immuable**, seule source des classements et de la rémunération — la répartition des abonnements la lit désormais), **exclue** (propre titre, ou écoute sous le seuil : le journal d'avant `STAT-02` ne peut pas être certifié), ou **quarantaine**. Seules les écoutes de plus de 2 h sont jugées, pour qu'une rafale soit complète. Signaux (seuils réglables `CERTIF_*`) : rafale IP (> 40/h), ratio écoutes/auditeurs (> 8 sur un titre à ≥ 50 écoutes/jour), concentration réseau /24 ou navigateur (> 80 %), comptes créés en rafale (≥ 10 dans l'heure), surveillance ; volume nocturne en **alerte seule**. Une quarantaine ne reçoit qu'**une** décision humaine, **motivée** (contrainte en base) et journalisée. Vérifié : **10 000 écoutes depuis une IP, toutes en quarantaine** (jugées en 0,9 s), puis rejetées en une décision ; levée tracée avec auteur et motif ; certifié ≤ brut.
 
 Architecture en deux niveaux : `streams` reste le journal **brut** ; `streams_certified` porte le fait **certifié**, immuable, et c'est le seul qui alimente classements et rémunération.
 
@@ -2249,7 +2385,9 @@ Les écoutes en quarantaine ne sont **ni supprimées ni comptées** : elles atte
 
 ### STAT-04 — Tableau de bord anti-fraude
 
-**Charge :** 2 j · **Dépend de :** `STAT-03`, `SEC-19`
+**Charge :** 2 j · **Dépend de :** `STAT-03`, `SEC-19` · **Statut :** fait le 28/09/2026
+
+> **Bilan.** `admin/anti-fraude.php` (entrée « Anti-fraude » de la console). Consultation : `statistique.lire` ; décisions : nouvelle permission **`ecoute.moderer`** (super-admin, admin plateforme, modérateur catalogue). Anomalies regroupées par signaux, titre et jour, avec gravité, nombre d'écoutes, d'adresses et d'auditeurs, plage horaire ; actions **valider** (certification « par revue »), **rejeter**, **mettre sous surveillance** un artiste ou un compte (toutes ses écoutes passent en revue) et **lever** la surveillance — toujours avec motif, toujours journalisé. Indicateurs : brut, certifié, exclu, quarantaine, rejeté, part suspecte, évolution sur 14 jours, titres les plus concernés. **Alerte** au-delà de `CERTIF_ALERTE_POURCENT` (5 %) : bandeau à l'écran, et `php scripts/ecoutes.php sante` sort en code 1 pour la supervision. Vérifié par `tests/securite/stat03-certification.php` (33 contrôles).
 
 - Liste des anomalies détectées, par gravité, avec le détail des signaux.
 - Actions : valider, rejeter, mettre l'artiste ou le compte sous surveillance.
@@ -2262,7 +2400,9 @@ Les écoutes en quarantaine ne sont **ni supprimées ni comptées** : elles atte
 
 ### STAT-05 — Agrégats journaliers
 
-**Charge :** 2 j · **Dépend de :** `STAT-03`
+**Charge :** 2 j · **Dépend de :** `STAT-03` · **Statut :** fait le 28/09/2026
+
+> **Bilan.** Migrations 0025 et 0028, `includes/agregats.php` (`Agregats`). `daily_rollups` porte toutes les dimensions demandées (région vide tant que la géolocalisation n'est pas installée ; type d'auditeur : abonné, compte, visiteur) ; écoutes lues **uniquement** dans `streams_certified` (hors révocations), ventes dans les commandes **payées**. Le calcul d'un jour le remplace entièrement : relancé, il donne exactement le même résultat. Tâche de nuit `php scripts/ecoutes.php agreger` : recalcule les jours jamais calculés ou **touchés depuis** (certification tardive, levée de quarantaine, révocation, remboursement, contestation), puis leurs compteurs. Reconstruction sur n'importe quelle plage : `php scripts/rebuild-counters.php --du= --au=`. Vérifié : relancer un jour ne duplique rien ; **90 jours reconstruits en 0,2 s**, mêmes chiffres ; sur 73 000 lignes (un an), tableau de bord d'un artiste en ~45 ms et baromètre par genre en ~60 ms (< 200 ms).
 
 Table `daily_rollups`, portant les dimensions du baromètre : **date, titre, sortie, artiste, genre, catégorie, région, source, type d'auditeur**, avec écoutes certifiées, auditeurs uniques, durée totale, ventes, chiffre d'affaires.
 
@@ -2279,7 +2419,9 @@ Table `daily_rollups`, portant les dimensions du baromètre : **date, titre, sor
 
 ### STAT-06 — Retirer les triggers et reconstruire les compteurs
 
-**Charge :** 2 j · **Dépend de :** `STAT-05`, `DATA-01`
+**Charge :** 2 j · **Dépend de :** `STAT-05`, `DATA-01` · **Statut :** fait le 28/09/2026
+
+> **Bilan.** Migrations 0026 à 0028. Les **trois déclencheurs de compteurs sont retirés** (`update_stream_stats`, `update_album_tracks_count`, `compter_vente_payee`) ; restent seulement les déclencheurs d'**immutabilité**, qui ne calculent rien — le critère « 0 déclencheur » est donc lu comme « aucun déclencheur ne tient de compteur », vérifié en base par `data01`. `Compteurs::recalculer()` reprend leur logique depuis les agrégats : écoutes **certifiées**, ventes en **unités** remboursements déduits, `artists.total_sales` en unités et **`total_earnings` en francs** (sémantique corrigée), `total_tracks` et `total_duration` des sorties recalculés **à l'ajout et au retrait** d'un titre (`Effacement`, pages de dépôt), `total_downloads` depuis le journal d'accès (0 tant que `SHOP-08` n'existe pas). Même calcul en incrémental et en intégral. **Révocation** d'écoutes déjà certifiées (fraude découverte après coup, `stream_revocations`, immuable, motivée, journalisée, depuis l'écran anti-fraude) : l'historique reste, les compteurs baissent au recalcul. Contrôle de cohérence : `php scripts/ecoutes.php controler` (code 1 en cas de dérive). Vérifié par `tests/securite/stat05-agregats-compteurs.php` (26 contrôles) : écoute non certifiée sans effet, **1 000 écoutes révoquées font baisser titre, sortie et artiste de 1 000**, remboursement décompté, intégral = incrémental.
 
 > **Tâche révisée le 21/09/2026.** Sa formulation initiale reposait sur un constat erroné de l'audit (« aucune écriture sur les compteurs »). La vérification faite lors de l'import local a montré que `database/tchadok.sql` installe **trois triggers** qui maintiennent une partie de ces colonnes. Le travail à faire change de nature : il ne s'agit pas d'ajouter une mise à jour manquante, mais de **remplacer une mise à jour non filtrée** par une chaîne contrôlable.
 
@@ -2322,7 +2464,9 @@ Table `daily_rollups`, portant les dimensions du baromètre : **date, titre, sor
 
 ### CHART-01 — Arrêtés de classement
 
-**Charge :** 3 j · **Dépend de :** `STAT-05`
+**Charge :** 3 j · **Dépend de :** `STAT-05` · **Statut :** fait le 29/09/2026
+
+> **Bilan.** Migration 0029 (`chart_editions`, `chart_entries`, **immuables** par déclencheurs ; l'ancienne table `charts`, jamais alimentée, est remplacée), `includes/barometre.php`, tâche quotidienne `php scripts/barometre.php arreter` (idempotente, rattrape les éditions manquantes dans l'ordre). Éditions hebdomadaire (lundi–dimanche, N'Djamena), mensuelle, annuelle, arrêtées **48 h** après la fin de période. Classements séparés : titres (Top 50), titres (ventes), sorties **par format**, sorties (ventes), artistes (Top 20) ; égalité départagée par les auditeurs uniques puis l'antériorité. Rang, rang précédent, évolution, périodes de présence, meilleur rang, nouvelle entrée. Écoutes **certifiées** et non révoquées ; une écoute certifiée après l'arrêté (quarantaine levée) compte pour **l'édition suivante** (vérifié) ; ventes remboursées avant l'arrêté exclues. Archives par édition, permalien `barometre.php?edition=2026-S40&classement=titres`. Les horloges PHP et MySQL sont désormais alignées sur UTC+1 à la connexion.
 
 - Tâche planifiée hebdomadaire (lundi, après le délai de consolidation de 48 h) alimentant la table `charts`.
 - Un classement arrêté est **immuable**. C'est ce qui le rend citable par la presse et les institutions ; un classement qui bouge en continu n'est référençable par personne.
@@ -2338,7 +2482,9 @@ Table `daily_rollups`, portant les dimensions du baromètre : **date, titre, sor
 
 ### CHART-02 — Vues analytiques du baromètre
 
-**Charge :** 3 j · **Dépend de :** `CHART-01`, `TAXO-02`
+**Charge :** 3 j · **Dépend de :** `CHART-01`, `TAXO-02` · **Statut :** fait le 29/09/2026 (sauf région et diaspora : géolocalisation absente)
+
+> **Bilan.** `Barometre::vue()` sur les agrégats certifiés : par **genre**, **catégorie**, **format** (part des écoutes et des ventes, croissance sur la période précédente, artistes actifs, revenu moyen par titre) et **indice de découverte** (artistes arrivés depuis moins de 12 mois). Chaque vue se recoupe exactement avec le total national (vérifié). **Région, indice de pénétration et diaspora ne sont pas publiés**, faute de géolocalisation (base à choisir) et de données de population : la page le dit plutôt que d'inventer un chiffre.
 
 - Par **genre** : part d'audience, croissance, nombre d'artistes actifs, revenu moyen par titre.
 - Par **catégorie** : agrégation selon la hiérarchie de `TAXO-01`.
@@ -2353,7 +2499,9 @@ Table `daily_rollups`, portant les dimensions du baromètre : **date, titre, sor
 
 ### CHART-03 — Baromètre public
 
-**Charge :** 4 j · **Dépend de :** `CHART-01`, `CHART-02`
+**Charge :** 4 j · **Dépend de :** `CHART-01`, `CHART-02` · **Statut :** fait le 29/09/2026
+
+> **Bilan.** `barometre.php` (lien « Baromètre » dans la navigation) : édition en cours et archives par période, onglets de classements, filtres genre et catégorie (rang national conservé), analyse de la période, dernières certifications, partage WhatsApp et Facebook, lien permanent. Aperçu social par `og:image` = visuel du Top 10 de l'édition ; JSON-LD `ItemList`. Page de 38 Ko de HTML servie en 0,1 s ; le critère des 2,5 s en 3G dépend aussi de `UX-03` (Tailwind compilé, ressources auto-hébergées).
 
 - Page publique `/barometre`, avec l'édition en cours et les archives.
 - Top 50 titres, Top 20 artistes, Top 20 sorties par format, classement des ventes.
@@ -2369,7 +2517,9 @@ Table `daily_rollups`, portant les dimensions du baromètre : **date, titre, sor
 
 ### CHART-04 — Exports et kit presse
 
-**Charge :** 2 j · **Dépend de :** `CHART-03`
+**Charge :** 2 j · **Dépend de :** `CHART-03` · **Statut :** fait le 29/09/2026 (PDF : version imprimable)
+
+> **Bilan.** `includes/kit-presse.php` : à chaque arrêté, **sans intervention**, visuel Top 10 PNG 1080 × 1350 (police Poppins, licence OFL, dans `assets/fonts`), CSV de tous les classements (méthodologie et date d'arrêté en tête), communiqué avec les chiffres clés ; servis par `barometre-kit.php` (liste fermée de fichiers). PDF : version imprimable de la page, en attendant une génération serveur (`QA-01`). **API publique** `api/barometre.php` : clé obligatoire (conservée en empreinte, `php scripts/barometre.php cle-creer`), quota quotidien (429), attribution obligatoire dans chaque réponse.
 
 - Export CSV et PDF de chaque édition, avec mention de la méthodologie et de la date d'arrêté.
 - **Kit presse automatique** : visuel du Top 10 prêt à publier, communiqué généré, chiffres clés. C'est ce qui rend la reprise médiatique gratuite et systématique — investissement faible, effet durable sur la notoriété.
@@ -2381,7 +2531,9 @@ Table `daily_rollups`, portant les dimensions du baromètre : **date, titre, sor
 
 ### CHART-05 — Page de méthodologie
 
-**Charge :** 1 j · **Dépend de :** `STAT-01`
+**Charge :** 1 j · **Dépend de :** `STAT-01` · **Statut :** fait le 29/09/2026 (contenu à valider avec `STAT-01`)
+
+> **Bilan.** `methodologie.php` : version 1, datée du 28/09/2026, liée depuis chaque classement, le CSV, le communiqué et l'API ; définition de l'écoute, anti-fraude, arrêté, seuils de certification (lus en base), périmètre et limites connues.
 
 Page publique expliquant : ce qu'est une écoute comptée, la fenêtre d'observation, le traitement anti-fraude, la date d'arrêté, le périmètre couvert et les limites connues.
 
@@ -2393,7 +2545,9 @@ Page publique expliquant : ce qu'est une écoute comptée, la fenêtre d'observa
 
 ### CHART-06 — Certifications Tchadok
 
-**Charge :** 2 j · **Dépend de :** `CHART-01`
+**Charge :** 2 j · **Dépend de :** `CHART-01` · **Statut :** fait le 29/09/2026 (seuils à valider)
+
+> **Bilan.** Paliers **proposés** (table `certification_levels`, datés, à valider par la direction) : écoutes certifiées Or 50 000, Platine 100 000, Diamant 250 000 ; ventes Or 1 000, Platine 2 500, Diamant 5 000. `php scripts/barometre.php certifier` chaque nuit : certification **automatique**, définitive (base), e-mail à l'artiste, annonce sur le baromètre, badge sur les classements, **attestation** imprimable `certification.php?id=`. Le lot entier est vérifié par `tests/barometre/chart-barometre.php` (51 contrôles).
 
 Paliers officiels (Or, Platine, Diamant) sur les écoutes certifiées et sur les ventes, avec seuils publiés, badge sur la fiche du titre et de l'artiste, attestation PDF et annonce automatique.
 
@@ -2409,7 +2563,9 @@ Coût faible, valeur symbolique forte : cette reconnaissance n'existe pas aujour
 
 ### TAXO-01 — Hiérarchie et référentiel initial
 
-**Charge :** 1,5 j · **Dépend de :** `DATA-01`
+**Charge :** 1,5 j · **Dépend de :** `DATA-01` · **Statut :** fait (par `DATA-08`), constaté le 29/09/2026
+
+> **Bilan.** Colonnes `parent_id`, `slug` unique, `sort_order`, `status`, `merged_into` et référentiel initial (6 catégories, 31 genres, exactement la proposition ci-dessous) chargés par `DATA-08` ; vérifié par `tests/taxonomie/taxo-genres.php`. La validation par un comité éditorial reste à organiser.
 
 **À faire :**
 1. Ajouter à `genres` : `parent_id` (hiérarchie catégorie → genre → sous-genre), `slug` unique et stable, `sort_order`, `status` (`active`, `merged`, `archived`), `merged_into`.
@@ -2432,7 +2588,9 @@ Coût faible, valeur symbolique forte : cette reconnaissance n'existe pas aujour
 
 ### TAXO-02 — Unifier la taxonomie
 
-**Charge :** 2 j · **Dépend de :** `TAXO-01`
+**Charge :** 2 j · **Dépend de :** `TAXO-01` · **Statut :** fait le 29/09/2026
+
+> **Bilan.** Migration 0030 : `artist_genres` (un **seul** genre principal par artiste, garanti en base, jusqu'à 3 secondaires), `includes/taxonomie.php`. `artists.genres` était **vide** (aucune correspondance à trancher) : la colonne est retirée — la migration refuse de le faire s'il reste une valeur à rattacher. Les **12 requêtes** qui la lisaient (accueil, artistes, découvrir, albums, filtres par genre) lisent désormais le genre principal du référentiel. Genre **obligatoire à la soumission** côté serveur (dépôt, ajout de titre et de sortie, côté artiste et côté admin). « Aucun artiste actif sans genre principal » : liste de contrôle (`Taxonomie::artistesSansGenre`, affichée dans l'administration) ; le choix du genre et le blocage de la publication sans lui passent par le dossier artiste (`MOD-06`). Statistiques par genre : une seule source, `genre_id` et les agrégats certifiés, pour l'administration comme pour le public.
 
 Deux représentations concurrentes coexistent : la table `genres` (avec `genre_id` en clé étrangère sur `tracks` et `albums`, utilisée par les pages publiques) et la colonne `artists.genres`, texte libre multi-valeurs, utilisée par l'écran d'analyse de l'administration (`GROUP BY a.genres`, qui produit un groupe distinct pour « Saï, Afrobeat » et pour « Afrobeat, Saï »). **Aucune statistique par genre n'est exploitable dans cet état.**
 
@@ -2452,7 +2610,9 @@ Deux représentations concurrentes coexistent : la table `genres` (avec `genre_i
 
 ### TAXO-03 — Administration de la taxonomie
 
-**Charge :** 1,5 j · **Dépend de :** `TAXO-02`, `SEC-19`
+**Charge :** 1,5 j · **Dépend de :** `TAXO-02`, `SEC-19` · **Statut :** fait le 29/09/2026
+
+> **Bilan.** `admin/taxonomie.php` (permission `taxonomie.gerer`, entrée « Genres et catégories » de la console) : création, renommage (le **slug ne change jamais**), description, couleur, icône, rattachement, ordre, **archivage** (motivé ; une catégorie n'est archivée que vide), **fusion** motivée (titres, sorties, genres des artistes et agrégats réaffectés, genre principal conservé, source marquée fusionnée). `genres.php?genre=<slug>` : page du genre, **redirection 301** d'un ancien slug fusionné vers la cible, 404 sinon. L'artiste **propose** un genre (`proposer-genre.php`, lien sous chaque sélecteur de genre) ; l'administration accepte (le genre est créé) ou refuse, **motif obligatoire en base**, artiste prévenu par e-mail. Chaque opération est journalisée (`taxonomie.modifiee`). Vérifié par `tests/taxonomie/taxo-genres.php` (38 contrôles).
 
 C'est la demande explicite « l'admin doit pouvoir ajouter des genres et faire d'autres ajustements ».
 
@@ -2473,7 +2633,9 @@ C'est la demande explicite « l'admin doit pouvoir ajouter des genres et faire d
 
 ### MOD-01 — Machine à états du contenu
 
-**Charge :** 1,5 j · **Dépend de :** `DATA-03`
+**Charge :** 1,5 j · **Dépend de :** `DATA-03` · **Statut :** fait le 29/09/2026
+
+> **Bilan.** Migration 0031, `includes/moderation.php`. Le graphe est imposé **par la base** (déclencheurs sur `tracks` et `releases`) : toute autre transition est refusée, même par une requête SQL directe. Par-dessus, les rôles : l'artiste soumet, retire sa soumission ou resoumet après correction, jamais `approved` ; le modérateur approuve ou refuse ; l'administration met hors ligne et remet en ligne. Une sortie emmène ses titres. Chaque transition est journalisée dans `content_transitions` (immuable) avec auteur, date et motif ; refus et retrait exigent un motif, transmis à l'artiste. `Sorties::changerStatut` suit désormais le graphe (brouillon → attente → publié).
 
 Transitions autorisées, et aucune autre :
 
@@ -2494,7 +2656,9 @@ draft ──(artiste soumet)──► pending ──(modérateur)──┬──
 
 ### MOD-02 — File de modération
 
-**Charge :** 2,5 j · **Dépend de :** `MOD-01`, `SEC-19`
+**Charge :** 2,5 j · **Dépend de :** `MOD-01`, `SEC-19` · **Statut :** fait le 29/09/2026
+
+> **Bilan.** `admin/moderation.php` (permission `catalogue.moderer`) : file avec ancienneté, artiste, format, genre, modérateur ; fiche de revue (écoute de chaque titre, métadonnées, pochette, résultats des contrôles automatiques, droits déclarés et niveau du dossier, historique de l'artiste) ; **grille formalisée** (approbation seulement si tous les points sont vérifiés) ; approuver, refuser, demander une correction, avec motif catégorisé ; affectation qui empêche les doubles revues. Une revue par soumission (`moderation_reviews`), créée à l'instant de la soumission ; artiste notifié avec le motif ; indicateurs : volume, délai moyen, refus par motif.
 
 - Écran listant les contenus en attente, avec ancienneté, artiste, format, genre.
 - Fiche de revue : lecture de l'extrait et du master, métadonnées, pochette, droits déclarés, historique de l'artiste.
@@ -2512,7 +2676,9 @@ draft ──(artiste soumet)──► pending ──(modérateur)──┬──
 
 ### MOD-03 — Signalements
 
-**Charge :** 2 j · **Dépend de :** `MOD-02`
+**Charge :** 2 j · **Dépend de :** `MOD-02` · **Statut :** fait le 29/09/2026
+
+> **Bilan.** `includes/signalements.php`, pages `signaler.php`, `artiste-signalements.php`, `admin/signalements.php` (permission `signalement.traiter`), procédure `docs/moderation/contre-notification.md`. Catégories droit d'auteur, contenu inapproprié, spam, faux profil ; droits d'auteur en priorité 1. **Revendication de droits : retrait provisoire immédiat** (statut `offline`, hors du catalogue public dans la seconde), artiste prévenu, 10 jours de contre-notification, décision **motivée** (contrainte en base) — retirer, maintenir (remise en ligne), rejeter — notifiée et journalisée ; journal des décisions consultable. Le délai et l'articulation avec le BUTDRA restent à valider.
 
 La table `reports` existe dans le schéma et n'est **ni lue ni écrite** nulle part.
 
@@ -2530,7 +2696,9 @@ La table `reports` existe dans le schéma et n'est **ni lue ni écrite** nulle p
 
 ### MOD-04 — Contrôles automatiques au dépôt
 
-**Charge :** 2,5 j · **Dépend de :** `SEC-17`, `PREP-03`
+**Charge :** 2,5 j · **Dépend de :** `SEC-17`, `PREP-03` · **Statut :** fait le 29/09/2026 (silence et niveau sonore : avec ffmpeg)
+
+> **Bilan.** `includes/controles-depot.php`, `includes/duree-audio.php` étendu (débit, fréquence, canaux lus dans MP3, WAV, FLAC, M4A). Bloquants : type réel (`SEC-17`), durée lisible, **débit ≥ 128 kbit/s** et **fréquence ≥ 44,1 kHz** avec message explicite (« 64 kbit/s : le minimum est de 128 »), pochette ≥ 1400 × 1400 **ré-encodée** en JPEG, métadonnées obligatoires (titre, genre, date, langue, crédits) à la soumission. Signalés au modérateur : **doublon exact** (empreinte SHA-256, avec le titre concerné), niveau sonore. Silence et niveau sonore (LUFS) mesurés par ffmpeg quand `FFMPEG_PATH` est configuré, sinon « non vérifié » tracé ; l'empreinte acoustique (Chromaprint) et l'extrait de 30 s automatique demandent aussi ffmpeg (à installer au déploiement).
 
 À exécuter avant même la revue humaine, pour que les modérateurs ne traitent que des dossiers valides.
 
@@ -2556,7 +2724,9 @@ La table `reports` existe dans le schéma et n'est **ni lue ni écrite** nulle p
 
 ### MOD-05 — Unifier le parcours de publication
 
-**Charge :** 2 j · **Dépend de :** `DATA-03`, `MOD-04`
+**Charge :** 2 j · **Dépend de :** `DATA-03`, `MOD-04` · **Statut :** fait le 29/09/2026
+
+> **Bilan.** `publier.php` + `includes/publication.php` : **un seul parcours** (format → fichiers → métadonnées → prix → récapitulatif → soumission), chaque étape enregistrée en base, brouillons et sorties à corriger repris depuis « À reprendre ». Règles côté serveur : composition par format (`DATA-03`), prix contre la grille avec le prix suggéré affiché (`DATA-04`), gratuité imposée au niveau Découverte (`MOD-06`), contrôles de fichiers (`MOD-04`), conditions de publication (e-mail, contrat, dossier validé, genre). `upload.php`, `artist-add-song.php`, `artist-add-album.php` ne sont plus que des redirections (le contrôle du contrat y reste), tous les liens pointent vers `publier.php`. Les pages de la console (`admin-add-*`) restent pour l'équipe éditoriale.
 
 Trois parcours divergents coexistent : `upload.php` (38,1 Ko), `artist-add-song.php`, `artist-add-album.php`. Ils ne valident pas les mêmes choses et ne créent pas les mêmes données — `upload.php` crée même des albums en `draft` publiés publiquement.
 
@@ -2576,7 +2746,9 @@ Trois parcours divergents coexistent : `upload.php` (38,1 Ko), `artist-add-song.
 
 ### MOD-06 — Onboarding artiste vérifié
 
-**Charge :** 3 j · **Dépend de :** `SEC-19`, `MOD-02`
+**Charge :** 3 j · **Dépend de :** `SEC-19`, `MOD-02` · **Statut :** fait le 29/09/2026 (fournisseur SMS à choisir)
+
+> **Bilan.** `includes/dossier-artiste.php`, `includes/comptes.php`, pages `artiste-dossier.php` et `admin/dossiers-artistes.php` (nouvelle permission `artiste.valider`). Les 7 étapes du tableau : e-mail et **téléphone vérifié par code SMS** (transport `SMS_DRIVER`, `log` en local ; fournisseur de production à choisir), pièce d'identité et selfie **chiffrés AES-256-GCM hors racine web**, lisibles par la seule équipe de validation, **chaque consultation journalisée**, purge des dossiers refusés ou abandonnés après 6 mois ; profil (nom de scène, biographie, genre principal, photo, réseaux) ; déclaration de titularité et d'absence de cession exclusive, contrat accepté ; encaissement (compte vérifié du `LOT 8`) ; fiscal. Validation humaine motivée à un niveau : **Découverte** (publication gratuite, 5 titres par 30 jours), **Vérifié** (vente, badge, identité contrôlée), **Partenaire** (commission négociée). Un artiste non validé ne publie pas ; un artiste sans compte vérifié ne demande pas de versement (déjà vrai au `LOT 8`). L'inscription crée le dossier en brouillon.
 
 Aujourd'hui le champ `user_type` du formulaire d'inscription suffit à créer un artiste actif, sans aucune vérification, avec droit de publier et de vendre. Pour une plateforme qui encaisse pour le compte de tiers et publie des œuvres protégées, c'est un risque juridique direct.
 
@@ -2605,7 +2777,9 @@ Aujourd'hui le champ `user_type` du formulaire d'inscription suffit à créer un
 
 ### MOD-07 — Vérification d'e-mail effective
 
-**Charge :** 1 j · **Dépend de :** `QA-02`
+**Charge :** 1 j · **Dépend de :** `QA-02` · **Statut :** fait le 29/09/2026
+
+> **Bilan.** Lien envoyé à l'inscription, **valable 48 h**, jeton conservé en empreinte, renvoi possible (pas plus d'une fois toutes les 2 minutes), page `verifier-email.php`. Un compte non vérifié ne peut **ni acheter** (`api/payments/initier.php` répond 403, `paiement.php` redirige), **ni publier** (`publier.php`), **ni commenter** (blog). Transport : `includes/courriel.php`, **SMTP authentifié** (STARTTLS ou SSL, AUTH LOGIN, message multipart UTF-8) dès que `MAIL_DRIVER=smtp` et les identifiants `MAIL_*` sont renseignés en production ; `log` en local. Le lot entier est vérifié par `tests/moderation/mod-lot12.php` (64 contrôles, parcours complet par les vraies pages, faux serveur SMTP `tests/outils/faux-smtp.php`).
 
 `verification_token` existe dans le schéma, `email_verified` est mis à 0 à l'inscription, **aucun e-mail n'est envoyé** et le drapeau n'est jamais contrôlé. La colonne est décorative.
 
@@ -3116,7 +3290,7 @@ Procédure écrite et **testée** : retour à l'étiquette précédente, annulat
 | `includes/csrf-guard.php` | Garde CSRF centralisé | Oui | Oui |
 | `includes/payment/` | Interface et adaptateurs | Oui | Oui |
 | `media.php` | Livraison protégée des fichiers | Oui | Oui |
-| `mock-gateways/` | Simulateurs Airtel, Moov, VISA, KONOOM + console | Oui | **Non — retiré** |
+| `mock-gateways/` | Simulateurs Airtel, Moov, VISA, GIMAC + console | Oui | **Non — retiré** |
 | `database/migrations/` | Migrations numérotées | Oui | Oui |
 | `database/seeds/referentiel.sql` | Genres, tarifs, rôles, provinces | Oui | Oui |
 | `database/seeds/demo.sql` | Jeu de démonstration | Oui | **Non** |
@@ -3134,7 +3308,7 @@ Procédure écrite et **testée** : retour à l'étiquette précédente, annulat
 | Airtel Money | 9101 | `http://127.0.0.1:9101` |
 | Moov Money | 9102 | `http://127.0.0.1:9102` |
 | VISA / carte | 9103 | `http://127.0.0.1:9103` |
-| KONOOM | 9104 | `http://127.0.0.1:9104` |
+| GIMAC | 9104 | `http://127.0.0.1:9104` |
 | Icecast (radio, existant) | 8000 | `http://127.0.0.1:8000` |
 | Application (XAMPP) | 80 | `http://localhost/tchadok` |
 

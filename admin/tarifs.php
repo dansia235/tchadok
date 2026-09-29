@@ -10,6 +10,7 @@
 
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/paiement/chargement.php';
 
 Autorisations::exiger('tarif.modifier');
 
@@ -136,6 +137,10 @@ include __DIR__ . '/../includes/header-tailwind.php';
                                     <input type="number" name="max_price" step="50" min="0" value="<?php echo (int) $ligne['max_price']; ?>"
                                            class="w-24 rounded-xl border border-white/10 bg-bg px-3 py-2 text-right text-sm text-text">
                                 </label>
+                                <?php if ($ligne['scope'] === 'subscription'): ?>
+                                    <input type="hidden" name="commission_rate" value="<?php echo $e($ligne['commission_rate']); ?>">
+                                    <a href="<?php echo SITE_URL; ?>/admin/remuneration.php" class="text-right text-xs text-muted underline">Part artistes : <?php echo $e(RepartitionAbonnements::pourcent(RepartitionAbonnements::taux())); ?> %</a>
+                                <?php else: ?>
                                 <label class="flex items-center justify-between gap-2 md:justify-end">
                                     <span class="text-xs text-muted md:hidden">Commission</span>
                                     <span class="flex items-center gap-1">
@@ -144,6 +149,7 @@ include __DIR__ . '/../includes/header-tailwind.php';
                                         <span class="text-xs text-muted">%</span>
                                     </span>
                                 </label>
+                                <?php endif; ?>
 
                                 <div class="col-span-2 text-right md:col-span-1">
                                     <button type="submit" class="rounded-full bg-accent px-4 py-2 text-xs font-semibold text-white">

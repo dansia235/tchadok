@@ -64,15 +64,19 @@ $source = static fn (string $f): string => (string) file_get_contents($GLOBALS['
 
 $nettoyer = static function () use ($db): void {
     $db->exec('DELETE FROM entitlements WHERE user_id BETWEEN 915 AND 916');
-    $db->exec('DELETE FROM payment_intents WHERE order_id BETWEEN 9501 AND 9599');
+    // Suppressions restreintes aux comptes d'essai (915, 916) : une plage
+    // d'identifiants seule peut atteindre de vraies commandes (voir data06).
+    $db->exec('DELETE p FROM payment_intents p JOIN orders o ON o.id = p.order_id WHERE p.order_id BETWEEN 9501 AND 9599 AND o.user_id BETWEEN 915 AND 916');
     // payment_events refuse le DELETE : les lignes d'essai y restent, ce qui est
     // exactement ce qu'on veut d'un journal de preuve.
-    $db->exec('DELETE FROM order_items WHERE order_id BETWEEN 9501 AND 9599');
+    $db->exec('DELETE i FROM order_items i JOIN orders o ON o.id = i.order_id WHERE i.order_id BETWEEN 9501 AND 9599 AND o.user_id BETWEEN 915 AND 916');
     $db->exec('DELETE FROM payouts WHERE artist_id BETWEEN 915 AND 916');
-    $db->exec('DELETE FROM orders WHERE id BETWEEN 9501 AND 9599');
-    $db->exec('DELETE FROM tracks WHERE id BETWEEN 9501 AND 9599');
+    $db->exec('DELETE FROM orders WHERE id BETWEEN 9501 AND 9599 AND user_id BETWEEN 915 AND 916');
+    $db->exec('DELETE FROM tracks WHERE id BETWEEN 9501 AND 9599 AND artist_id BETWEEN 915 AND 916');
     $db->exec('DELETE FROM releases WHERE id BETWEEN 915 AND 916');
     $db->exec('DELETE FROM artists WHERE id BETWEEN 915 AND 916');
+    // STAT-05 : les agregats du jeu d'essai partent avec lui.
+    $db->exec('DELETE FROM daily_rollups WHERE track_id BETWEEN 9501 AND 9599 OR artist_id BETWEEN 915 AND 916');
     $db->exec('DELETE FROM users WHERE id BETWEEN 915 AND 916');
 };
 
@@ -114,8 +118,17 @@ try {
         in_array(['gateway_ref'], array_values($index('payment_intents')), true));
     verif('Un droit ne s\'accorde qu\'une fois par voie',
         in_array(['user_id', 'item_type', 'item_id', 'source'], array_values($index('entitlements')), true));
-    verif('Une periode de versement est unique par artiste',
-        in_array(['artist_id', 'period_start', 'period_end'], array_values($index('payouts')), true));
+    // LOT 8 (migration 0020) : versement a la demande, une demande refusee peut
+    // etre refaite sur la meme periode. L'unicite par periode est remplacee
+    // par « une seule demande en cours par artiste » (Versements::demander) et
+    // par les cles d'idempotence de `payout_attempts`.
+    $periode = [];
+    foreach ($db->query("SHOW INDEX FROM `payouts` WHERE Key_name = 'periode'") as $ligne) {
+        $periode[] = $ligne['Column_name'];
+    }
+    verif('Les versements restent indexes par artiste et periode', $periode === ['artist_id', 'period_start', 'period_end'], implode(',', $periode));
+    verif('... sans unicite par periode (une demande refusee se refait)',
+        !in_array(['artist_id', 'period_start', 'period_end'], array_values($index('payouts')), true));
 
     $colonnes = static function (string $table) use ($db): array {
         $liste = [];
@@ -320,12 +333,11 @@ try {
     verif('Deux personnes distinctes : accepte',
         (int) $db->query('SELECT COUNT(*) FROM payouts WHERE artist_id = 915')->fetchColumn() === 1);
 
-    $message = refus(
-        $db,
-        "INSERT INTO payouts (artist_id, period_start, period_end, gross, commission, net, method, destination)
-         VALUES (915, '2026-08-01', '2026-08-31', 500, 75, 425, 'moov_money', 'chiffre')"
-    );
-    verif('La meme periode ne se verse pas deux fois', $message !== '', 'doublon accepte !');
+    // LOT 8 : l'execution est une troisieme main, contrainte en base.
+    $message = refus($db, 'UPDATE payouts SET executed_by = approved_by WHERE artist_id = 915');
+    verif('Le validateur n\'execute pas le versement (base)', $message !== '', 'ecriture acceptee !');
+    $message = refus($db, 'UPDATE payouts SET executed_by = created_by WHERE artist_id = 915');
+    verif('Le demandeur n\'execute pas le versement (base)', $message !== '', 'ecriture acceptee !');
 
     echo "\n=== J. L'histoire comptable resiste a la suppression ===\n";
     $message = refus($db, 'DELETE FROM users WHERE id = 915');
@@ -336,12 +348,22 @@ try {
     verif('Supprimer un artiste ne detruit pas ses ventes', $message !== '', 'suppression acceptee !');
 
     echo "\n=== K. Compteurs de vente ===\n";
+    // STAT-06 : plus de declencheur ; les compteurs se recalculent depuis les
+    // agregats journaliers (vente payee, remboursement deduit).
+    require_once $racine . '/includes/agregats.php';
+    $jourVente = (string) $db->query('SELECT DATE(paid_at) FROM orders WHERE id = 9501')->fetchColumn();
+    $recompter = static function () use ($jourVente): void {
+        Agregats::construireJour($jourVente);
+        Compteurs::recalculer([9501], [9501], [915]);
+    };
+    $recompter();
     $ventesTitre = (int) $db->query('SELECT total_sales FROM tracks WHERE id = 9501')->fetchColumn();
     verif('La vente payee a compte une fois', $ventesTitre === 1, (string) $ventesTitre);
-    $ventesArtiste = (float) $db->query('SELECT total_sales FROM artists WHERE id = 915')->fetchColumn();
-    verif('L\'artiste est credite de sa part nette', $ventesArtiste === 425.0, (string) $ventesArtiste);
+    $artiste = $db->query('SELECT total_sales, total_earnings FROM artists WHERE id = 915')->fetch(PDO::FETCH_ASSOC);
+    verif('L\'artiste : ventes en unites (1), part nette en francs (425)', (int) $artiste['total_sales'] === 1 && (float) $artiste['total_earnings'] === 425.0, json_encode($artiste));
 
     $db->exec("UPDATE orders SET status = 'paid' WHERE id = 9501");
+    $recompter();
     verif('Un second passage a « paid » ne recompte pas',
         (int) $db->query('SELECT total_sales FROM tracks WHERE id = 9501')->fetchColumn() === 1);
 
@@ -350,7 +372,7 @@ try {
         $declencheurs[] = $ligne['trigger_name'];
     }
     verif('L\'ancien declencheur sur `purchases` a disparu', !in_array('update_purchase_stats', $declencheurs, true));
-    verif('Le compteur suit desormais l\'encaissement', in_array('compter_vente_payee', $declencheurs, true));
+    verif('STAT-06 : plus de declencheur de compteur de ventes', !in_array('compter_vente_payee', $declencheurs, true));
 
     echo "\n=== L. `purchases` a disparu, les ecrans lisent les vraies tables ===\n";
     $tablesApres = [];
@@ -382,7 +404,9 @@ try {
         str_contains($source('artist-dashboard.php'), 'SUM(oi.artist_net)'));
     verif('Le dashboard membre compte les commandes payees',
         str_contains($source('user-dashboard.php'), "o.status = 'paid'"));
-    verif('Le portefeuille aussi', str_contains($source('wallet.php'), "status = 'paid'"));
+    // SHOP-06 : le portefeuille lit desormais son propre journal
+    // (wallet_transactions), et non plus les commandes.
+    verif('Le portefeuille lit son journal', str_contains($source('wallet.php'), 'Portefeuille::mouvements'));
 
     $revenus = $db->query(
         "SELECT COALESCE(SUM(oi.artist_net), 0) FROM order_items oi

@@ -18,7 +18,7 @@ $dbInstance = TchadokDatabase::getInstance();
 $db = $dbInstance->getConnection();
 
 $artists = $db ? $db->query("SELECT id, stage_name FROM artists ORDER BY stage_name")->fetchAll() : [];
-$genres = $db ? $db->query("SELECT id, name FROM genres ORDER BY name")->fetchAll() : [];
+$genres = $db ? getGenresSelectionnables() : [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = sanitizeInput($_POST['title'] ?? '');
@@ -45,6 +45,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = implode(' ', $erreursFormat);
     } elseif (empty($title) || $artistId <= 0) {
         $error = 'Titre et artiste obligatoires.';
+    } elseif (!estGenreSelectionnable($genreId)) {
+        // TAXO-02 : le genre est obligatoire a la soumission (statistiques par genre).
+        $error = 'Le genre est obligatoire : choisissez-le dans la liste (ou proposez-en un nouveau).';
     } else {
         try {
             $coverPath = null;
@@ -215,11 +218,7 @@ include 'includes/header-tailwind.php';
                         <label class="text-xs font-semibold text-muted" for="genre">Genre</label>
                         <select id="genre" name="genre_id" class="mt-2 w-full rounded-2xl border border-white/10 bg-bg px-4 py-3 text-sm text-text">
                             <option value="">Sélectionner un genre</option>
-                            <?php foreach ($genres as $genre): ?>
-                                <option value="<?php echo $genre['id']; ?>" <?php echo (isset($_POST['genre_id']) && (int) $_POST['genre_id'] === (int) $genre['id']) ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($genre['name']); ?>
-                                </option>
-                            <?php endforeach; ?>
+                            <?php echo optionsGenres($genres, $_POST['genre_id'] ?? null); ?>
                         </select>
                     </div>
                     <div>

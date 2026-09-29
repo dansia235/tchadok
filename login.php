@@ -10,9 +10,13 @@ require_once 'includes/auth.php';
 $pageTitle = 'Connexion';
 $pageDescription = 'Connectez-vous à votre compte Tchadok pour accéder à votre musique préférée.';
 
+// SHOP-01 : retour a la page d'origine (panier, paiement, facture) apres la
+// connexion. Chemin interne uniquement : voir destinationInterne().
+$destination = destinationInterne($_POST['redirect'] ?? $_GET['redirect'] ?? null);
+
 // Redirection si deja connecte
 if (isLoggedIn()) {
-    redirect(SITE_URL . '/');
+    redirect(SITE_URL . ($destination ?? '/'));
 }
 
 $error = '';
@@ -42,12 +46,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!empty($result['deux_facteurs'])) {
                 // SEC-20 : mot de passe correct, session pas encore ouverte.
                 VerrouConnexion::reussite($email);
+                if ($destination !== null && isset($_SESSION['deux_facteurs_attente']) && is_array($_SESSION['deux_facteurs_attente'])) {
+                    $_SESSION['deux_facteurs_attente']['apres'] = $destination;
+                }
                 redirect(SITE_URL . '/2fa-verification.php');
             } elseif ($result['success']) {
                 // Connexion réussie
                 VerrouConnexion::reussite($email);
                 setFlashMessage(FLASH_SUCCESS, 'Connexion réussie ! Bienvenue sur Tchadok');
-                redirect(SITE_URL . '/');
+                redirect(SITE_URL . ($destination ?? '/'));
             } else {
                 VerrouConnexion::echec($email);
                 $error = $result['error'] ?? 'Email ou mot de passe incorrect.';
@@ -168,6 +175,9 @@ include 'includes/header-tailwind.php';
 
                         <form method="POST" data-login-form class="mt-6 space-y-5">
                             <?php echo csrfField(); ?>
+                            <?php if ($destination !== null): ?>
+                                <input type="hidden" name="redirect" value="<?php echo e($destination); ?>">
+                            <?php endif; ?>
                             <div>
                                 <label for="email" class="text-sm font-semibold text-text">Adresse email</label>
                                 <div class="relative mt-2">

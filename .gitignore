@@ -149,3 +149,8 @@ htmlcov/
 # Variables spécifiques au développeur
 .env.developer
 local.config.php
+
+
+# PAY-03 : etat des simulateurs de paiement (transactions, file, journal).
+# Le code de mock-gateways/ est versionne ; son etat ne l'est jamais.
+mock-gateways/storage/

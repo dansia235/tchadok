@@ -57,6 +57,13 @@ final class LimiteDebit
         // Dix par quart d'heure laissent de la marge a qui recopie mal, et
         // rendent la recherche exhaustive sans objet.
         'second-facteur' => [10, 900],
+        // PAY-04 : chaque initiation declenche une demande sur le telephone
+        // d'un abonne. Sans plafond, n'importe qui pourrait harceler un numero
+        // de demandes de paiement, ou saturer l'operateur en notre nom.
+        'paiement'       => [10, 600],
+        // Suivi d'un paiement en attente : la page interroge toutes les
+        // quelques secondes pendant au plus quinze minutes.
+        'suivi-paiement' => [240, 600],
     ];
 
     private static ?bool $tableDisponible = null;

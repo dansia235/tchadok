@@ -168,7 +168,10 @@ try {
 $initials = strtoupper(substr(($artist['stage_name'] ?? 'AR'), 0, 2));
 $memberSince = !empty($artist['created_at']) ? date('Y', strtotime($artist['created_at'])) : date('Y');
 $artistBio = trim((string) ($artist['bio'] ?? ''));
-$genres = trim((string) ($artist['genres'] ?? ''));
+// TAXO-02 : genres rattaches au referentiel (artist_genres), plus de texte libre.
+require_once __DIR__ . '/includes/taxonomie.php';
+$principal = Taxonomie::genrePrincipal((int) $artist['id']);
+$genres = $principal ? (string) ($principal['name_french'] ?? $principal['name']) : '';
 $country = $artist['country'] ?? ($user['country'] ?? 'Tchad');
 
 $dashboardSecondaryNavLabel = 'Parcours artiste';
@@ -210,11 +213,11 @@ include 'includes/header-tailwind.php';
             </div>
 
             <div class="mt-5 grid gap-3 overflow-hidden transition-all duration-300 sm:grid-cols-2 xl:grid-cols-4" data-dashboard-header-links>
-                <a href="<?php echo SITE_URL; ?>/artist-add-song.php" class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-text hover:bg-white/10">
+                <a href="<?php echo SITE_URL; ?>/publier.php" class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-text hover:bg-white/10">
                     <span class="grid h-10 w-10 place-items-center rounded-xl bg-accent/20 text-accent"><i class="fas fa-music"></i></span>
                     Ajouter un titre
                 </a>
-                <a href="<?php echo SITE_URL; ?>/artist-add-album.php" class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-text hover:bg-white/10">
+                <a href="<?php echo SITE_URL; ?>/publier.php" class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-text hover:bg-white/10">
                     <span class="grid h-10 w-10 place-items-center rounded-xl bg-emerald-500/20 text-emerald-300"><i class="fas fa-compact-disc"></i></span>
                     Ajouter un album
                 </a>
@@ -258,11 +261,11 @@ include 'includes/header-tailwind.php';
                         </div>
                     </div>
                     <div class="grid gap-3 sm:min-w-[250px]">
-                        <a href="<?php echo SITE_URL; ?>/artist-add-song.php" class="inline-flex items-center justify-center gap-2 rounded-full bg-accent px-5 py-3 text-sm font-semibold text-white shadow-elev-1">
+                        <a href="<?php echo SITE_URL; ?>/publier.php" class="inline-flex items-center justify-center gap-2 rounded-full bg-accent px-5 py-3 text-sm font-semibold text-white shadow-elev-1">
                             <i class="fas fa-music"></i>
                             Ajouter un titre
                         </a>
-                        <a href="<?php echo SITE_URL; ?>/artist-add-album.php" class="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-text hover:bg-white/10">
+                        <a href="<?php echo SITE_URL; ?>/publier.php" class="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-text hover:bg-white/10">
                             <i class="fas fa-compact-disc"></i>
                             Ajouter un album
                         </a>
@@ -348,7 +351,7 @@ include 'includes/header-tailwind.php';
                             <h2 class="text-lg font-semibold text-text">Catalogue recent</h2>
                             <p class="mt-1 text-xs text-muted">Vos derniers titres et leur statut de publication.</p>
                         </div>
-                        <a href="<?php echo SITE_URL; ?>/artist-add-song.php" class="text-xs font-semibold text-accent hover:text-accent/80">Publier</a>
+                        <a href="<?php echo SITE_URL; ?>/publier.php" class="text-xs font-semibold text-accent hover:text-accent/80">Publier</a>
                     </div>
                     <div class="mt-5 overflow-x-auto">
                         <table class="w-full text-left text-sm text-muted">
@@ -457,17 +460,33 @@ include 'includes/header-tailwind.php';
                 <div class="rounded-3xl border border-white/10 bg-surface/75 p-6 shadow-elev-2">
                     <h3 class="text-base font-semibold text-text">Actions rapides</h3>
                     <div class="mt-5 grid gap-3">
-                        <a href="<?php echo SITE_URL; ?>/artist-add-song.php" class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-text hover:bg-white/10">
+                        <a href="<?php echo SITE_URL; ?>/publier.php" class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-text hover:bg-white/10">
                             <span class="grid h-9 w-9 place-items-center rounded-xl bg-accent/20 text-accent"><i class="fas fa-wave-square"></i></span>
                             Declarer un nouveau single
                         </a>
-                        <a href="<?php echo SITE_URL; ?>/artist-add-album.php" class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-text hover:bg-white/10">
+                        <a href="<?php echo SITE_URL; ?>/publier.php" class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-text hover:bg-white/10">
                             <span class="grid h-9 w-9 place-items-center rounded-xl bg-emerald-500/20 text-emerald-300"><i class="fas fa-compact-disc"></i></span>
                             Lancer un projet
                         </a>
-                        <a href="<?php echo SITE_URL; ?>/upload.php" class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-text hover:bg-white/10">
+                        <a href="<?php echo SITE_URL; ?>/publier.php" class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-text hover:bg-white/10">
                             <span class="grid h-9 w-9 place-items-center rounded-xl bg-sky-500/20 text-sky-300"><i class="fas fa-upload"></i></span>
                             Centraliser les uploads
+                        </a>
+                        <a href="<?php echo SITE_URL; ?>/artiste-revenus.php" class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-text hover:bg-white/10">
+                            <span class="grid h-9 w-9 place-items-center rounded-xl bg-emerald-500/20 text-emerald-300"><i class="fas fa-money-bill-transfer"></i></span>
+                            Revenus et versements
+                        </a>
+                        <a href="<?php echo SITE_URL; ?>/artiste-dossier.php" class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-text hover:bg-white/10">
+                            <span class="grid h-9 w-9 place-items-center rounded-xl bg-sky-500/20 text-sky-200"><i class="fas fa-id-card"></i></span>
+                            Mon dossier artiste
+                        </a>
+                        <a href="<?php echo SITE_URL; ?>/artiste-signalements.php" class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-text hover:bg-white/10">
+                            <span class="grid h-9 w-9 place-items-center rounded-xl bg-rose-500/20 text-rose-200"><i class="fas fa-flag"></i></span>
+                            Signalements
+                        </a>
+                        <a href="<?php echo SITE_URL; ?>/contrat.php" class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-text hover:bg-white/10">
+                            <span class="grid h-9 w-9 place-items-center rounded-xl bg-white/10 text-text"><i class="fas fa-file-signature"></i></span>
+                            Contrat de distribution
                         </a>
                         <a href="<?php echo SITE_URL; ?>/artists.php" class="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-text hover:bg-white/10">
                             <span class="grid h-9 w-9 place-items-center rounded-xl bg-amber-400/20 text-amber-200"><i class="fas fa-users"></i></span>

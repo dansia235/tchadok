@@ -935,21 +935,10 @@ function resizeImage($source, $destination, $maxWidth, $maxHeight) {
  * Envoie un email
  */
 function sendEmail($to, $subject, $message, $headers = []) {
-    $defaultHeaders = [
-        'From' => SITE_EMAIL,
-        'Reply-To' => SITE_EMAIL,
-        'X-Mailer' => 'Tchadok Platform',
-        'MIME-Version' => '1.0',
-        'Content-Type' => 'text/html; charset=UTF-8'
-    ];
-    
-    $headers = array_merge($defaultHeaders, $headers);
-    $headerString = '';
-    foreach ($headers as $key => $value) {
-        $headerString .= "$key: $value\r\n";
-    }
-    
-    return mail($to, $subject, $message, $headerString);
+    // QA-02 : transport choisi par MAIL_DRIVER (log en local, smtp authentifie
+    // en production, identifiants MAIL_*), voir includes/courriel.php.
+    require_once __DIR__ . '/courriel.php';
+    return Courriel::envoyer((string) $to, (string) $subject, (string) $message);
 }
 
 /**
@@ -1293,6 +1282,53 @@ function csrfField() {
 }
 
 /**
+ * Destination de retour apres connexion (?redirect=/panier.php), ou null.
+ *
+ * Seul un chemin INTERNE est accepte : commence par une seule barre oblique,
+ * sans schema, sans hote, sans barre inverse. Sinon un lien piege
+ * (login.php?redirect=//site-hostile.example) renverrait la personne, tout
+ * juste connectee et confiante, vers une copie du site -- redirection
+ * ouverte, classique de l'hameconnage.
+ */
+function destinationInterne(?string $chemin): ?string {
+    $chemin = trim((string) $chemin);
+    if ($chemin === '' || strlen($chemin) > 300) {
+        return null;
+    }
+    if (!preg_match('#^/(?![/\\\\])[A-Za-z0-9_\-./?=&%]*$#', $chemin) || str_contains($chemin, '..')) {
+        return null;
+    }
+    return $chemin;
+}
+
+/**
+ * Echappement HTML a la SORTIE, pour les vues (audit P2-4).
+ */
+function e(?string $texte): string {
+    return htmlspecialchars((string) $texte, ENT_QUOTES, 'UTF-8');
+}
+
+/**
+ * Options d'un <select> de genres, groupees par categorie (DATA-08).
+ * Attend la liste de getGenresSelectionnables().
+ */
+function optionsGenres(array $genres, $selectionne = null): string {
+    $html = '';
+    $categorie = null;
+    foreach ($genres as $genre) {
+        if ($genre['categorie'] !== $categorie) {
+            $html .= ($categorie === null ? '' : '</optgroup>')
+                . '<optgroup label="' . htmlspecialchars($genre['categorie'], ENT_QUOTES, 'UTF-8') . '">';
+            $categorie = $genre['categorie'];
+        }
+        $choisi = $selectionne !== null && (int) $selectionne === (int) $genre['id'] ? ' selected' : '';
+        $html .= '<option value="' . (int) $genre['id'] . '"' . $choisi . '>'
+            . htmlspecialchars($genre['name'], ENT_QUOTES, 'UTF-8') . '</option>';
+    }
+    return $categorie === null ? $html : $html . '</optgroup>';
+}
+
+/**
  * Balise meta exposant le jeton aux appels JavaScript (SEC-09).
  * Lue par le correctif de fetch() de includes/header-tailwind.php, qui
  * ajoute l'en-tete X-CSRF-Token a toute requete modifiante vers le site.
@@ -1366,6 +1402,9 @@ require_once __DIR__ . '/tarifs.php';
 
 // DATA-05 : commandes, factures et droits d'acces.
 require_once __DIR__ . '/commandes.php';
+
+// LOT 7 : abonnements Premium (statut lu en base a chaque requete).
+require_once __DIR__ . '/abonnements.php';
 
 // DATA-06 : suppression logique et droit a l'effacement.
 require_once __DIR__ . '/effacement.php';

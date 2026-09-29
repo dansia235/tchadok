@@ -187,6 +187,7 @@ include 'includes/header-tailwind.php';
                                     <button class="flex-1 rounded-full bg-accent px-4 py-2 text-xs font-semibold text-white shadow-elev-1" data-action="play" data-album="<?php echo (int) $album['id']; ?>" type="button">
                                         <i class="fas fa-play"></i> Ecouter
                                     </button>
+                                    <?php echo Panier::bouton('release', (int) $album['id'], (float) ($album['price'] ?? 0), !empty($album['is_free'])); ?>
                                     <button class="grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-white/5 text-text hover:bg-white/10" data-action="favorite" type="button" aria-label="Favori">
                                         <i class="far fa-heart"></i>
                                     </button>

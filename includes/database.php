@@ -50,7 +50,11 @@ class TchadokDatabase {
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                     PDO::ATTR_EMULATE_PREPARES => false,
-                    PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES $charset"
+                    // Heure de N'Djamena (UTC+1, sans heure d'ete) pour NOW() :
+                    // les dates d'ecoute et de vente doivent tomber dans la meme
+                    // journee que celle calculee par PHP (arretes du barometre),
+                    // quel que soit le fuseau du serveur de base de donnees.
+                    PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES $charset, time_zone = '+01:00'"
                 ]
             );
         } catch (PDOException $e) {
@@ -116,7 +120,7 @@ function getNewReleases($limit = 4) {
             SELECT a.id, a.title, ar.stage_name AS artist, a.type,
                    a.price, a.is_free, a.is_featured, a.release_date,
                    a.cover_image, a.total_streams,
-                   ar.genres AS artist_genres, g.name AS genre_name, g.color AS genre_color
+                   (SELECT COALESCE(gp.name_french, gp.name) FROM artist_genres agp JOIN genres gp ON gp.id = agp.genre_id WHERE agp.artist_id = ar.id AND agp.is_primary = 1) AS artist_genres, g.name AS genre_name, g.color AS genre_color
             FROM albums a
             JOIN artists ar ON a.artist_id = ar.id
             LEFT JOIN genres g ON a.genre_id = g.id
@@ -158,7 +162,7 @@ function getPopularArtists($limit = 6) {
 
     try {
         $stmt = $db->getConnection()->prepare("
-            SELECT ar.id, ar.stage_name AS name, ar.genres AS genre,
+            SELECT ar.id, ar.stage_name AS name, (SELECT COALESCE(gp.name_french, gp.name) FROM artist_genres agp JOIN genres gp ON gp.id = agp.genre_id WHERE agp.artist_id = ar.id AND agp.is_primary = 1) AS genre,
                    ar.total_streams, ar.verified, ar.featured,
                    ar.profile_image
             FROM artists ar
@@ -245,7 +249,9 @@ function getPlatformStats() {
         $stmt = $pdo->query("SELECT COUNT(*) FROM users WHERE is_active = 1");
         $stats['total_users'] = (int) $stmt->fetchColumn();
 
-        $stmt = $pdo->query("SELECT COUNT(*) FROM genres WHERE is_active = 1");
+        // DATA-08 : une categorie (ligne ayant des genres enfants) n'est pas un genre.
+        $stmt = $pdo->query("SELECT COUNT(*) FROM genres g WHERE g.is_active = 1 AND g.status = 'active'
+                             AND NOT EXISTS (SELECT 1 FROM genres e WHERE e.parent_id = g.id)");
         $stats['total_genres'] = (int) $stmt->fetchColumn();
 
         // Heures de streaming: SUM(total_streams * duration) / 3600
@@ -286,9 +292,9 @@ function getTrendingTracks($limit = 6) {
 
     try {
         $stmt = $db->getConnection()->prepare("
-            SELECT t.id, t.title, ar.stage_name AS artist, t.total_streams,
+            SELECT t.id, t.title, t.price, t.is_free, ar.stage_name AS artist, t.total_streams,
                    t.duration, t.is_featured, t.release_date,
-                   ar.genres AS artist_genres, g.name AS genre_name, g.color AS genre_color
+                   (SELECT COALESCE(gp.name_french, gp.name) FROM artist_genres agp JOIN genres gp ON gp.id = agp.genre_id WHERE agp.artist_id = ar.id AND agp.is_primary = 1) AS artist_genres, g.name AS genre_name, g.color AS genre_color
             FROM tracks t
             JOIN artists ar ON t.artist_id = ar.id
             LEFT JOIN genres g ON t.genre_id = g.id
@@ -322,9 +328,9 @@ function getNewTracks($limit = 6) {
 
     try {
         $stmt = $db->getConnection()->prepare("
-            SELECT t.id, t.title, ar.stage_name AS artist, t.total_streams,
+            SELECT t.id, t.title, t.price, t.is_free, ar.stage_name AS artist, t.total_streams,
                    t.duration, t.release_date, t.created_at,
-                   ar.genres AS artist_genres, g.name AS genre_name, g.color AS genre_color
+                   (SELECT COALESCE(gp.name_french, gp.name) FROM artist_genres agp JOIN genres gp ON gp.id = agp.genre_id WHERE agp.artist_id = ar.id AND agp.is_primary = 1) AS artist_genres, g.name AS genre_name, g.color AS genre_color
             FROM tracks t
             JOIN artists ar ON t.artist_id = ar.id
             LEFT JOIN genres g ON t.genre_id = g.id
@@ -358,9 +364,9 @@ function getClassicTracks($limit = 6) {
 
     try {
         $stmt = $db->getConnection()->prepare("
-            SELECT t.id, t.title, ar.stage_name AS artist, t.total_streams,
+            SELECT t.id, t.title, t.price, t.is_free, ar.stage_name AS artist, t.total_streams,
                    t.duration, t.release_date, t.created_at,
-                   ar.genres AS artist_genres, g.name AS genre_name, g.color AS genre_color
+                   (SELECT COALESCE(gp.name_french, gp.name) FROM artist_genres agp JOIN genres gp ON gp.id = agp.genre_id WHERE agp.artist_id = ar.id AND agp.is_primary = 1) AS artist_genres, g.name AS genre_name, g.color AS genre_color
             FROM tracks t
             JOIN artists ar ON t.artist_id = ar.id
             LEFT JOIN genres g ON t.genre_id = g.id
@@ -395,7 +401,7 @@ function getRisingArtists($limit = 6) {
     try {
         $stmt = $db->getConnection()->prepare("
             SELECT ar.id, ar.stage_name AS artist, ar.total_streams,
-                   ar.genres AS artist_genres, ar.profile_image, ar.created_at,
+                   (SELECT COALESCE(gp.name_french, gp.name) FROM artist_genres agp JOIN genres gp ON gp.id = agp.genre_id WHERE agp.artist_id = ar.id AND agp.is_primary = 1) AS artist_genres, ar.profile_image, ar.created_at,
                    (SELECT COUNT(*) FROM follows f WHERE f.followed_id = ar.id AND f.followed_type = 'artist') AS followers_count,
                    (SELECT COUNT(*) FROM tracks t WHERE t.artist_id = ar.id AND t.status = 'approved' AND t.deleted_at IS NULL) AS tracks_count
             FROM artists ar
@@ -427,7 +433,7 @@ function getFeaturedArtists($limit = 3) {
 
     try {
         $stmt = $db->getConnection()->prepare("
-            SELECT ar.id, ar.stage_name AS name, ar.genres AS genre,
+            SELECT ar.id, ar.stage_name AS name, (SELECT COALESCE(gp.name_french, gp.name) FROM artist_genres agp JOIN genres gp ON gp.id = agp.genre_id WHERE agp.artist_id = ar.id AND agp.is_primary = 1) AS genre,
                    ar.total_streams, ar.verified, ar.featured,
                    ar.profile_image, ar.bio,
                    (SELECT COUNT(*) FROM follows f WHERE f.followed_id = ar.id AND f.followed_type = 'artist') AS followers_count,
@@ -466,7 +472,7 @@ function getAllArtists($limit = 12, $offset = 0, $genre = null, $filter = null, 
         $params = [];
 
         if ($genre && $genre !== 'all') {
-            $where .= " AND ar.genres LIKE ?";
+            $where .= " AND EXISTS (SELECT 1 FROM artist_genres agf JOIN genres gf ON gf.id = agf.genre_id WHERE agf.artist_id = ar.id AND LOWER(COALESCE(gf.name_french, gf.name)) LIKE LOWER(?))";
             $params[] = "%$genre%";
         }
 
@@ -486,7 +492,7 @@ function getAllArtists($limit = 12, $offset = 0, $genre = null, $filter = null, 
         };
 
         $sql = "
-            SELECT ar.id, ar.stage_name AS name, ar.genres AS genre,
+            SELECT ar.id, ar.stage_name AS name, (SELECT COALESCE(gp.name_french, gp.name) FROM artist_genres agp JOIN genres gp ON gp.id = agp.genre_id WHERE agp.artist_id = ar.id AND agp.is_primary = 1) AS genre,
                    ar.total_streams, ar.verified, ar.featured,
                    ar.profile_image, ar.created_at,
                    (SELECT COUNT(*) FROM tracks t WHERE t.artist_id = ar.id AND t.status = 'approved' AND t.deleted_at IS NULL) AS tracks_count
@@ -524,18 +530,20 @@ function countArtists($genre = null, $filter = null) {
     if (!$db->isConnected()) return 0;
 
     try {
-        $where = "is_active = 1";
+        // Memes conditions que getArtists() : le total doit correspondre a la liste.
+        $where = "ar.is_active = 1 AND ar.deleted_at IS NULL";
         $params = [];
 
         if ($genre && $genre !== 'all') {
-            $where .= " AND genres LIKE ?";
+            // TAXO-02 : genres du referentiel (artist_genres), plus de texte libre.
+            $where .= " AND EXISTS (SELECT 1 FROM artist_genres agf JOIN genres gf ON gf.id = agf.genre_id WHERE agf.artist_id = ar.id AND LOWER(COALESCE(gf.name_french, gf.name)) LIKE LOWER(?))";
             $params[] = "%$genre%";
         }
-        if ($filter === 'verified') $where .= " AND verified = 1";
-        elseif ($filter === 'new') $where .= " AND created_at >= DATE_SUB(NOW(), INTERVAL 3 MONTH)";
-        elseif ($filter === 'trending') $where .= " AND featured = 1";
+        if ($filter === 'verified') $where .= " AND ar.verified = 1";
+        elseif ($filter === 'new') $where .= " AND ar.created_at >= DATE_SUB(NOW(), INTERVAL 3 MONTH)";
+        elseif ($filter === 'trending') $where .= " AND ar.featured = 1";
 
-        $stmt = $db->getConnection()->prepare("SELECT COUNT(*) FROM artists WHERE $where");
+        $stmt = $db->getConnection()->prepare("SELECT COUNT(*) FROM artists ar WHERE $where");
         $stmt->execute($params);
         return (int) $stmt->fetchColumn();
     } catch (Exception $e) {
@@ -552,16 +560,61 @@ function getGenres() {
 
     try {
         $stmt = $db->getConnection()->query("
-            SELECT id, name, name_french, color, icon, description
-            FROM genres
-            WHERE is_active = 1
-            ORDER BY name ASC
+            SELECT g.id, g.name, g.name_french, g.color, g.icon, g.description
+            FROM genres g
+            WHERE g.is_active = 1 AND g.status = 'active'
+              AND NOT EXISTS (SELECT 1 FROM genres e WHERE e.parent_id = g.id)
+            ORDER BY g.name ASC
         ");
         return $stmt->fetchAll();
     } catch (Exception $e) {
         error_log("Error fetching genres: " . $e->getMessage());
         return [];
     }
+}
+
+/**
+ * Genres proposables au depot d'un titre ou d'une sortie (DATA-08).
+ *
+ * Le referentiel est hierarchique : une ligne sans parent est une CATEGORIE
+ * (« Musiques urbaines »), pas un genre. Classer un titre dans une categorie
+ * fausserait le barometre par genre ; seules les lignes rattachees a une
+ * categorie sont donc proposees. Les genres fusionnes ou archives ne le sont
+ * plus : leurs titres restent classes, mais on n'en ajoute pas.
+ *
+ * @return array<int,array{id:int,name:string,categorie:string}>
+ */
+function getGenresSelectionnables(): array {
+    $db = TchadokDatabase::getInstance();
+    if (!$db->isConnected()) return [];
+
+    try {
+        $stmt = $db->getConnection()->query("
+            SELECT g.id, g.name, c.name AS categorie
+            FROM genres g
+            JOIN genres c ON c.id = g.parent_id
+            WHERE g.status = 'active' AND g.is_active = 1
+              AND c.status = 'active' AND c.is_active = 1
+            ORDER BY c.sort_order, c.name, g.sort_order, g.name
+        ");
+        return $stmt->fetchAll();
+    } catch (Exception $e) {
+        error_log("Error fetching selectable genres: " . $e->getMessage());
+        return [];
+    }
+}
+
+/**
+ * Verifie cote serveur qu'un genre recu d'un formulaire est proposable.
+ * La liste affichee ne protege rien : l'identifiant se modifie avant envoi.
+ */
+function estGenreSelectionnable(?int $genreId): bool {
+    if (!$genreId) return false;
+
+    foreach (getGenresSelectionnables() as $genre) {
+        if ((int) $genre['id'] === $genreId) return true;
+    }
+    return false;
 }
 
 /**
@@ -654,7 +707,7 @@ function searchContent($query, $limit = 10) {
 
         // Recherche de pistes
         $stmt = $db->getConnection()->prepare("
-            SELECT t.id, t.title, ar.stage_name AS artist, t.total_streams,
+            SELECT t.id, t.title, t.price, t.is_free, ar.stage_name AS artist, t.total_streams,
                    t.duration, t.is_free, t.price,
                    a.cover_image AS album_cover
             FROM tracks t
@@ -671,12 +724,14 @@ function searchContent($query, $limit = 10) {
 
         // Recherche d'artistes
         $stmt = $db->getConnection()->prepare("
-            SELECT id, stage_name AS name, genres AS genre, total_streams,
-                   profile_image, verified
-            FROM artists
-            WHERE is_active = 1 AND deleted_at IS NULL
-              AND (stage_name LIKE ? OR real_name LIKE ? OR genres LIKE ?)
-            ORDER BY total_streams DESC
+            SELECT ar.id, ar.stage_name AS name,
+                   (SELECT COALESCE(gp.name_french, gp.name) FROM artist_genres agp JOIN genres gp ON gp.id = agp.genre_id WHERE agp.artist_id = ar.id AND agp.is_primary = 1) AS genre,
+                   ar.total_streams, ar.profile_image, ar.verified
+            FROM artists ar
+            WHERE ar.is_active = 1 AND ar.deleted_at IS NULL
+              AND (ar.stage_name LIKE ? OR ar.real_name LIKE ?
+                   OR EXISTS (SELECT 1 FROM artist_genres agf JOIN genres gf ON gf.id = agf.genre_id WHERE agf.artist_id = ar.id AND COALESCE(gf.name_french, gf.name) LIKE ?))
+            ORDER BY ar.total_streams DESC
             LIMIT ?
         ");
         $stmt->execute([$searchTerm, $searchTerm, $searchTerm, $limit]);
@@ -716,7 +771,7 @@ function getAlbums($limit = 12, $offset = 0, $genre = null, $type = null, $sort 
         $params = [];
 
         if ($genre && $genre !== 'all') {
-            $where .= " AND (LOWER(g.name) = LOWER(?) OR LOWER(g.name_french) = LOWER(?) OR LOWER(ar.genres) LIKE LOWER(?))";
+            $where .= " AND (LOWER(g.name) = LOWER(?) OR LOWER(g.name_french) = LOWER(?) OR EXISTS (SELECT 1 FROM artist_genres agf JOIN genres gf ON gf.id = agf.genre_id WHERE agf.artist_id = ar.id AND LOWER(COALESCE(gf.name_french, gf.name)) LIKE LOWER(?)))";
             $params[] = $genre;
             $params[] = $genre;
             $params[] = '%' . $genre . '%';
@@ -743,7 +798,7 @@ function getAlbums($limit = 12, $offset = 0, $genre = null, $type = null, $sort 
         $sql = "
             SELECT a.id, a.title, a.type, a.total_tracks, a.cover_image,
                    a.price, a.is_free, a.is_featured, a.release_date,
-                   ar.stage_name AS artist, ar.genres AS artist_genres,
+                   ar.stage_name AS artist, (SELECT COALESCE(gp.name_french, gp.name) FROM artist_genres agp JOIN genres gp ON gp.id = agp.genre_id WHERE agp.artist_id = ar.id AND agp.is_primary = 1) AS artist_genres,
                    g.name AS genre_name, g.color AS genre_color
             FROM albums a
             JOIN artists ar ON a.artist_id = ar.id
@@ -786,7 +841,7 @@ function countAlbums($genre = null, $type = null, $search = null) {
         $params = [];
 
         if ($genre && $genre !== 'all') {
-            $where .= " AND (LOWER(g.name) = LOWER(?) OR LOWER(g.name_french) = LOWER(?) OR LOWER(ar.genres) LIKE LOWER(?))";
+            $where .= " AND (LOWER(g.name) = LOWER(?) OR LOWER(g.name_french) = LOWER(?) OR EXISTS (SELECT 1 FROM artist_genres agf JOIN genres gf ON gf.id = agf.genre_id WHERE agf.artist_id = ar.id AND LOWER(COALESCE(gf.name_french, gf.name)) LIKE LOWER(?)))";
             $params[] = $genre;
             $params[] = $genre;
             $params[] = '%' . $genre . '%';
@@ -960,13 +1015,14 @@ function getGenresWithStats() {
 
     try {
         $stmt = $db->getConnection()->query("
-            SELECT g.id, g.name, g.name_french, g.description, g.color, g.icon,
+            SELECT g.id, g.name, g.name_french, g.slug, g.description, g.color, g.icon,
                    COUNT(t.id) AS track_count,
                    COALESCE(SUM(t.total_streams), 0) AS total_streams
             FROM genres g
             LEFT JOIN tracks t ON t.genre_id = g.id AND t.status = 'approved' AND t.deleted_at IS NULL
                 AND t.artist_id IN (SELECT id FROM artists WHERE is_active = 1 AND deleted_at IS NULL)
-            WHERE g.is_active = 1
+            WHERE g.is_active = 1 AND g.status = 'active'
+              AND NOT EXISTS (SELECT 1 FROM genres e WHERE e.parent_id = g.id)
             GROUP BY g.id
             ORDER BY g.name ASC
         ");

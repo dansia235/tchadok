@@ -120,6 +120,10 @@ final class MediaAccess
      */
     private static function estPremiumActif(PDO $db, int $userId): bool
     {
+        // LOT 7 : la table des abonnements fait foi.
+        if (class_exists('Abonnements')) {
+            return Abonnements::estPremium($userId);
+        }
         $stmt = $db->prepare(
             'SELECT 1 FROM users
               WHERE id = ? AND premium_status = 1

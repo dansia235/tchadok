@@ -109,6 +109,7 @@ $metaTwitterImage = $pageTwitterImage ?? (SITE_URL . '/assets/images/twitter-ima
         ['url' => '/', 'file' => 'index.php', 'label' => 'Accueil'],
         ['url' => '/decouvrir.php', 'file' => 'decouvrir.php', 'label' => 'Découvrir'],
         ['url' => '/artists.php', 'file' => 'artists.php', 'label' => 'Artistes'],
+        ['url' => '/barometre.php', 'file' => 'barometre.php', 'label' => 'Baromètre'],
         ['url' => '/radio-live.php', 'file' => 'radio-live.php', 'label' => 'Radio Live'],
         ['url' => '/emissions.php', 'file' => 'emissions.php', 'label' => 'Émissions'],
         ['url' => '/blog.php', 'file' => 'blog.php', 'label' => 'Blog'],
@@ -133,7 +134,16 @@ $metaTwitterImage = $pageTwitterImage ?? (SITE_URL . '/assets/images/twitter-ima
                         </a>
                     <?php endforeach; ?>
                 </div>
+                <?php
+                    // SHOP-01 : panier visible de tous, visiteurs compris.
+                    require_once __DIR__ . '/panier.php';
+                    $nombrePanier = Panier::compter(isLoggedIn() ? (int) $_SESSION['user_id'] : null);
+                ?>
                 <div class="hidden items-center gap-3 md:flex">
+                    <a href="<?php echo SITE_URL; ?>/panier.php" class="relative grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-white/5 text-text hover:bg-white/10" aria-label="Panier (<?php echo $nombrePanier; ?> article(s))">
+                        <i class="fas fa-basket-shopping"></i>
+                        <span data-panier-compte class="absolute -right-1 -top-1 min-w-[1.25rem] rounded-full bg-accent px-1 text-center text-[11px] font-semibold leading-5 text-white" <?php echo $nombrePanier > 0 ? '' : 'hidden'; ?>><?php echo $nombrePanier; ?></span>
+                    </a>
                     <?php if (!isLoggedIn()): ?>
                         <a href="<?php echo SITE_URL; ?>/login.php" class="site-nav-button rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-text hover:bg-white/5">Connexion</a>
                         <a href="<?php echo SITE_URL; ?>/register.php" class="site-nav-cta rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white shadow-elev-1 hover:shadow-elev-2">S'inscrire</a>
@@ -142,13 +152,14 @@ $metaTwitterImage = $pageTwitterImage ?? (SITE_URL . '/assets/images/twitter-ima
                             <summary class="site-nav-user flex cursor-pointer list-none items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-text">
                                 <i class="fas fa-user-circle"></i>
                                 <?php echo htmlspecialchars($_SESSION['first_name'] ?? 'Utilisateur'); ?>
-                                <?php if (isset($_SESSION['premium_status']) && $_SESSION['premium_status']): ?>
+                                <?php if (estPremium()): ?>
                                     <i class="fas fa-crown text-yellow-400" title="Membre Premium"></i>
                                 <?php endif; ?>
                                 <i class="fas fa-chevron-down text-xs text-muted"></i>
                             </summary>
                             <div class="absolute right-0 mt-2 w-48 rounded-2xl border border-white/10 bg-surface shadow-elev-2">
                                 <a class="site-nav-link block px-4 py-2 text-sm text-muted hover:text-text" href="<?php echo SITE_URL; ?>/user-dashboard.php">Mon Profil</a>
+                                <a class="site-nav-link block px-4 py-2 text-sm text-muted hover:text-text" href="<?php echo SITE_URL; ?>/bibliotheque.php">Ma bibliotheque</a>
                                 <a class="site-nav-link block px-4 py-2 text-sm text-muted hover:text-text" href="<?php echo SITE_URL; ?>/premium.php">Premium</a>
                                 <div class="my-1 h-px bg-white/10"></div>
                                 <?php /* SEC-09 : deconnexion en POST avec jeton. Un simple lien GET
@@ -179,6 +190,12 @@ $metaTwitterImage = $pageTwitterImage ?? (SITE_URL . '/assets/images/twitter-ima
                         </a>
                     <?php endforeach; ?>
                     <div class="mt-4 flex flex-col gap-2">
+                        <a href="<?php echo SITE_URL; ?>/panier.php" class="site-nav-button rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-text">
+                            <i class="fas fa-basket-shopping mr-2"></i>Panier<?php echo $nombrePanier > 0 ? ' (' . $nombrePanier . ')' : ''; ?>
+                        </a>
+                        <?php if (isLoggedIn()): ?>
+                            <a href="<?php echo SITE_URL; ?>/bibliotheque.php" class="site-nav-button rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-text">Ma bibliotheque</a>
+                        <?php endif; ?>
                         <?php if (!isLoggedIn()): ?>
                             <a href="<?php echo SITE_URL; ?>/login.php" class="site-nav-button rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-text">Connexion</a>
                             <a href="<?php echo SITE_URL; ?>/register.php" class="site-nav-cta rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white">S'inscrire</a>
@@ -217,7 +234,7 @@ $metaTwitterImage = $pageTwitterImage ?? (SITE_URL . '/assets/images/twitter-ima
                 SITE_URL: '<?php echo SITE_URL; ?>',
                 USER_ID: <?php echo isLoggedIn() ? ($_SESSION['user_id'] ?? null) : 'null'; ?>,
                 IS_LOGGED_IN: <?php echo isLoggedIn() ? 'true' : 'false'; ?>,
-                IS_PREMIUM: <?php echo (isLoggedIn() && isset($_SESSION['premium_status']) && $_SESSION['premium_status']) ? 'true' : 'false'; ?>,
+                IS_PREMIUM: <?php echo estPremium() ? 'true' : 'false'; ?>,
                 CSRF_TOKEN: '<?php echo function_exists('generateCSRFToken') ? generateCSRFToken() : 'none'; ?>'
             };
         } catch (error) {

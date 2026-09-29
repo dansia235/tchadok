@@ -5,6 +5,7 @@
 -- qu'un compte est supprime. Elles sont donc retirees explicitement, et dans
 -- l'ordre -- droits, lignes, commandes.
 DELETE FROM entitlements WHERE user_id BETWEEN 901 AND 905;
+DELETE FROM subscriptions WHERE user_id BETWEEN 901 AND 905 AND order_id IS NULL;
 DELETE FROM order_items  WHERE order_id BETWEEN 9001 AND 9009;
 DELETE FROM orders       WHERE id BETWEEN 9001 AND 9009;
 DELETE FROM streams      WHERE track_id BETWEEN 9001 AND 9007;

@@ -93,6 +93,8 @@ $grilleInitiale = $db->query('SELECT * FROM pricing_rules ORDER BY id')->fetchAl
 $db->exec('DELETE FROM login_attempts');
 $db->exec('DELETE FROM rate_limit_hits');
 $db->exec('DELETE FROM tracks WHERE id BETWEEN 9401 AND 9499');
+$db->exec('DELETE FROM tracks WHERE artist_id = 914');
+$db->exec('DELETE FROM releases WHERE artist_id = 914');
 $db->exec('DELETE FROM artists WHERE id = 914');
 $db->exec('DELETE FROM users WHERE id = 914');
 
@@ -129,28 +131,42 @@ try {
     verif('... ni le taux de commission',
         !preg_match("/define\('DEFAULT_COMMISSION_RATE'/", $constantes));
 
-    $paiement = $source('config/payment.php');
-    verif('config/payment.php ne declare plus de commission',
-        !preg_match("/'commission_rate'\s*=>\s*[\d.]+/", $paiement));
-    verif('... et delegue le calcul a la grille',
-        str_contains($paiement, 'Tarifs::commission'));
+    // LOT 5 : config/payment.php et includes/payment.php ont ete retires,
+    // remplaces par includes/paiement/. La commission ne peut donc plus y
+    // etre declaree ; on verifie qu'aucun remplaçant ne la reintroduit.
+    $paiement = is_file($racine . '/config/payment.php') ? $source('config/payment.php') : '';
+    foreach (glob($racine . '/includes/paiement/{,passerelles/}*.php', GLOB_BRACE) ?: [] as $fichierPaiement) {
+        $paiement .= (string) file_get_contents($fichierPaiement);
+    }
+    verif('La couche paiement ne declare aucune commission',
+        !preg_match("/'commission_rate'\s*=>\s*[\d.]+/", $paiement) && !preg_match('/COMMISSION\w*\s*=\s*[\d.]+/', $paiement));
+    verif('... le calcul reste confie a la grille (Commandes::ajouterArticle -> Tarifs)',
+        str_contains($source('includes/commandes.php'), 'Tarifs::tauxCommission'));
 
+    // LOT 7 : premium-payment.php passe par Abonnements::plans(), qui lit la
+    // meme grille (Tarifs::regle, portee subscription).
+    verif('Les plans d\'abonnement lisent leur prix dans la grille',
+        str_contains($source('includes/abonnements.php'), "Tarifs::regle('subscription'"));
     foreach (['premium.php', 'premium-payment.php'] as $fichier) {
         $contenu = $source($fichier);
-        verif("{$fichier} lit le tarif dans la grille", str_contains($contenu, 'Tarifs::abonnement'));
+        verif("{$fichier} lit le tarif dans la grille", str_contains($contenu, 'Tarifs::abonnement') || str_contains($contenu, 'Abonnements::plans()'));
         verif("{$fichier} n'ecrit plus de montant",
             !preg_match("/'price'\s*=>\s*\d+/", $contenu),
             $fichier);
     }
     verif('premium.php calcule l\'economie annuelle', str_contains($source('premium.php'), 'Tarifs::economieAnnuelle'));
 
+    // MOD-05 : upload.php, artist-add-song.php et artist-add-album.php ne
+    // sont plus que des redirections vers le parcours unique publier.php.
     $depot = $source('upload.php');
     verif('upload.php n\'annonce plus de bornes inventees',
         !preg_match('/min="500"\s+max="10000"/', $depot) && !str_contains($depot, 'Prix entre 500 et 10 000 FCFA'));
-    verif('... et valide le prix (il se contentait d\'un transtypage)',
-        str_contains($depot, 'Tarifs::valider'));
+    verif('Le parcours artiste valide le prix des titres et de la sortie contre la grille',
+        str_contains($source('includes/publication.php'), "Tarifs::valider(\$prixTitres[\$t['id']] ?? '', 'track')")
+        && str_contains($source('includes/publication.php'), "Tarifs::valider(\$prixSortie, 'release'"));
+    verif('publier.php affiche les bornes reelles', str_contains($source('publier.php'), 'Tarifs::indication'));
 
-    foreach (['artist-add-song.php', 'admin-add-song.php', 'artist-add-album.php', 'admin-add-album.php'] as $fichier) {
+    foreach (['admin-add-song.php', 'admin-add-album.php'] as $fichier) {
         verif("{$fichier} valide contre la grille", str_contains($source($fichier), 'Tarifs::valider'));
         verif("{$fichier} affiche les bornes reelles", str_contains($source($fichier), 'Tarifs::indication'));
     }
@@ -212,6 +228,17 @@ try {
          VALUES (914, ?, ?, ?, ?, ?, 1, 1)'
     )->execute(['essai14_artiste', 'artiste14@essai.local', password_hash($motDePasse, PASSWORD_BCRYPT), 'Essai', 'Tarifs']);
     $db->exec("INSERT INTO artists (id, user_id, stage_name, slug, is_active) VALUES (914, 914, 'Essai Tarifs', 'essai-tarifs', 1)");
+    // MOD-06 : seul un artiste au dossier valide, niveau Verifie, peut vendre ;
+    // TAXO : un genre principal est exige pour publier.
+    $db->exec("INSERT INTO artist_dossiers (artist_id, level, status) VALUES (914, 'verifie', 'valide')");
+    $genreEssai = 0;
+    foreach ($db->query('SELECT id FROM genres ORDER BY id')->fetchAll(PDO::FETCH_COLUMN) as $g) {
+        if (estGenreSelectionnable((int) $g)) {
+            $genreEssai = (int) $g;
+            break;
+        }
+    }
+    $db->exec("INSERT INTO artist_genres (artist_id, genre_id, is_primary) VALUES (914, {$genreEssai}, 1)");
 
     $cookies = tempnam(sys_get_temp_dir(), 'data04');
     $page = requete($base . '/login.php', null, $cookies);
@@ -220,43 +247,39 @@ try {
         'email'      => 'artiste14@essai.local',
         'password'   => $motDePasse,
     ], $cookies);
-    $formulaire = requete($base . '/artist-add-song.php', null, $cookies);
-    verif('L\'artiste d\'essai atteint son formulaire', $formulaire['code'] === 200, (string) $formulaire['code']);
+    // Parcours unique (MOD-05) : brouillon cree par le vrai formulaire, un
+    // titre y est rattache directement (le depot de fichier a ses propres
+    // tests), puis l'etape Prix.
+    $accueil = requete($base . '/publier.php', null, $cookies);
+    verif('L\'artiste d\'essai atteint le parcours de publication', $accueil['code'] === 200, (string) $accueil['code']);
+    requete($base . '/publier.php', ['csrf_token' => jeton($accueil['corps']), 'action' => 'creer', 'format' => 'single', 'titre' => 'Sortie essai tarifs'], $cookies);
+    $sortieEssai = (int) $db->query('SELECT id FROM releases WHERE artist_id = 914 ORDER BY id DESC LIMIT 1')->fetchColumn();
+    $db->prepare("INSERT INTO tracks (album_id, release_id, slug, artist_id, title, status) VALUES (?, ?, ?, 914, 'Titre essai tarifs', 'draft')")
+       ->execute([$sortieEssai, $sortieEssai, 'essai-tarifs-' . bin2hex(random_bytes(3))]);
+    $titreEssai = (int) $db->lastInsertId();
+    $formulaire = requete($base . '/publier.php?sortie=' . $sortieEssai . '&etape=prix', null, $cookies);
     verif('... ou les bornes de la grille sont affichees',
-        str_contains(texte($formulaire['corps']), 'Entre 100 et 1 000 FCFA'),
+        $sortieEssai > 0 && str_contains(texte($formulaire['corps']), 'Entre 100 et 1 000 FCFA'),
         substr(texte($formulaire['corps']), 0, 120));
 
-    $envoi = requete($base . '/artist-add-song.php', [
+    $envoiPrix = static fn (string $prix): array => requete($base . '/publier.php?sortie=' . $sortieEssai . '&etape=prix', [
         'csrf_token' => jeton($formulaire['corps']),
-        'title'      => 'Titre hors grille',
-        'price'      => '50',
-        'duration'   => '180',
+        'action'     => 'prix',
+        'sortie'     => (string) $sortieEssai,
+        'prix'       => [$titreEssai => $prix],
     ], $cookies);
-    $reponse = texte($envoi['corps']);
+    $prixEnBase = static fn (): float => (float) $db->query("SELECT price FROM tracks WHERE id = {$titreEssai}")->fetchColumn();
+
+    $reponse = texte($envoiPrix('50')['corps']);
     verif('Un prix sous le plancher est refuse par le formulaire', str_contains($reponse, 'Le prix minimum est de 100 FCFA'), substr($reponse, 0, 200));
-    verif('... et rien n\'est enregistre',
-        (int) $db->query('SELECT COUNT(*) FROM tracks WHERE artist_id = 914')->fetchColumn() === 0);
+    verif('... et rien n\'est enregistre', $prixEnBase() == 0.0);
 
-    $envoi = requete($base . '/artist-add-song.php', [
-        'csrf_token' => jeton($formulaire['corps']),
-        'title'      => 'Titre trop cher',
-        'price'      => '9000',
-        'duration'   => '180',
-    ], $cookies);
     verif('Un prix au-dessus du plafond est refuse aussi',
-        str_contains(texte($envoi['corps']), 'Le prix maximum est de 1 000 FCFA'));
+        str_contains(texte($envoiPrix('9000')['corps']), 'Le prix maximum est de 1 000 FCFA'));
 
-    // Un prix dans la grille franchit le controle de prix : l'erreur suivante
-    // porte sur le fichier audio, preuve que le prix est passe.
-    $envoi = requete($base . '/artist-add-song.php', [
-        'csrf_token' => jeton($formulaire['corps']),
-        'title'      => 'Titre dans la grille',
-        'price'      => '300',
-        'duration'   => '180',
-    ], $cookies);
-    $reponse = texte($envoi['corps']);
+    $reponse = texte($envoiPrix('300')['corps']);
     verif('Un prix dans la grille franchit le controle',
-        !str_contains($reponse, 'Le prix minimum') && !str_contains($reponse, 'Le prix maximum'),
+        !str_contains($reponse, 'Le prix minimum') && !str_contains($reponse, 'Le prix maximum') && $prixEnBase() == 300.0,
         substr($reponse, 0, 200));
     @unlink($cookies);
 
@@ -327,6 +350,7 @@ try {
 } finally {
     // La grille est un reglage de production : on la remet exactement en etat.
     $db->exec('DELETE FROM tracks WHERE artist_id = 914');
+    $db->exec('DELETE FROM releases WHERE artist_id = 914');
     $db->exec('DELETE FROM artists WHERE id = 914');
     $db->exec('DELETE FROM users WHERE id = 914');
     $db->exec('DELETE FROM login_attempts');

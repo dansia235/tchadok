@@ -89,6 +89,112 @@ if (Autorisations::peut('tarif.modifier')) {
     ];
 }
 
+// LOT 7 : plans Premium.
+if (Autorisations::peut('tarif.modifier')) {
+    $admin_modules[] = [
+        'title' => 'Abonnements',
+        'description' => 'Plans Premium et abonnes.',
+        'href' => SITE_URL . '/admin/abonnements.php',
+        'icon' => 'fa-crown',
+        'accent' => 'text-amber-200'
+    ];
+}
+
+// LOT 12 : moderation, dossiers artistes, signalements.
+if (Autorisations::peut('catalogue.moderer')) {
+    $admin_modules[] = [
+        'title' => 'Moderation',
+        'description' => 'File des soumissions, grille de revue, decisions.',
+        'href' => SITE_URL . '/admin/moderation.php',
+        'icon' => 'fa-clipboard-check',
+        'accent' => 'text-emerald-200'
+    ];
+}
+if (Autorisations::peut('artiste.valider')) {
+    $admin_modules[] = [
+        'title' => 'Dossiers artistes',
+        'description' => 'Validation des artistes, pieces d\'identite, niveaux.',
+        'href' => SITE_URL . '/admin/dossiers-artistes.php',
+        'icon' => 'fa-id-card',
+        'accent' => 'text-sky-200'
+    ];
+}
+if (Autorisations::peut('signalement.traiter')) {
+    $admin_modules[] = [
+        'title' => 'Signalements',
+        'description' => 'Droits d\'auteur en tete, contre-notifications, decisions.',
+        'href' => SITE_URL . '/admin/signalements.php',
+        'icon' => 'fa-flag',
+        'accent' => 'text-rose-200'
+    ];
+}
+
+// TAXO-03 : referentiel des genres et propositions des artistes.
+if (Autorisations::peut('taxonomie.gerer')) {
+    $admin_modules[] = [
+        'title' => 'Genres et categories',
+        'description' => 'Referentiel, fusions, archivage, propositions des artistes.',
+        'href' => SITE_URL . '/admin/taxonomie.php',
+        'icon' => 'fa-tags',
+        'accent' => 'text-sky-200'
+    ];
+}
+
+// STAT-04 : ecoutes en quarantaine, surveillance.
+if (Autorisations::peut('statistique.lire') || Autorisations::peut('ecoute.moderer')) {
+    $admin_modules[] = [
+        'title' => 'Anti-fraude',
+        'description' => 'Ecoutes en quarantaine, decisions, surveillance.',
+        'href' => SITE_URL . '/admin/anti-fraude.php',
+        'icon' => 'fa-shield-halved',
+        'accent' => 'text-rose-200'
+    ];
+}
+
+// Part des artistes : ventes (grille) et abonnements (pourcentage administre).
+if (Autorisations::peut('tarif.modifier') || Autorisations::peut('finance.rapport.lire')) {
+    $admin_modules[] = [
+        'title' => 'Remuneration des artistes',
+        'description' => 'Part des artistes sur les ventes et les abonnements, repartition mensuelle.',
+        'href' => SITE_URL . '/admin/remuneration.php',
+        'icon' => 'fa-percent',
+        'accent' => 'text-emerald-200'
+    ];
+}
+
+// LOT 8 : versements aux artistes.
+if (Autorisations::peut('finance.transaction.lire')) {
+    $admin_modules[] = [
+        'title' => 'Versements',
+        'description' => 'Demandes des artistes, validation, execution, comptes.',
+        'href' => SITE_URL . '/admin/versements.php',
+        'icon' => 'fa-money-bill-transfer',
+        'accent' => 'text-emerald-200'
+    ];
+}
+
+// SHOP-07 : reclamations et remboursements.
+if (Autorisations::peut('finance.transaction.lire')) {
+    $admin_modules[] = [
+        'title' => 'Remboursements',
+        'description' => 'Reclamations des clients et remboursements.',
+        'href' => SITE_URL . '/admin/remboursements.php',
+        'icon' => 'fa-rotate-left',
+        'accent' => 'text-rose-200'
+    ];
+}
+
+// PAY-10 : ecarts entre les releves des operateurs et les paiements enregistres.
+if (Autorisations::peut('finance.rapport.lire')) {
+    $admin_modules[] = [
+        'title' => 'Rapprochement',
+        'description' => 'Ecarts avec les releves des operateurs.',
+        'href' => SITE_URL . '/admin/rapprochement.php',
+        'icon' => 'fa-scale-balanced',
+        'accent' => 'text-emerald-200'
+    ];
+}
+
 if (Autorisations::peut('journal.lire')) {
     $admin_modules[] = [
         'title' => 'Journal d\'audit',

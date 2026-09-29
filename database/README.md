@@ -73,10 +73,28 @@ compte MySQL (`root@localhost`) qui n'existera pas sur le serveur.
 
 ## Données
 
-Aucune donnée de démonstration n'est installée par défaut. Pour le poste local
-uniquement, `database/seeds/demo.sql` crée deux comptes d'essai ; il ne doit
-**jamais** être importé en production, et `scripts/env-switch.php production`
-refuse la bascule s'il est présent sur le serveur.
+Deux jeux, chargés par `scripts/seed.php` (ligne de commande uniquement) :
+
+| Jeu | Fichier | Où | Contenu |
+|---|---|---|---|
+| `referentiel` | `database/seeds/referentiel.sql` | **toute installation**, production comprise | 6 catégories, 31 genres, 23 provinces |
+| `demo` | `database/seeds/demo.sql` | **local uniquement** | deux comptes d'essai |
+
+```
+php scripts/seed.php referentiel
+php scripts/seed.php demo
+php scripts/seed.php status
+```
+
+Le référentiel est rejouable et n'écrase jamais une ligne existante. Une ligne
+de `genres` **sans parent** est une catégorie : un titre se classe toujours dans
+un genre, jamais dans une catégorie. La nomenclature des genres est une
+proposition (audit, §6.3) à faire valider par un comité éditorial.
+
+Le jeu de démonstration n'est **jamais** importé en production : `seed.php demo`
+refuse hors environnement local, et `scripts/env-switch.php production` refuse
+la bascule s'il est présent sur le serveur. Rôles, permissions et grille
+tarifaire ne sont pas des seeds : ils sont portés par les migrations 0004 et 0008.
 
 Le premier administrateur se crée avec :
 

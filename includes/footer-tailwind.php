@@ -36,7 +36,7 @@
                     <h5 class="text-sm font-semibold text-text">Artistes</h5>
                     <ul class="mt-4 space-y-2 text-sm text-muted">
                         <li><a href="<?php echo SITE_URL; ?>/artist-dashboard.php" class="site-footer-link hover:text-text">Devenir Artiste</a></li>
-                        <li><a href="<?php echo SITE_URL; ?>/upload.php" class="site-footer-link hover:text-text">Upload Music</a></li>
+                        <li><a href="<?php echo SITE_URL; ?>/publier.php" class="site-footer-link hover:text-text">Upload Music</a></li>
                         <li><a href="<?php echo SITE_URL; ?>/artist-dashboard.php" class="site-footer-link hover:text-text">Analytics</a></li>
                         <li><a href="<?php echo SITE_URL; ?>/premium.php" class="site-footer-link hover:text-text">Promotions</a></li>
                     </ul>
@@ -63,9 +63,11 @@
     <?php
     $themeToggleVersion = @filemtime(__DIR__ . '/../assets/js/theme-toggle.js') ?: time();
     $playerJsVersion = @filemtime(__DIR__ . '/../assets/js/player.js') ?: time();
+    $panierJsVersion = @filemtime(__DIR__ . '/../assets/js/panier.js') ?: time();
     ?>
     <script src="<?php echo SITE_URL; ?>/assets/js/theme-toggle.js?v=<?php echo $themeToggleVersion; ?>"></script>
     <script src="<?php echo SITE_URL; ?>/assets/js/player.js?v=<?php echo $playerJsVersion; ?>"></script>
+    <script src="<?php echo SITE_URL; ?>/assets/js/panier.js?v=<?php echo $panierJsVersion; ?>"></script>
 
     <?php if (isset($additionalJS)): ?>
         <?php foreach ($additionalJS as $js): ?>

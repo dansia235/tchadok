@@ -88,16 +88,22 @@ $db = TchadokDatabase::getInstance()->getConnection();
 $source = static fn (string $f): string => (string) file_get_contents($GLOBALS['racine'] . '/' . $f);
 
 $nettoyer = static function () use ($db): void {
-    $db->exec('DELETE FROM streams WHERE track_id BETWEEN 9601 AND 9699');
+    // Chaque suppression est restreinte aux lignes des comptes d'essai (917,
+    // 918) : une simple plage d'identifiants atteignait aussi de vraies
+    // commandes, que l'auto-increment avait placees dans la meme plage --
+    // `DELETE FROM order_items WHERE order_id BETWEEN ...` avait efface les
+    // lignes de commandes payees.
+    $db->exec('DELETE s FROM streams s JOIN tracks t ON t.id = s.track_id WHERE s.track_id BETWEEN 9601 AND 9699 AND t.artist_id BETWEEN 917 AND 918');
     $db->exec('DELETE FROM entitlements WHERE user_id BETWEEN 917 AND 918');
-    $db->exec('DELETE FROM order_items WHERE order_id BETWEEN 9601 AND 9699');
-    $db->exec('DELETE FROM orders WHERE id BETWEEN 9601 AND 9699');
-    $db->exec('DELETE FROM playlists WHERE id BETWEEN 9601 AND 9699');
-    $db->exec('DELETE FROM tracks WHERE id BETWEEN 9601 AND 9699');
+    $db->exec('DELETE i FROM order_items i JOIN orders o ON o.id = i.order_id WHERE i.order_id BETWEEN 9601 AND 9699 AND o.user_id BETWEEN 917 AND 918');
+    $db->exec('DELETE FROM orders WHERE id BETWEEN 9601 AND 9699 AND user_id BETWEEN 917 AND 918');
+    $db->exec('DELETE FROM playlists WHERE id BETWEEN 9601 AND 9699 AND user_id BETWEEN 917 AND 918');
+    $db->exec('DELETE FROM tracks WHERE id BETWEEN 9601 AND 9699 AND artist_id BETWEEN 917 AND 918');
     $db->exec('DELETE FROM releases WHERE id BETWEEN 917 AND 918');
     $db->exec('DELETE FROM artists WHERE id BETWEEN 917 AND 918');
     $db->exec('DELETE FROM users WHERE id BETWEEN 917 AND 918');
-    $db->exec('DELETE FROM genres WHERE id = 992');
+    // Filtre sur le nom : depuis DATA-08, un vrai genre peut porter ce numero.
+    $db->exec("DELETE FROM genres WHERE id = 992 AND name = 'ZZDATA06 Genre'");
 };
 
 $nettoyer();
@@ -133,8 +139,8 @@ try {
         'essai17_membre', 'membre17@essai.local', password_hash('essai', PASSWORD_BCRYPT), 'Adoum', 'Ngarbaroum', '+23566000017', 'Ndjamena', 'TD',
         'essai18_artiste', 'artiste18@essai.local', password_hash('essai', PASSWORD_BCRYPT), 'Essai', 'Artiste', '+23566000018', 'Moundou', 'TD',
     ]);
-    $db->exec("INSERT INTO artists (id, user_id, stage_name, slug, is_active, verified, featured, genres)
-               VALUES (917, 918, 'ZZDATA06 Artiste', 'zzdata06-artiste', 1, 1, 1, 'ZZDATA06 Genre')");
+    $db->exec("INSERT INTO artists (id, user_id, stage_name, slug, is_active, verified, featured)
+               VALUES (917, 918, 'ZZDATA06 Artiste', 'zzdata06-artiste', 1, 1, 1)");
     $db->exec("INSERT INTO releases (id, artist_id, title, slug, genre_id, format, price_bundle, is_free, status)
                VALUES (917, 917, 'ZZDATA06 Sortie visible', 'zzdata06-visible', 992, 'album', 3000, 0, 'approved'),
                       (918, 917, 'ZZDATA06 Sortie retiree', 'zzdata06-retiree', 992, 'album', 3000, 0, 'approved')");

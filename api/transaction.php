@@ -17,7 +17,7 @@
  * Regle a respecter lors de la reecriture : le passage d'une
  * transaction en "completed" ne doit JAMAIS etre declenche par un
  * client. Seul un callback signe de l'operateur (Airtel, Moov, VISA,
- * KONOOM) peut le faire - voir PAY-02 et PAY-04. Les transactions
+ * GIMAC) peut le faire - voir PAY-02 et PAY-04. Les transactions
  * doivent devenir immuables : pas de DELETE, pas de modification du
  * montant, uniquement des ecritures d'annulation.
  *
